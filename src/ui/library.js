@@ -103,6 +103,7 @@ function bookCard(book) {
         copy.id = uid('bk_'); copy.meta.title += ' (copy)'; copy.createdAt = copy.updatedAt = Date.now();
         await db.putBook(copy); rerender();
       } },
+      { label: 'Translate…', icon: 'languages', onClick: () => import('./translate.js').then((m) => m.openTranslateDialog(book)) },
       { label: 'Download backup (.booky)', icon: 'download', onClick: () => downloadBackup(book) },
       { divider: true },
       { label: 'Delete book', icon: 'trash', danger: true, onClick: async () => {

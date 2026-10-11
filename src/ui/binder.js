@@ -95,6 +95,7 @@ export function renderBinder(host) {
     h('span.bi-title', title),
     num ? h('span.bi-num', num) : null,
     status && el.status !== 'todo' ? h('span.bi-status', { style: { background: status.color }, title: status.label }) : null,
+    el.source && el.trStatus !== 'reviewed' ? h('span.bi-tr', { title: el.trStatus === 'machine' ? 'Translation not reviewed yet' : 'Not translated yet' }, el.trStatus === 'machine' ? '◐' : '○') : null,
     more);
     return row;
   }

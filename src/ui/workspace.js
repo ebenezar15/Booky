@@ -16,6 +16,7 @@ import { openSettings } from './settings.js';
 import { appearanceButton } from './appearance.js';
 import { exportPdfDialog } from './pdf-dialog.js';
 import { bookWords } from '../core/model.js';
+import { openTranslateDialog } from './translate.js';
 
 const MODES = [
   { id: 'write', label: 'Write', icon: 'pen-line' },
@@ -60,6 +61,7 @@ export function renderWorkspace(root) {
       themeButton(),
       iconBtn('ellipsis-vertical', 'More', (e) => menu(e.currentTarget, [
         { label: 'Book details…', icon: 'book-open-text', onClick: () => openDetails() },
+        { label: 'Translate into another language…', icon: 'languages', onClick: () => { save(); openTranslateDialog(book); } },
         { label: 'Download backup (.booky)', icon: 'download', onClick: () => downloadBackup(book) },
         { label: 'Settings…', icon: 'settings', onClick: () => openSettings() },
         { label: 'Keyboard shortcuts', icon: 'keyboard', onClick: () => openSettings('keys') },

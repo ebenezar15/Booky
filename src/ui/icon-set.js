@@ -164,6 +164,15 @@ import I_file_type from 'lucide/dist/esm/icons/file-type.mjs';
 import I_hash from 'lucide/dist/esm/icons/hash.mjs';
 import I_at_sign from 'lucide/dist/esm/icons/at-sign.mjs';
 import I_corner_down_left from 'lucide/dist/esm/icons/corner-down-left.mjs';
+import I_arrow_right from 'lucide/dist/esm/icons/arrow-right.mjs';
+import I_cloud from 'lucide/dist/esm/icons/cloud.mjs';
+import I_cloud_upload from 'lucide/dist/esm/icons/cloud-upload.mjs';
+import I_share_2 from 'lucide/dist/esm/icons/share-2.mjs';
+import I_database from 'lucide/dist/esm/icons/database.mjs';
+import I_log_in from 'lucide/dist/esm/icons/log-in.mjs';
+import I_log_out from 'lucide/dist/esm/icons/log-out.mjs';
+import I_send from 'lucide/dist/esm/icons/send.mjs';
+import I_inbox from 'lucide/dist/esm/icons/inbox.mjs';
 
 export const ICONS = {
   'type': I_type,
@@ -331,4 +340,13 @@ export const ICONS = {
   'hash': I_hash,
   'at-sign': I_at_sign,
   'corner-down-left': I_corner_down_left,
+  'arrow-right': I_arrow_right,
+  'cloud': I_cloud,
+  'cloud-upload': I_cloud_upload,
+  'share-2': I_share_2,
+  'database': I_database,
+  'log-in': I_log_in,
+  'log-out': I_log_out,
+  'send': I_send,
+  'inbox': I_inbox,
 };

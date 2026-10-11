@@ -683,3 +683,17 @@ a.btn { text-decoration: none; }
 .phonetic-btn { font: 700 16px var(--font-ui); width: 34px !important; }
 .ph-help { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; max-width: 320px; }
 .ph-help code { font: 12.5px ui-monospace, Menlo, monospace; }
+
+/* ---------- translation: original beside the translation ---------- */
+.editor-scroll.with-original { display: flex; align-items: flex-start; gap: 22px; padding-left: 22px; padding-right: 22px; }
+.editor-scroll.with-original .editor-page { flex: 1 1 0; min-width: 0; margin-left: 0; margin-right: 0; }
+.original-pane { flex: 1 1 0; min-width: 0; max-width: 680px; position: sticky; top: 0; max-height: calc(100vh - 150px); overflow: auto; margin-top: 28px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 22px 28px; font-size: 16px; line-height: 1.65; color: var(--text-2, var(--text)); }
+.original-pane .op-head { font: 600 11px/1 var(--font-ui, system-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.original-pane .op-title { font-size: 22px; margin: 4px 0 14px; }
+.original-pane .op-body > * { cursor: pointer; border-radius: 6px; padding: 2px 6px; margin: 0 -6px .7em; transition: background .15s; }
+.original-pane .op-body > *:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.original-pane .op-body > .busy { opacity: .5; pointer-events: none; }
+.original-text { font-size: 14px; line-height: 1.6; max-height: 50vh; overflow: auto; padding: 10px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); }
+@media (max-width: 1100px) { .editor-scroll.with-original { flex-direction: column; } .original-pane { position: static; max-height: 40vh; max-width: none; width: 100%; } }
+.bi-tr { font-size: 11px; color: var(--accent); margin-left: 4px; flex: none; }

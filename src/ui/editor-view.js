@@ -21,6 +21,7 @@ import { synonymsFor } from '../lang/thesaurus.js';
 import { rephrase } from '../lang/rephrase.js';
 import { renderSections } from '../render/book.js';
 import { toggleBinder, toggleInspector } from './workspace.js';
+import { originalPane } from './translate.js';
 
 let editor = null;
 export const getEditor = () => editor;
@@ -227,6 +228,8 @@ export function renderEditor(host) {
   function mount() {
     if (editor) { saveContent?.flush(); editor.destroy(); editor = null; }
     clear(page);
+    scroller.querySelector('.original-pane')?.remove();
+    scroller.classList.remove('with-original');
     const el = currentElement();
     if (!el) {
       page.appendChild(h('div.empty-state', { style: { marginTop: '60px' } }, icon('feather', 30), h('h3', 'Nothing selected'), h('p', 'Pick a chapter on the left or add a new one.')));
@@ -267,6 +270,9 @@ export function renderEditor(host) {
 
     const host = h('div.editor-host');
     page.appendChild(host);
+    const sideBySide = !!(state.app.showOriginal && el.source && book.translation);
+    scroller.classList.toggle('with-original', sideBySide);
+    if (sideBySide) scroller.insertBefore(originalPane(el, { insert: (html) => editor?.chain().focus().insertContent(html).run() }), page);
     saveContent = debounce(() => {
       if (!editor || editor.isDestroyed) return;
       el.content = editor.getHTML();
@@ -631,6 +637,7 @@ export function renderEditor(host) {
     on('select', () => { if (findBar) { findBar.remove(); findBar = null; } mount(); }),
     on('elements', () => { if (!currentElement() || !editor) mount(); }),
     on('app', (p) => { if ('styleHints' in p || 'spellcheck' in p || 'grammar' in p || 'fictionHints' in p) { applyView(); editor?.storage.proofing.schedule(10); } }),
+    on('app', (p) => { if ('showOriginal' in p) mount(); }),
     on('spell-changed', () => editor?.storage.proofing.schedule(10)),
     on('format', applyView),
     on('meta', () => { drawPhoneticBtn(); applyView(); if (editor && editor.view.dom.getAttribute('lang') !== (book.meta.language || 'en')) mount(); }),

@@ -4,6 +4,7 @@ import { state, setApp } from '../core/store.js';
 import { addCustomFont, removeCustomFont, BUNDLED_FONTS, fontStack } from '../core/fonts.js';
 import { removeFromDictionary } from '../lang/spell.js';
 import { appearancePanel } from './appearance.js';
+import { translationSettingsPanel } from './translate.js';
 
 export const SHORTCUTS = [
   ['Bold / Italic / Underline', 'Ctrl B / I / U'],
@@ -23,7 +24,7 @@ export const SHORTCUTS = [
 
 export function openSettings(tab = 'general') {
   const body = h('div');
-  const tabs = segmented([['general', 'General'], ['proofing', 'Proofing'], ['fonts', 'Fonts'], ['keys', 'Shortcuts'], ['about', 'About']], tab, (t) => draw(t));
+  const tabs = segmented([['general', 'General'], ['proofing', 'Proofing'], ['fonts', 'Fonts'], ['translate', 'Translation'], ['keys', 'Shortcuts'], ['about', 'About']], tab, (t) => draw(t));
   function draw(t) {
     clear(body);
     if (t === 'general') {
@@ -78,6 +79,7 @@ export function openSettings(tab = 'general') {
         h('div', { style: { columns: 2, fontSize: '15px' } }, BUNDLED_FONTS.map((f) => h('div', { style: { fontFamily: fontStack(f), padding: '3px 0' } }, f))),
       );
     }
+    if (t === 'translate') add(body, translationSettingsPanel());
     if (t === 'keys') {
       add(body, h('div.shortcut-grid', SHORTCUTS.flatMap(([a, k]) => [h('span', a), h('span', k.split(' / ').map((x, i) => [i ? ' / ' : '', h('span.kbd', x)]))])));
     }

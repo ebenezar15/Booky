@@ -10,11 +10,13 @@ import { textMetrics, readabilityAdvice } from '../lang/analysis.js';
 import { ensureReviews, orderedComments } from '../core/feedback.js';
 import { goNext } from './feedback-actions.js';
 import { commentCard } from './feedback.js';
+import { drawOriginalTab } from './translate.js';
 
 const TABS = [
   { id: 'page', label: 'Page', icon: 'sliders-horizontal' },
   { id: 'check', label: 'Check', icon: 'spell-check' },
   { id: 'comments', label: 'Comments', icon: 'messages-square' },
+  { id: 'original', label: 'Original', icon: 'languages', when: () => !!state.book?.translation },
   { id: 'notes', label: 'Notes', icon: 'notebook-pen' },
   { id: 'history', label: 'History', icon: 'clock-arrow-left' },
   { id: 'stats', label: 'Stats', icon: 'chart-column' },
@@ -36,7 +38,8 @@ export function renderInspector(host) {
     clear(tabsEl);
     const ed = getEditor();
     const n = ed ? allIssues(ed.state).length : 0;
-    TABS.forEach((t) => tabsEl.appendChild(h(`button.insp-tab${t.id === tab ? '.on' : ''}`, { type: 'button', role: 'tab', title: t.label, on: { click: () => { tab = lastTab = t.id; draw(); } } },
+    if (TABS.find((t) => t.id === tab)?.when?.() === false) tab = 'page';
+    TABS.filter((t) => !t.when || t.when()).forEach((t) => tabsEl.appendChild(h(`button.insp-tab${t.id === tab ? '.on' : ''}`, { type: 'button', role: 'tab', title: t.label, on: { click: () => { tab = lastTab = t.id; draw(); } } },
       icon(t.icon, 15), h('span.insp-label', t.label), t.id === 'check' && n ? h('span.badge', n) : null,
       t.id === 'comments' && openHere() ? h('span.badge.red', openHere()) : null)));
   };
@@ -48,6 +51,7 @@ export function renderInspector(host) {
     if (tab === 'page') drawPage(el);
     if (tab === 'check') drawCheck(el);
     if (tab === 'comments') drawComments(el);
+    if (tab === 'original') drawOriginalTab(body, el);
     if (tab === 'notes') drawNotes(el);
     if (tab === 'history') drawHistory(el);
     if (tab === 'stats') drawStats(el);
@@ -226,7 +230,8 @@ export function renderInspector(host) {
   let t;
   const offs = [
     on('select', draw),
-    on('elements', () => { if (tab === 'page') draw(); }),
+    on('elements', () => { if (tab === 'page' || tab === 'original') draw(); }),
+    on('app', (p) => { if ('showOriginal' in p && tab === 'original') draw(); }),
     on('proof', () => { clearTimeout(t); t = setTimeout(() => { if (tab === 'check') draw(); else drawTabs(); }, 300); }),
     on('snapshots', () => { if (tab === 'history') draw(); }),
     on('show-tab', (id) => { tab = lastTab = id; draw(); }),
