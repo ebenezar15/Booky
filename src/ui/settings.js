@@ -5,6 +5,7 @@ import { addCustomFont, removeCustomFont, BUNDLED_FONTS, fontStack } from '../co
 import { removeFromDictionary } from '../lang/spell.js';
 import { appearancePanel } from './appearance.js';
 import { translationSettingsPanel } from './translate.js';
+import { cloudSettingsPanel } from './cloud-settings.js';
 
 export const SHORTCUTS = [
   ['Bold / Italic / Underline', 'Ctrl B / I / U'],
@@ -19,12 +20,13 @@ export const SHORTCUTS = [
   ['Next / previous chapter', 'Alt ↓ / Alt ↑'],
   ['Rephrase selected sentence', 'Ctrl Alt R'],
   ['Align left / centre / right / justify', 'Ctrl Shift L / E / R / J'],
+  ['Phonetic typing on / off (Indian languages)', 'Ctrl Shift Space'],
   ['Undo / Redo', 'Ctrl Z / Ctrl Shift Z'],
 ];
 
 export function openSettings(tab = 'general') {
   const body = h('div');
-  const tabs = segmented([['general', 'General'], ['proofing', 'Proofing'], ['fonts', 'Fonts'], ['translate', 'Translation'], ['keys', 'Shortcuts'], ['about', 'About']], tab, (t) => draw(t));
+  const tabs = segmented([['general', 'General'], ['proofing', 'Proofing'], ['fonts', 'Fonts'], ['translate', 'Translation'], ['cloud', 'Online sharing'], ['keys', 'Shortcuts'], ['about', 'About']], tab, (t) => draw(t));
   function draw(t) {
     clear(body);
     if (t === 'general') {
@@ -80,6 +82,7 @@ export function openSettings(tab = 'general') {
       );
     }
     if (t === 'translate') add(body, translationSettingsPanel());
+    if (t === 'cloud') add(body, cloudSettingsPanel());
     if (t === 'keys') {
       add(body, h('div.shortcut-grid', SHORTCUTS.flatMap(([a, k]) => [h('span', a), h('span', k.split(' / ').map((x, i) => [i ? ' / ' : '', h('span.kbd', x)]))])));
     }
@@ -93,5 +96,5 @@ export function openSettings(tab = 'general') {
     }
   }
   draw(tab);
-  modal({ title: 'Settings', width: 620, body: [h('div', { style: { marginBottom: '16px' } }, tabs), body] });
+  modal({ title: 'Settings', width: 720, body: [h('div', { style: { marginBottom: '16px' } }, tabs), body] });
 }

@@ -52,6 +52,7 @@ export function renderFeedback(host) {
     h('h2', 'Feedback'),
     segmented([['comments', 'Comments'], ['reviewers', 'Reviewers & sharing'], ['overall', 'Overall reviews']], tab, (v) => { tab = lastTab = v; draw(); }),
     h('span.grow'),
+    R.reviewers.some((r) => r.copies?.some((c) => c.cloudId)) ? btn('Check for new comments', { icon: 'inbox', onClick: () => pullOnline() }) : null,
     btn('Import comments', { icon: 'file-up', onClick: () => importFiles() }),
     btn('Invite reviewer', { icon: 'plus', kind: 'primary', onClick: () => reviewerDialog() }));
   add(wrap, head, body);
@@ -80,6 +81,28 @@ export function renderFeedback(host) {
     }
     if (msgs.length) { touch('reviews'); toast(`Imported — ${msgs.join(' · ')}`, 'success', 5000); tab = lastTab = 'comments'; draw(); }
   }
+
+  // Comments sent through the online review page.
+  async function pullOnline({ quiet = false } = {}) {
+    const cloud = await import('../share/cloud.js');
+    if (!cloud.cloudConfigured() || !cloud.cloudUser()) { if (!quiet) { toast('Sign in to online sharing first', 'warn'); openCloudSettings(); } return; }
+    try {
+      const items = await cloud.pullComments(book, R.reviewers);
+      if (!items.length) { if (!quiet) toast('No new comments yet'); return; }
+      const msgs = [];
+      for (const it of items) {
+        try {
+          const res = importReviewFile(book, it.data);
+          msgs.push(`${res.reviewer.name}: ${res.added} new${res.updated ? `, ${res.updated} updated` : ''}`);
+        } catch (e) { toast(e.message, 'error', 5000); }
+        R.pulled = [...(R.pulled || []), it.id];
+      }
+      touch('reviews');
+      if (msgs.length) toast(`New comments — ${msgs.join(' · ')}`, 'success', 5000);
+      tab = lastTab = 'comments'; draw();
+    } catch (e) { if (!quiet) toast(e.message, 'error', 6000); }
+  }
+  const openCloudSettings = () => import('./settings.js').then((m) => m.openSettings('cloud'));
 
   // ---------------- comments organiser ----------------
   function drawComments() {
@@ -158,7 +181,7 @@ ${(() => { let last = null, out = ''; for (const c of rows) { const el = book.el
       h('div.card', { style: { marginBottom: '16px' } },
         h('div.fb-how',
           ...[['user', '1. Invite', 'Add the reviewer’s name and email. Booky creates a private copy locked to that email and a passcode.'],
-            ['mail', '2. Share', 'Send the file as an email attachment or upload it to Google Drive / Dropbox / OneDrive and send the link. Send the passcode separately.'],
+            ['mail', '2. Share', 'Share an online link (Settings → Online sharing), or send the file as an email attachment / cloud-drive link. Send the passcode separately.'],
             ['messages-square', '3. They review', 'They open it, highlight, comment and suggest edits. They can’t edit, copy or print your text.'],
             ['file-up', '4. Collect', 'They click “Send to author”. Import the .bookyreview file here — every reviewer has their own colour.']]
             .map(([ic, t, d]) => h('div.fb-step', h('span.tpl-ic', icon(ic, 18)), h('b', t), h('span.muted.small', d))))),
@@ -182,7 +205,19 @@ ${(() => { let last = null, out = ''; for (const c of rows) { const el = book.el
           r.lastImport ? ` · comments received ${timeAgo(r.lastImport)}` : ''),
         h('div.row', { style: { flexWrap: 'wrap' } },
           btn(r.copies?.length ? 'New review copy' : 'Create review copy', { icon: 'lock', kind: 'primary', cls: 'btn-sm', onClick: () => shareDialog(r) }),
-          r.copies?.length ? btn('Show passcode', { cls: 'btn-sm', kind: 'ghost', onClick: () => toast(`Passcode for ${r.name}: ${r.copies[r.copies.length - 1].passcode}`, 'info', 8000) }) : null));
+          r.copies?.length ? btn('Show passcode', { cls: 'btn-sm', kind: 'ghost', onClick: () => toast(`Passcode for ${r.name}: ${r.copies[r.copies.length - 1].passcode}`, 'info', 8000) }) : null,
+          (() => {
+            const last = r.copies?.[r.copies.length - 1];
+            if (!last?.cloudId) return null;
+            if (last.revoked) return h('span.small.muted', 'Online link withdrawn');
+            return [
+              btn('Copy link', { icon: 'link', cls: 'btn-sm', kind: 'ghost', onClick: () => navigator.clipboard?.writeText(last.url).then(() => toast('Review link copied', 'success')) }),
+              btn('Withdraw link', { cls: 'btn-sm', kind: 'ghost', onClick: async () => {
+                if (!(await confirmDialog('Withdraw online access?', `${r.name} will no longer be able to open the online review copy. Comments already sent stay here.`, { okLabel: 'Withdraw', danger: true }))) return;
+                try { const { revokeCopy } = await import('../share/cloud.js'); await revokeCopy(last.cloudId); last.revoked = true; touch('reviews'); draw(); toast('Access withdrawn'); } catch (e) { toast(e.message, 'error', 6000); }
+              } }),
+            ];
+          })()));
     })));
   }
 
@@ -217,7 +252,22 @@ ${(() => { let last = null, out = ''; for (const c of rows) { const el = book.el
         field('Access expires', select([[0, 'Never'], [7, 'After 7 days'], [14, 'After 14 days'], [30, 'After 30 days'], [90, 'After 90 days']], expires, (v) => { expires = +v; })),
         field('Message to the reviewer (optional)', textarea('', (v) => { message = v; }, { rows: 3, placeholder: 'What would you like them to focus on?' })),
       ],
-      footer: [btn('Cancel', { onClick: () => m.close() }), btn('Create & download', { kind: 'primary', icon: 'lock', onClick: async () => {
+      footer: [btn('Cancel', { onClick: () => m.close() }), btn('Share online link', { icon: 'cloud-upload', title: 'Upload the encrypted copy to your Supabase project and get a link', onClick: async (e) => {
+        const cloud = await import('../share/cloud.js');
+        if (!cloud.cloudConfigured() || !cloud.cloudUser()) { toast('Connect Supabase and sign in first (Settings → Online sharing)', 'warn', 5000); openCloudSettings(); return; }
+        const b = e.currentTarget; b.disabled = true;
+        try {
+          const { buildReviewHtml } = await import('../share/review-file.js');
+          const { roundId, box } = await buildReviewHtml(book, r, { passcode, expiresDays: expires, message, authorEmail: state.app.authorEmail || cloud.cloudUser().email, authorName: book.meta.author });
+          const { id, url } = await cloud.publishCopy({ book, reviewer: r, box, roundId, expiresDays: expires });
+          r.copies = [...(r.copies || []), { roundId, at: Date.now(), passcode, expires, cloudId: id, url }];
+          R.rounds.push({ id: roundId, reviewerId: r.id, at: Date.now() });
+          touch('reviews');
+          m.close();
+          draw();
+          sendDialog(r, null, passcode, message, url);
+        } catch (err) { toast(err.message, 'error', 7000); b.disabled = false; }
+      } }), btn('Create & download', { kind: 'primary', icon: 'lock', onClick: async () => {
         const { buildReviewHtml } = await import('../share/review-file.js');
         const { html, roundId } = await buildReviewHtml(book, r, { passcode, expiresDays: expires, message, authorEmail: state.app.authorEmail || '', authorName: book.meta.author });
         const fileName = `${slugify(book.meta.title)}-review-copy-${slugify(r.name)}.html`;
@@ -233,16 +283,28 @@ ${(() => { let last = null, out = ''; for (const c of rows) { const el = book.el
     void link;
   }
 
-  function sendDialog(r, fileName, passcode, message) {
-    let link = '';
+  function sendDialog(r, fileName, passcode, message, onlineUrl) {
+    let link = onlineUrl || '';
     const title = book.meta.title;
-    const mailBody = () => `Hi ${r.name},\n\n${message ? message + '\n\n' : ''}I’d love your feedback on my book “${title}”. ${link ? `You can download your private review copy here:\n${link}\n` : `Your private review copy is attached (${fileName}).`}\n\nHow to review:\n1. Download and open the file in your web browser (Chrome, Edge, Safari or Firefox).\n2. Unlock it with this email address (${r.email}) and the passcode I’ll send you separately.\n3. Select any text to highlight it, comment, ask a question or suggest an edit.\n4. When you’re done, click “Send to author” and email me the comments file it saves.\n\nThank you!\n${book.meta.author || ''}`;
+    const onlineBody = () => `Hi ${r.name},\n\n${message ? message + '\n\n' : ''}I’d love your feedback on my book “${title}”. Here is your private review link:\n${link}\n\nHow to review:\n1. Open the link in your web browser.\n2. Sign in with this email address (${r.email}) — you’ll get a one-time code by email.\n3. Enter the passcode I’ll send you separately.\n4. Select any text to highlight it, comment, ask a question or suggest an edit.\n5. Click “Send to author” whenever you like — your notes come straight to me.\n\nThank you!\n${book.meta.author || ''}`;
+    const mailBody = () => (onlineUrl ? onlineBody() : offlineBody());
+    const offlineBody = () => `Hi ${r.name},\n\n${message ? message + '\n\n' : ''}I’d love your feedback on my book “${title}”. ${link ? `You can download your private review copy here:\n${link}\n` : `Your private review copy is attached (${fileName}).`}\n\nHow to review:\n1. Download and open the file in your web browser (Chrome, Edge, Safari or Firefox).\n2. Unlock it with this email address (${r.email}) and the passcode I’ll send you separately.\n3. Select any text to highlight it, comment, ask a question or suggest an edit.\n4. When you’re done, click “Send to author” and email me the comments file it saves.\n\nThank you!\n${book.meta.author || ''}`;
     const mailto = () => `mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent(`Review copy: ${title}`)}&body=${encodeURIComponent(mailBody())}`;
     const passMail = `mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent(`Passcode for “${title}”`)}&body=${encodeURIComponent(`Your passcode for the review copy of “${title}” is: ${passcode}`)}`;
     const mailBtn = h('a.btn.btn-primary', { href: mailto(), target: '_blank' }, icon('mail', 16), h('span', 'Write invitation email'));
     const m = modal({
       title: 'Share the review copy', width: 600,
-      body: [
+      body: onlineUrl ? [
+        h('div.notice', icon('circle-check', 16), h('span', 'Online review link created. Only ', h('b', r.email), ' can sign in to it, and the passcode is still needed to read the book.')),
+        h('div.fb-share-step', h('b', 'Review link'), h('div.row', h('input.input', { value: onlineUrl, readonly: true, on: { focus: (e) => e.target.select() } }),
+          btn('Copy', { cls: 'btn-sm', onClick: () => navigator.clipboard?.writeText(onlineUrl).then(() => toast('Link copied', 'success')) }))),
+        h('div.row', { style: { flexWrap: 'wrap', marginTop: '10px' } }, mailBtn),
+        h('div.fb-share-step', h('b', 'Send the passcode separately'), h('p.small.muted', 'For real privacy send it by text message, WhatsApp, or a separate email.'),
+          h('div.row', h('code.fb-pass', passcode),
+            btn('Copy', { cls: 'btn-sm', onClick: () => navigator.clipboard?.writeText(passcode).then(() => toast('Passcode copied', 'success')) }),
+            h('a.btn.btn-sm', { href: passMail, target: '_blank' }, icon('mail', 14), h('span', 'Email passcode')))),
+        h('p.small.muted', 'When they press “Send to author”, click “Check for new comments” in Feedback.'),
+      ] : [
         h('div.notice', icon('circle-check', 16), h('span', h('b', fileName), ' was saved to your Downloads folder.')),
         h('div.fb-share-step', h('b', 'Option A — share a link'), h('p.small.muted', 'Upload the file to Google Drive, Dropbox or OneDrive, set it to “anyone with the link can view”, and paste the link here. Even if the link is forwarded, nobody can read the book without the email + passcode.'),
           input('', (v) => { link = v.trim(); mailBtn.href = mailto(); }, { placeholder: 'https://drive.google.com/…' })),
@@ -273,6 +335,7 @@ ${(() => { let last = null, out = ''; for (const c of rows) { const el = book.el
   }
 
   draw();
+  if (R.reviewers.some((r) => r.copies?.some((c) => c.cloudId && !c.revoked))) pullOnline({ quiet: true });
   const offs = [on('reviews', () => { if (!document.activeElement?.closest?.('.feedback input, .feedback textarea')) draw(); })];
   return () => offs.forEach((f) => f());
 }

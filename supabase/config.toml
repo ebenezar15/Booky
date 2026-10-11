@@ -1,0 +1,4 @@
+# Supabase project settings for Booky's online review sharing.
+# The database schema lives in supabase/migrations and is applied by the
+# Supabase GitHub integration (or `supabase db push`).
+project_id = "booky"

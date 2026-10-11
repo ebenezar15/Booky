@@ -48,6 +48,39 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 - **Find & replace** in the current chapter or the whole book, with match case, whole word and regular-expression options.
 - **Snapshots**: save versions of a chapter and restore them at any time.
 
+### 🌏 Languages & fonts
+- Write in **Tamil, Hindi, Malayalam, Telugu, Kannada, Bengali, Marathi, Gujarati, Punjabi, Odia, Assamese, Sanskrit, Nepali, Urdu, Sinhala, Arabic** and 12 European and world languages (Spanish, French, German, Indonesian, Swahili, Vietnamese…), as well as English.
+- Choosing a language (when you create a book, or later in *Book details*) sets everything up to suit it:
+  - suitable body and heading fonts;
+  - local words for "Chapter", "Part" and "Contents" (e.g. அத்தியாயம், अध्याय), which you can edit;
+  - comfortable line spacing and no hyphenation for Indian scripts;
+  - right-to-left layout for Urdu and Arabic, in print and in the ebook.
+- **112 fonts are built in and work offline**, grouped by script in every font menu with the book's own script first:
+  - **English & European (56):** the classic book faces (EB Garamond, Caslon, Baskerville, Crimson, Lora, Merriweather, Source Serif, Literata, Vollkorn…), Times New Roman / Calibri / Cambria-compatible fonts (Tinos, Carlito, Caladea), popular sans-serifs (Inter, Open Sans, Roboto, Lato, Montserrat, Poppins…), display, script and typewriter fonts.
+  - **Tamil (11):** Noto Serif/Sans Tamil, Tiro Tamil, Hind Madurai, Mukta Malar, Catamaran, Pavanam, Arima, Meera Inimai, Baloo Thambi 2, Kavivanar.
+  - **Hindi, Marathi, Sanskrit & Nepali (11):** Noto Serif/Sans Devanagari, Tiro Devanagari (Hindi, Marathi, Sanskrit), Martel, Mukta, Hind, Laila, Kalam, Yatra One.
+  - **Malayalam, Telugu, Kannada, Bengali, Gujarati, Punjabi, Odia (3–5 each),** plus Urdu (Noto Nastaliq, Gulzar), Arabic and Sinhala.
+  - Fonts installed on your computer (Times New Roman, Georgia, Nirmala UI, Latha, Mangal…) and your own font files can be used too.
+- Only the fonts a book actually uses are embedded in its PDF, EPUB and review copies, so files stay small.
+- **Phonetic typing** for nine Indian scripts: type in English letters and each word turns into the script when you press space, e.g. `vaNakkam` → வணக்கம், `namaste` → नमस्ते. Switch it on and off with the அ button or Ctrl + Shift + Space; right-click the button for the key guide. Ctrl + Z restores the English letters. (Your computer's own Tamil/Hindi keyboards work as well.)
+- English spelling and grammar checks switch off automatically for other languages; the browser's own spell checker is used where it has a dictionary.
+
+### 🔤 Translate a book
+Turn any book into a **new project in another language**. The original stays untouched.
+1. Library card ⋯ → *Translate…* (or ⋮ → *Translate into another language…* inside a book). Pick the language and how to translate:
+   - **Built-in browser translator**: free and private, translated on your computer (desktop Chrome / Edge). Keeps paragraphs and footnotes, but not bold or italic inside a paragraph.
+   - **Claude (Anthropic)**: literary-quality translation that keeps all formatting, footnotes and smart fields. You can give it notes, e.g. "keep character names in English, use informal நீ between friends". Needs your Anthropic API key.
+   - **Google Cloud Translation** (API key) or a **LibreTranslate** server.
+   - **Manual**: makes the project with the original beside every page, for you or a human translator.
+2. The title, subtitle, description, chapter titles and every page are translated. Fonts, chapter words and layout switch to the new language. You can stop at any time and *Continue translation* later.
+3. **Correct it** side by side:
+   - The **Original** tab shows each page's original text, and a status: *needs check* or *reviewed*.
+   - **Side by side** puts the original next to your editor. Click any original paragraph to translate just that paragraph again and insert it at the cursor.
+   - **Retranslate page** saves a History snapshot first.
+   - **Next page to review** and the binder markers (◐ not reviewed yet) make sure no page is missed.
+
+API keys are stored only in this browser (Settings → Translation) and sent only to the service you pick. Claude translation uses the `claude-opus-5-5` model, with Anthropic's server-side fallback switched on so a declined passage is retried automatically.
+
 ### 🔎 Check (all offline)
 - **Spelling**: built-in Hunspell English dictionary, with suggestions, a personal dictionary and ignore lists.
 - **Grammar & punctuation**:
@@ -83,6 +116,15 @@ Share your book with editors, beta readers or friends. Only the people you invit
    - **Start correcting** opens the first open comment in the editor with the text selected. The open comments are shown inline in each reviewer's colour.
    - From the **Comments** side panel: **Apply edit** (applies a suggested change in one click), **Done**, **Won't fix**, a private note to yourself, and **Next open comment**, which takes you straight to the next one anywhere in the book.
    - **Download checklist** gives a printable list of every comment.
+
+**Online links (optional, with your Supabase project).** Instead of a file you can send a **link**:
+- Click *Share online link* in the review-copy dialog.
+- The reviewer opens the link and signs in with the invited email. They get a one-time code by email, then enter the passcode.
+- When they click *Send to author*, the comments arrive on your Feedback screen. Booky checks for them automatically, or click **Check for new comments**.
+- You can **withdraw** a link at any time.
+- Everything is encrypted on your computer first, so Supabase only stores scrambled data.
+
+Setup is described under [Online sharing setup](#online-sharing-setup-supabase).
 
 > Copy protection stops copying, cutting, printing and right-click in the review copy. Like any on-screen document, it can't prevent screenshots or someone retyping the text. The watermark discourages that.
 
@@ -146,6 +188,7 @@ Word (.docx), Markdown, plain text, HTML, RTF and Booky backups. Chapters are de
 | Focus mode | Ctrl Shift F |
 | Toggle manuscript panel | Ctrl \ |
 | Next / previous chapter | Alt ↓ / Alt ↑ |
+| Phonetic typing on / off (Indian languages) | Ctrl Shift Space |
 | Save now | Ctrl S |
 
 ---
@@ -159,12 +202,30 @@ Word (.docx), Markdown, plain text, HTML, RTF and Booky backups. Chapters are de
 
 ---
 
+## Online sharing setup (Supabase)
+You only need this for online review links. Everything else works offline.
+
+1. **Database.**
+   - If your Supabase project is connected to this GitHub repository, the migration in `supabase/migrations/` creates the tables and security rules automatically when it reaches the project's production branch. In Supabase → Project Settings → Integrations → GitHub, set the production branch to the branch you deploy (or merge into it).
+   - Otherwise, run it by hand: Booky → Settings → Online sharing → *Copy setup SQL*, then paste it into Supabase → SQL Editor and run it.
+2. **Sign-in emails.**
+   - In Supabase → Authentication → Emails → *Magic Link* template, add `{{ .Token }}` so emails contain a 6-digit code.
+   - Supabase's built-in email sender only delivers to your project's team members, and only a few emails an hour. For real reviewers, add **custom SMTP** under Authentication → Emails → SMTP Settings (e.g. Resend, Brevo, SendGrid or Gmail).
+3. **Review page.**
+   - The workflow `.github/workflows/pages.yml` publishes the app and `review.html` to GitHub Pages. Turn it on once under repository Settings → Pages → Source: **GitHub Actions**.
+   - The review page will then be at `https://ebenezar15.github.io/Booky/review.html`. Add this address under Supabase → Authentication → URL Configuration → *Redirect URLs*.
+4. **Connect Booky.** In Settings → Online sharing:
+   - Paste the **Project URL** and the **anon / publishable key** (Project Settings → API). Never use the service-role or secret key.
+   - Click *Save & test connection*, then sign in with your email.
+
+Security: row-level security lets an author see only their own copies and comments. A reviewer can only open the copy shared with their signed-in email, and only until it expires or is withdrawn. Anonymous visitors can read nothing.
+
 ## For developers
 
 ```bash
 npm install
 npm run dev        # development server
-npm test           # unit tests (grammar, rephrasing, readability)
+npm test           # unit tests (grammar, rephrasing, readability, feedback, phonetic typing, translation)
 npm run build      # → dist/Booky.html (single offline file)
 npm run release    # build and copy to release/Booky.html
 ```
@@ -175,14 +236,17 @@ The app is plain JavaScript (no framework), built with Vite into a single self-c
 | --- | --- |
 | `src/core` | Book model, page templates, themes, storage (IndexedDB), fonts |
 | `src/editor` | TipTap/ProseMirror extensions: paragraph styles, scene and page breaks, footnotes, live proofing, find |
-| `src/lang` | Spell-check worker (nspell + Hunspell en), grammar and style rules, rephrasing, thesaurus |
+| `src/lang` | Spell-check worker (nspell + Hunspell en), grammar and style rules, rephrasing, thesaurus, phonetic typing (`translit.js`), translation providers (`translate.js`) |
 | `src/render` | Book → HTML, print/ebook CSS generator, Paged.js preview, canvas cover renderer |
 | `src/export` | EPUB, DOCX, HTML, Markdown and text exporters |
 | `src/share` | Encrypted review copies (AES-GCM + PBKDF2), the reviewer's reading/commenting page, sharing transports |
 | `src/import` | DOCX (Mammoth), Markdown, text, HTML and RTF import with chapter detection |
 | `src/ui` | All screens: library, binder, editor, inspector, plan, format, cover, publish |
 
-Sharing is built around a small transport interface (`src/share/transport.js`). Today it uses files: an encrypted review copy goes out and a `.bookyreview` comments file comes back. An online backend (e.g. Supabase or Firebase) can be added later to host copies, send invitations and sync comments live, without changing the rest of the app. Because copies are encrypted on your computer, such a server would never see the book text.
+Sharing is built around a small transport interface (`src/share/transport.js`):
+- **Files:** an encrypted review copy goes out and a `.bookyreview` comments file comes back.
+- **Supabase:** `src/share/cloud.js` uses plain REST calls, with no SDK. It stores the same encrypted copy, and `review.html` (generated by `scripts/post-build.mjs`) posts encrypted comments back.
+- The schema and row-level security rules are in `supabase/migrations/`.
 
 When hosted over http(s), Booky also registers a service worker, so it can be installed as an app (PWA).
 

@@ -22,7 +22,7 @@ const safeScript = (code) => code.replace(/<\/script/gi, '<\\/script');
 /**
  * @param reviewer { id, name, email, color }
  * @param opts { passcode, authorEmail, authorName, expiresDays, message }
- * @returns { html, roundId }
+ * @returns { html, roundId, box } — box is the encrypted book, also used for online copies
  */
 export async function buildReviewHtml(book, reviewer, opts) {
   const roundId = opts.roundId || uid('rd_');
@@ -50,5 +50,5 @@ export async function buildReviewHtml(book, reviewer, opts) {
 <script>window.__BOOKY_REVIEW__ = ${JSON.stringify(pub).replace(/</g, '\\u003c')};</script>
 <script>${safeScript(viewerJs)}</script>
 </body></html>`;
-  return { html, roundId };
+  return { html, roundId, box };
 }

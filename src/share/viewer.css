@@ -65,3 +65,4 @@ mark.rv-flash { outline: 3px solid var(--rv-me); }
   .rv-actions .rv-btn:not(.primary) { display: none; }
 }
 @media (min-width: 761px) { #rv-toc-btn { display: none; } }
+[hidden]{display:none!important}
