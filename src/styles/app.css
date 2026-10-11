@@ -698,3 +698,97 @@ a.btn { text-decoration: none; }
 @media (max-width: 1100px) { .editor-scroll.with-original { flex-direction: column; } .original-pane { position: static; max-height: 40vh; max-width: none; width: 100%; } }
 .bi-tr { font-size: 11px; color: var(--accent); margin-left: 4px; flex: none; }
 .notice-error { background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent); color: var(--danger, #dc2626); }
+.brand-mark { background: none; overflow: hidden; }
+.brand-mark svg { width: 100%; height: 100%; display: block; }
+
+/* ================= motion ================= */
+:root { --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-spring: cubic-bezier(.2, 1.35, .4, 1); }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes page-in { from { opacity: 0; transform: translateY(16px) scale(.996); } }
+@keyframes card-in { from { opacity: 0; transform: translateY(18px) scale(.96); } }
+@keyframes tab-pop { from { transform: scale(.92); } }
+@keyframes breathe { 50% { opacity: .3; } }
+@keyframes float { 50% { transform: translateY(-6px); } }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes stripes { to { background-position: 32px 0; } }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, .5); } 100% { box-shadow: 0 0 0 14px rgba(225, 29, 72, 0); } }
+@keyframes blink { 50% { opacity: .25; } }
+
+/* screens and modes slide in */
+.workspace > .center, .workspace > .plan, .workspace > section { animation: rise .32s var(--ease-out) both; }
+.workspace > .inspector { animation: fade-in .4s .05s ease-out both; }
+.lib-hero { animation: rise .45s var(--ease-out) both; }
+.book-card { animation: card-in .5s var(--ease-out) both; }
+.book-card:nth-child(2) { animation-delay: .04s; } .book-card:nth-child(3) { animation-delay: .08s; } .book-card:nth-child(4) { animation-delay: .12s; }
+.book-card:nth-child(5) { animation-delay: .16s; } .book-card:nth-child(6) { animation-delay: .2s; } .book-card:nth-child(7) { animation-delay: .24s; } .book-card:nth-child(n+8) { animation-delay: .28s; }
+.book-cover-thumb { transition: transform .35s var(--ease-spring), box-shadow .35s ease; }
+.mode-tab.on { animation: tab-pop .28s var(--ease-spring); }
+.mode-tab .icon { transition: transform .25s var(--ease-spring); }
+.mode-tab:hover .icon { transform: translateY(-1px) rotate(-6deg); }
+
+/* page turn when switching chapters */
+.editor-page.turn { animation: page-in .38s var(--ease-out); }
+
+/* modals, menus and toasts with a little spring */
+.modal { transition: transform .32s var(--ease-spring); }
+.modal-overlay:not(.show) .modal { transform: translateY(14px) scale(.97); }
+.toast { transition: opacity .25s ease, transform .4s var(--ease-spring); }
+
+/* buttons press in */
+.btn, .icon-btn, .mode-tab { transition: transform .12s ease, background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+.btn:active:not(:disabled), .icon-btn:active { transform: scale(.95); }
+.btn-primary { background-size: 200% 100%; }
+.btn-primary:hover:not(:disabled) { box-shadow: 0 8px 22px -10px color-mix(in srgb, var(--primary) 80%, transparent); }
+
+/* saving indicator, empty states, cards */
+.save-dot.saving, .save-dot.pending { animation: breathe 1s ease-in-out infinite; }
+.empty-state > .icon { animation: float 3.2s ease-in-out infinite; }
+.fb-card:nth-child(-n+12) { animation: rise .3s var(--ease-out) both; }
+.notice { animation: rise .3s var(--ease-out) both; }
+
+/* live progress bars (translation, exports) */
+.progress.live > div { background-image: linear-gradient(45deg, rgba(255,255,255,.25) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.25) 50%, rgba(255,255,255,.25) 75%, transparent 75%), linear-gradient(90deg, var(--primary), var(--accent)); background-size: 32px 32px, 100% 100%; animation: stripes .8s linear infinite; }
+
+/* ---------- voice typing ---------- */
+.mic-btn.active { color: #fff !important; background: #e11d48 !important; animation: pulse-ring 1.4s ease-out infinite; }
+.voice-pill { position: absolute; left: 50%; bottom: 48px; z-index: 30; display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100% - 32px));
+  padding: 8px 8px 8px 14px; border-radius: 40px; background: var(--deep, #1f0b44); color: #fff; box-shadow: 0 18px 40px -14px rgba(30, 0, 60, .55);
+  opacity: 0; pointer-events: none; transform: translate(-50%, 24px) scale(.96); transition: opacity .25s ease, transform .4s var(--ease-spring); }
+.voice-pill.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.vp-dot { width: 9px; height: 9px; border-radius: 50%; background: #fb7185; flex: none; animation: blink 1.2s ease-in-out infinite; }
+.voice-pill.busy .vp-dot { background: #fbbf24; }
+.vp-level { display: inline-flex; align-items: center; gap: 2px; height: 22px; flex: none; }
+.vp-level i { width: 3px; border-radius: 2px; background: #f0abfc; height: calc(4px + var(--lv, 0) * 16px); transition: height .08s linear; }
+.vp-level i:nth-child(2) { height: calc(4px + var(--lv, 0) * 22px); } .vp-level i:nth-child(3) { height: calc(4px + var(--lv, 0) * 28px); max-height: 22px; }
+.vp-level i:nth-child(4) { height: calc(4px + var(--lv, 0) * 20px); } .vp-level i:nth-child(5) { height: calc(4px + var(--lv, 0) * 12px); }
+.vp-text { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; opacity: .92; }
+.vp-stop { display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 30px; padding: 6px 12px; background: rgba(255, 255, 255, .14); color: #fff; font: 600 12px var(--font-ui, system-ui); cursor: pointer; flex: none; }
+.vp-stop:hover { background: rgba(255, 255, 255, .24); }
+
+/* ---------- translation suggestions ---------- */
+.ts-pop { width: min(420px, calc(100vw - 24px)); max-width: none; padding: 12px; }
+.ts-head { display: flex; align-items: center; gap: 7px; font-size: 13px; margin-bottom: 4px; }
+.ts-quote { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ts-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.ts-item { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; animation: rise .3s var(--ease-out) both; }
+.ts-item:first-child { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.ts-text { font-size: 17px; line-height: 1.45; }
+.ts-note { font-size: 12px; color: var(--muted); }
+.ts-skel { height: 64px; border-radius: 10px; background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: shimmer 1.3s linear infinite; }
+.ts-foot { border-top: 1px solid var(--border); padding-top: 8px; }
+.input-sm { height: 30px; font-size: 13px; padding: 0 8px; }
+
+/* ---------- celebration burst ---------- */
+.confetti { position: fixed; z-index: 3000; width: 8px; height: 12px; border-radius: 2px; pointer-events: none; }
+
+/* motion off: system setting or Settings → General */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
+:root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { animation: none !important; transition: none !important; }
+.binder-item { transition: background-color .15s ease, transform .18s var(--ease-out); } .binder-item:hover { transform: translateX(2px); }
+
+/* desktop app: macOS draws its window buttons over the top bar */
+:root.desktop .topbar { -webkit-app-region: drag; user-select: none; }
+:root.desktop .topbar button, :root.desktop .topbar a, :root.desktop .topbar input, :root.desktop .topbar select, :root.desktop .topbar .brand, :root.desktop .topbar .topbar-title b { -webkit-app-region: no-drag; }
+:root.desktop-darwin .topbar { padding-left: 84px; }
+.pdf-best { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); background: color-mix(in srgb, var(--primary) 5%, transparent); }

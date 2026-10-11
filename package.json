@@ -1,7 +1,7 @@
 {
   "name": "booky",
   "version": "1.0.0",
-  "description": "Booky — an offline book writing, formatting and publishing studio",
+  "description": "Write, format and publish books — offline book writing studio.",
   "scripts": {
     "dev": "vite",
     "build": "node scripts/gen-fonts.mjs && vite build && node scripts/post-build.mjs",
@@ -9,20 +9,28 @@
     "fonts": "node scripts/gen-fonts.mjs",
     "test": "node --test tests/*.test.js",
     "predev": "node scripts/gen-fonts.mjs",
-    "release": "npm run build && node -e \"require('fs').mkdirSync('release',{recursive:true});require('fs').copyFileSync('dist/Booky.html','release/Booky.html')\""
+    "release": "npm run build && node -e \"require('fs').mkdirSync('release',{recursive:true});require('fs').copyFileSync('dist/Booky.html','release/Booky.html')\"",
+    "desktop": "npm run build && electron .",
+    "desktop:dev": "electron .",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never",
+    "icons": "node scripts/gen-app-icons.cjs"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ebenezar15/Booky.git"
   },
   "keywords": [],
-  "author": "",
+  "author": {
+    "name": "Ebenezar",
+    "email": "ebenezar.work@gmail.com"
+  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ebenezar15/Booky/issues"
   },
-  "homepage": "https://github.com/ebenezar15/Booky#readme",
-  "dependencies": {
+  "homepage": "https://github.com/ebenezar15/Booky",
+  "devDependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
     "@fontsource/abril-fatface": "^5.3.0",
     "@fontsource/alegreya": "^5.3.0",
@@ -149,18 +157,120 @@
     "@tiptap/pm": "^3.31.4",
     "@tiptap/starter-kit": "^3.31.4",
     "dictionary-en": "^4.0.0",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.2",
     "lucide": "^1.55.0",
     "mammoth": "^1.13.0",
     "nspell": "^2.1.5",
-    "pagedjs": "^0.4.3"
-  },
-  "devDependencies": {
+    "pagedjs": "^0.4.3",
     "vite": "^8.3.4",
     "vite-plugin-singlefile": "^2.3.3"
   },
   "type": "module",
-  "private": true
+  "private": true,
+  "productName": "Booky",
+  "main": "desktop/main.cjs",
+  "build": {
+    "appId": "com.ebenezar.booky",
+    "productName": "Booky",
+    "copyright": "Copyright © 2026 Ebenezar",
+    "directories": {
+      "output": "release/desktop",
+      "buildResources": "build"
+    },
+    "files": [
+      "desktop/**/*",
+      "dist/index.html",
+      "build/icon.png",
+      "build/icon.ico",
+      "package.json"
+    ],
+    "asar": true,
+    "fileAssociations": [
+      {
+        "ext": "booky",
+        "name": "Booky Book",
+        "description": "Booky book backup",
+        "role": "Editor",
+        "icon": "build/icon"
+      },
+      {
+        "ext": "bookyreview",
+        "name": "Booky Review Comments",
+        "description": "Reviewer comments for a Booky book",
+        "role": "Viewer",
+        "icon": "build/icon"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Booky uses the microphone only while you use voice typing."
+      }
+    },
+    "dmg": {
+      "title": "Booky",
+      "artifactName": "Booky-${version}-mac-${arch}.dmg",
+      "contents": [
+        {
+          "x": 150,
+          "y": 190
+        },
+        {
+          "x": 390,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Booky",
+      "artifactName": "Booky-Setup-${version}.exe",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "Booky-${version}-portable.exe"
+    },
+    "afterPack": "desktop/after-pack.cjs"
+  }
 }

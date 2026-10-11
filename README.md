@@ -6,6 +6,26 @@ It takes ideas from Atticus, Reedsy Studio, Scrivener and InDesign and puts them
 
 ---
 
+## Install the desktop app (Windows & Mac)
+Booky is also an installable app with its own icon. It works the same on Windows and macOS: both use the same engine, so books, layouts and PDFs come out identical.
+
+- **Download:** in this repository, open **Actions → Desktop apps → latest run → Artifacts**. When a version is tagged (e.g. `v1.0.0`), they are also on the **Releases** page.
+  - **Windows:** `Booky-Setup-x.y.z.exe`, the installer, which adds Start-menu and desktop shortcuts. There is also a `portable` .exe that runs without installing.
+  - **Mac:** `Booky-x.y.z-mac-arm64.dmg` for Apple Silicon (M1–M4), or `…-mac-x64.dmg` for Intel Macs. Open it and drag Booky to Applications.
+- **First launch:** the app isn't signed with a paid Apple or Microsoft certificate yet, so each system asks once.
+  - **Windows:** "Windows protected your PC" → *More info* → *Run anyway*.
+  - **Mac:** if macOS says it can't check the app, open System Settings → Privacy & Security → *Open Anyway*. Or run `xattr -cr /Applications/Booky.app` once in Terminal.
+- **Desktop extras:**
+  - **Save vector PDF** gives sharp, print-ready text at the exact trim size with no print dialog.
+  - Double-click `.booky` backups and `.bookyreview` comment files to open them.
+  - Native menus; the app remembers its window size.
+  - The microphone is used only during voice typing.
+- **Your data:**
+  - The desktop app has its own library, stored in the app's folder.
+  - To move books between the browser and the app, use *Download backup* in one and open the `.booky` file in the other.
+
+Build it yourself: `npm run dist:win` on Windows or `npm run dist:mac` on a Mac. Output goes to `release/desktop/`.
+
 ## Quick start (no installation)
 
 1. Download **[`release/Booky.html`](release/Booky.html)**.
@@ -21,6 +41,7 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 ## Features
 
 ### 🗃️ Projects & appearance
+- **Animations**: a splash screen, page turns between chapters, smooth mode switches, springy dialogs and buttons, a pulsing microphone, shimmer while suggestions load, and a confetti burst when you finish an export, a translation or the last review comment. Turn them off in Settings → General; they also stay off if your system is set to reduce motion.
 - Keep any number of book projects. Search them, sort by recent / newest / title / length, and duplicate, back up or delete them.
 - Colour schemes:
   - **Cadenza violet** (the same deep-violet look as Mindapp and Practise-app) is the default.
@@ -65,6 +86,16 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 - **Phonetic typing** for nine Indian scripts: type in English letters and each word turns into the script when you press space, e.g. `vaNakkam` → வணக்கம், `namaste` → नमस्ते. Switch it on and off with the அ button or Ctrl + Shift + Space; right-click the button for the key guide. Ctrl + Z restores the English letters. (Your computer's own Tamil/Hindi keyboards work as well.)
 - English spelling and grammar checks switch off automatically for other languages; the browser's own spell checker is used where it has a dictionary.
 
+### 🎙️ Voice typing
+- Click the 🎙 microphone in the toolbar, or press **Ctrl + Alt + V** (⌘ ⌥ V on Mac), and speak. Words appear at the cursor.
+- **Languages:** speech follows the book's language: English (US, UK, India…), தமிழ் (India, Sri Lanka, Singapore, Malaysia), हिन्दी, മലയാളം, తెలుగు, ಕನ್ನಡ, বাংলা, मराठी, ગુજરાતી, ਪੰਜਾਬੀ, ଓଡ଼ିଆ, اردو and more. Right-click the microphone to change it.
+- **Spoken punctuation in English:** say "comma", "full stop", "question mark", "new paragraph", "open quote" / "close quote". Sentences are capitalised for you.
+- A floating bar shows that Booky is listening, with a live sound level and a Stop button.
+- **Where it works:**
+  - In Chrome, Edge and Safari it uses the browser's free speech service.
+  - In the desktop app, add a Google Cloud key with the Speech-to-Text API enabled (Settings → Voice & translation).
+  - Your computer's own dictation also types straight into Booky everywhere: **Windows + H**, or **Fn (🌐) twice** on a Mac.
+
 ### 🔤 Translate a book
 Turn any book into a **new project in another language**. The original stays untouched.
 1. Library card ⋯ → *Translate…* (or ⋮ → *Translate into another language…* inside a book). Pick the language and how to translate:
@@ -79,7 +110,14 @@ Turn any book into a **new project in another language**. The original stays unt
    - **Retranslate page** saves a History snapshot first.
    - **Next page to review** and the binder markers (◐ not reviewed yet) make sure no page is missed.
 
-API keys are stored only in this browser (Settings → Translation) and sent only to the service you pick. Claude translation uses the `claude-opus-5-5` model, with Anthropic's server-side fallback switched on so a declined passage is retried automatically.
+**Contextual suggestions for any word or sentence.** Select text and press **Ctrl + Alt + T** (or the 文A button):
+- **In any book:** translate the selection into any language. The whole paragraph is used as context, so "bank" by a river and "bank" for money come out differently. Pick the target language in the popup.
+- **In a translation project:** get better wordings for part of the translation, based on the original paragraph. Each option fits the surrounding sentence.
+- **In side by side:** click an original paragraph, or select words in it, for translations you can insert at the cursor.
+- With Claude you get 3–5 options, best first, each with a note on its nuance (literal, idiomatic, formal, colloquial, poetic) and when to use it. One click replaces the selection. Other providers give one translation.
+- Whole-book translation with Claude also reads the book's title, genre and summary, the chapter title, and the paragraph before each passage. This keeps names, tone and meaning consistent.
+
+API keys are stored only on this computer (Settings → Voice & translation) and sent only to the service you pick. Claude translation uses the `claude-opus-5-5` model, with Anthropic's server-side fallback switched on so a declined passage is retried automatically.
 
 ### 🔎 Check (all offline)
 - **Spelling**: built-in Hunspell English dictionary, with suggestions, a personal dictionary and ignore lists.
@@ -189,6 +227,8 @@ Word (.docx), Markdown, plain text, HTML, RTF and Booky backups. Chapters are de
 | Toggle manuscript panel | Ctrl \ |
 | Next / previous chapter | Alt ↓ / Alt ↑ |
 | Phonetic typing on / off (Indian languages) | Ctrl Shift Space |
+| Voice typing on / off | Ctrl Alt V |
+| Translate / suggest wording for the selection | Ctrl Alt T |
 | Save now | Ctrl S |
 
 ---
@@ -214,7 +254,7 @@ You only need this for online review links. Everything else works offline.
 3. **Review page.**
    - The workflow `.github/workflows/pages.yml` publishes the app and `review.html` to GitHub Pages. Turn it on once under repository Settings → Pages → Source: **GitHub Actions**.
    - The review page will then be at `https://ebenezar15.github.io/Booky/review.html`. Add this address under Supabase → Authentication → URL Configuration → *Redirect URLs*.
-4. **Connect Booky.** In Settings → Online sharing:
+4. **Connect Booky.** Your project (`ptoletclsllykfpzlyhi`) and its publishable key are already filled in. In Settings → Online sharing:
    - Paste the **Project URL** and the **anon / publishable key** (Project Settings → API). Never use the service-role or secret key.
    - Click *Save & test connection*, then sign in with your email.
 
@@ -228,6 +268,10 @@ npm run dev        # development server
 npm test           # unit tests (grammar, rephrasing, readability, feedback, phonetic typing, translation)
 npm run build      # → dist/Booky.html (single offline file)
 npm run release    # build and copy to release/Booky.html
+npm run desktop    # run the desktop app (Electron)
+npm run dist:win   # Windows installer → release/desktop (run on Windows)
+npm run dist:mac   # macOS .dmg → release/desktop (run on a Mac)
+npm run icons      # re-render app icons from assets/logo.svg
 ```
 
 The app is plain JavaScript (no framework), built with Vite into a single self-contained HTML file.
@@ -242,6 +286,8 @@ The app is plain JavaScript (no framework), built with Vite into a single self-c
 | `src/share` | Encrypted review copies (AES-GCM + PBKDF2), the reviewer's reading/commenting page, sharing transports |
 | `src/import` | DOCX (Mammoth), Markdown, text, HTML and RTF import with chapter detection |
 | `src/ui` | All screens: library, binder, editor, inspector, plan, format, cover, publish |
+| `desktop` | Electron shell: window, menus, vector PDF, file opening, microphone permission |
+| `build`, `assets` | App icons (`icon.png` → macOS .icns, `icon.ico` → Windows) and the logo source |
 
 Sharing is built around a small transport interface (`src/share/transport.js`):
 - **Files:** an encrypted review copy goes out and a `.bookyreview` comments file comes back.

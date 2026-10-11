@@ -1,7 +1,7 @@
 // "Publish to a platform": checks the book against a store's requirements and builds a
 // ready-to-upload ZIP (EPUB + cover for ebook stores; interior PDF + cover PDF for printers).
 import JSZip from 'jszip';
-import { h, icon, btn, clear, add, modal, toast, downloadBlob, slugify, select, field } from './dom.js';
+import { h, icon, btn, clear, add, modal, toast, downloadBlob, slugify, select, field, celebrate } from './dom.js';
 import { touch, setMode, state } from '../core/store.js';
 import { PLATFORMS, checkPlatform, gutterFor } from '../core/platforms.js';
 import { trimOf } from '../core/themes.js';
@@ -132,6 +132,6 @@ async function buildPackage(book, p, { pv, pages, quality, onProgress }) {
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   downloadBlob(blob, `${base}-${p.id}.zip`);
   onProgress(100, 'Done');
-  toast(`${p.name} package ready`, 'success');
+  toast(`${p.name} package ready`, 'success'); celebrate();
 }
 

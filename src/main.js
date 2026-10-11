@@ -8,11 +8,13 @@ import { renderWorkspace } from './ui/workspace.js';
 import { clear, toast } from './ui/dom.js';
 import { initSpell } from './lang/spell.js';
 import { applyColors } from './core/colors.js';
+import { initDesktop } from './desktop.js';
 
 const root = document.getElementById('app');
 
 export function applyTheme() {
   document.documentElement.dataset.theme = state.app.theme || 'light';
+  document.documentElement.dataset.motion = state.app.animations === false ? 'off' : 'on';
   applyColors(state.app);
 }
 
@@ -35,10 +37,13 @@ async function boot() {
   installFonts();
   await loadAppSettings();
   applyTheme();
-  on('app', (p) => { if (['theme', 'colorScheme', 'customPrimary', 'customAccent'].some((k) => k in p)) applyTheme(); if ('sidebar' in p) document.querySelectorAll('.binder').forEach((b) => b.classList.toggle('deep', p.sidebar !== 'light')); });
+  on('app', (p) => { if (['theme', 'colorScheme', 'customPrimary', 'customAccent', 'animations'].some((k) => k in p)) applyTheme(); if ('sidebar' in p) document.querySelectorAll('.binder').forEach((b) => b.classList.toggle('deep', p.sidebar !== 'light')); });
   requestPersistence();
+  initDesktop();
   window.addEventListener('hashchange', route);
   await route();
+  const splash = document.getElementById('splash');
+  if (splash) setTimeout(() => { splash.classList.add('done'); setTimeout(() => splash.remove(), 500); }, 450);
   // Warm up the dictionary in the background.
   setTimeout(() => initSpell(), 1200);
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !import.meta.env.DEV) {

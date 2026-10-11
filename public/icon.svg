@@ -1,1 +1,44 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4b3fc4"/><stop offset=".6" stop-color="#7b5ce0"/><stop offset="1" stop-color="#e07a5f"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#g)"/><path d="M18 16h16a10 10 0 0 1 0 20H18zM18 36h18a10 10 0 0 1 0 20H18z" fill="none" stroke="white" stroke-width="5" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d28d9"/>
+      <stop offset=".55" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#d946ef"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".3" cy=".2" r=".9">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".6" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pageL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ede4ff"/>
+    </linearGradient>
+    <linearGradient id="pageR" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f3ecff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="228" fill="url(#glow)"/>
+  <!-- book shadow -->
+  <path d="M512 772 C 430 724, 320 712, 214 724 L 214 342 C 320 330, 430 342, 512 390 C 594 342, 704 330, 810 342 L 810 724 C 704 712, 594 724, 512 772 Z" fill="#2e1065" opacity=".28" transform="translate(0 26)"/>
+  <!-- pages -->
+  <path d="M512 380 C 430 330, 320 318, 214 330 L 214 712 C 320 700, 430 712, 512 762 Z" fill="url(#pageL)"/>
+  <path d="M512 380 C 594 330, 704 318, 810 330 L 810 712 C 704 700, 594 712, 512 762 Z" fill="url(#pageR)"/>
+  <path d="M512 380 L 512 762" stroke="#c4b5fd" stroke-width="6"/>
+  <!-- lines of text -->
+  <g fill="none" stroke="#a78bfa" stroke-width="16" stroke-linecap="round" opacity=".55">
+    <path d="M270 426 C 330 418, 400 424, 460 446"/>
+    <path d="M270 486 C 330 478, 400 484, 460 506"/>
+    <path d="M270 546 C 330 538, 400 544, 460 566"/>
+    <path d="M270 606 C 315 600, 360 603, 400 614"/>
+    <path d="M564 446 C 624 424, 694 418, 754 426"/>
+    <path d="M564 506 C 624 484, 694 478, 754 486"/>
+    <path d="M564 566 C 624 544, 694 538, 754 546"/>
+  </g>
+  <!-- bookmark ribbon -->
+  <path d="M690 318 L 760 318 L 760 470 L 725 440 L 690 470 Z" fill="#fbbf24"/>
+  <path d="M690 318 L 760 318 L 760 336 L 690 336 Z" fill="#f59e0b"/>
+  <!-- sparkle -->
+  <path d="M300 214 C 306 248, 318 260, 352 266 C 318 272, 306 284, 300 318 C 294 284, 282 272, 248 266 C 282 260, 294 248, 300 214 Z" fill="#fff" opacity=".95"/>
+</svg>

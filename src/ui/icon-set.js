@@ -173,6 +173,9 @@ import I_log_in from 'lucide/dist/esm/icons/log-in.mjs';
 import I_log_out from 'lucide/dist/esm/icons/log-out.mjs';
 import I_send from 'lucide/dist/esm/icons/send.mjs';
 import I_inbox from 'lucide/dist/esm/icons/inbox.mjs';
+import I_mic from 'lucide/dist/esm/icons/mic.mjs';
+import I_mic_off from 'lucide/dist/esm/icons/mic-off.mjs';
+import I_audio_lines from 'lucide/dist/esm/icons/audio-lines.mjs';
 
 export const ICONS = {
   'type': I_type,
@@ -349,4 +352,7 @@ export const ICONS = {
   'log-out': I_log_out,
   'send': I_send,
   'inbox': I_inbox,
+  'mic': I_mic,
+  'mic-off': I_mic_off,
+  'audio-lines': I_audio_lines,
 };

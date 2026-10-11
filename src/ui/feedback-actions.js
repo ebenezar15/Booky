@@ -2,7 +2,7 @@
 import { state, touch, emit, setMode, selectElement } from '../core/store.js';
 import { ensureReviews, orderedComments } from '../core/feedback.js';
 import { rangeForComment } from '../editor/annotations.js';
-import { toast } from './dom.js';
+import { toast, celebrate } from './dom.js';
 
 export const reviewerById = (id) => ensureReviews(state.book).reviewers.find((r) => r.id === id);
 
@@ -32,6 +32,8 @@ export function setStatus(c, status) {
   c.status = status;
   c.resolvedAt = status === 'open' ? 0 : Date.now();
   touch('reviews');
+  const all = state.book.reviews?.comments || [];
+  if (status !== 'open' && all.length && all.every((x) => x.status !== 'open')) { celebrate(); toast('Every comment dealt with — well done!', 'success', 4000); }
 }
 
 export function applySuggestion(c) {

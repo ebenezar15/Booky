@@ -6,10 +6,14 @@ import { registerTransport } from './transport.js';
 import { decryptJson, normEmail } from './crypto.js';
 
 export const DEFAULT_VIEWER = 'https://ebenezar15.github.io/Booky/review.html';
+// The author's Supabase project. The publishable key is public by design (row level security protects the data).
+export const DEFAULT_PROJECT = { url: 'https://ptoletclsllykfpzlyhi.supabase.co', anonKey: 'sb_publishable_ELwv4_uL1I19yStlBdVOjA_-96K7jLT' };
 
-const cfg = () => state.app.cloud || {};
+const cfg = () => { const c = state.app.cloud || {}; return { ...c, url: c.url || DEFAULT_PROJECT.url, anonKey: c.anonKey || DEFAULT_PROJECT.anonKey }; };
 const setCfg = (patch) => setApp({ cloud: { ...cfg(), ...patch } });
-const base = () => String(cfg().url || '').trim().replace(/\/+$/, '');
+const base = () => normalizeUrl(cfg().url);
+// Accept the project URL in any common form, e.g. with /rest/v1/ copied from the dashboard.
+export const normalizeUrl = (u) => String(u || '').trim().replace(/\/+$/, '').replace(/\/(rest|auth)\/v1$/i, '');
 
 export const cloudConfigured = () => !!(base() && cfg().anonKey);
 export const cloudUser = () => (cfg().session?.email ? cfg().session : null);
@@ -66,7 +70,7 @@ async function accessToken() {
 }
 
 export function saveConnection({ url, anonKey, viewerUrl: v }) {
-  setCfg({ url: (url || '').trim(), anonKey: (anonKey || '').trim(), viewerUrl: (v || '').trim() });
+  setCfg({ url: normalizeUrl(url), anonKey: (anonKey || '').trim(), viewerUrl: (v || '').trim() });
 }
 
 /** Checks the URL, key and tables. Returns a short status string. */

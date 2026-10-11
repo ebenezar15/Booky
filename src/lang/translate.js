@@ -98,9 +98,11 @@ async function translateBrowser(blocks, ctx) {
 
 function claudeSystem(ctx) {
   const S = langInfo(ctx.source), T = langInfo(ctx.target);
+  const b = ctx.book || {};
   return [
     `You are an experienced literary translator preparing a published book in ${T.name} (${T.native}) from the ${S.name} original.`,
-    'Translate faithfully and naturally, the way a skilled human translator would for print: keep the author’s voice, tone, register, imagery and paragraphing; make dialogue sound natural in the target language; use the target language’s own punctuation and quotation conventions.',
+    'Translate for meaning in context, never word by word: read the whole passage first, then render each sentence the way a skilled native writer of the target language would put it in print. Resolve idioms, metaphors, humour and cultural references to natural equivalents; keep the author’s voice, tone, register and paragraphing; keep names and terms consistent; make dialogue sound natural; use the target language’s own punctuation and quotation conventions.',
+    b.title ? `About the book — title: “${b.title}”${b.genre ? `; genre: ${b.genre}` : ''}${b.description ? `; summary: ${b.description.slice(0, 600)}` : ''}.` : '',
     'You receive a JSON list of HTML fragments. Return exactly one translated fragment per input fragment, in the same order.',
     'Keep every HTML tag and attribute exactly as given (classes, data-* attributes, styles, images). Translate only human-readable text, plus the text inside data-note attributes (footnotes) and alt attributes.',
     'Leave anything marked translate="no" unchanged, including {{placeholders}}. A fragment with nothing to translate is returned unchanged.',
@@ -109,35 +111,41 @@ function claudeSystem(ctx) {
 }
 
 let claudeClient = null;
-async function translateClaude(blocks, ctx) {
-  if (!ctx.keys.claudeKey) throw new Error('Add your Anthropic API key in Settings → Translation.');
+async function claude(ctx) {
+  if (!ctx.keys?.claudeKey) throw new Error('Add your Anthropic API key in Settings → Voice & translation.');
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   if (claudeClient?.key !== ctx.keys.claudeKey) {
     claudeClient = { key: ctx.keys.claudeKey, c: new Anthropic({ apiKey: ctx.keys.claudeKey, dangerouslyAllowBrowser: true }) };
   }
+  return claudeClient.c;
+}
+
+/** One structured-output request to Claude. Returns the parsed JSON, or null if the answer was cut off or malformed. */
+async function claudeJson({ system, user, schema, maxTokens = 32000 }, ctx) {
+  const client = await claude(ctx);
+  const stream = client.beta.messages.stream({
+    model: CLAUDE_MODEL,
+    max_tokens: maxTokens,
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    thinking: { type: 'adaptive' },
+    system,
+    output_config: { format: { type: 'json_schema', schema } },
+    messages: [{ role: 'user', content: user }],
+  }, { signal: ctx.signal });
+  const msg = await stream.finalMessage();
+  if (msg.stop_reason === 'refusal') throw new Error('Claude declined to translate this passage. Try another provider for it, or translate it by hand.');
+  if (msg.stop_reason === 'max_tokens') return null;
+  try { return JSON.parse(msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('')); } catch { return null; }
+}
+
+async function translateClaude(blocks, ctx) {
+  const schema = { type: 'object', properties: { blocks: { type: 'array', items: { type: 'string' } } }, required: ['blocks'], additionalProperties: false };
   const run = async (list) => {
-    const stream = claudeClient.c.beta.messages.stream({
-      model: CLAUDE_MODEL,
-      max_tokens: 32000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      thinking: { type: 'adaptive' },
-      system: claudeSystem(ctx),
-      output_config: {
-        format: {
-          type: 'json_schema',
-          schema: { type: 'object', properties: { blocks: { type: 'array', items: { type: 'string' } } }, required: ['blocks'], additionalProperties: false },
-        },
-      },
-      messages: [{ role: 'user', content: `Translate these ${list.length} fragment(s) into ${langInfo(ctx.target).name}:\n\n${JSON.stringify(list)}` }],
-    }, { signal: ctx.signal });
-    const msg = await stream.finalMessage();
-    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to translate this passage. Try another provider for this page, or translate it by hand.');
-    if (msg.stop_reason === 'max_tokens') return null; // too long: split and retry
-    const text = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
-    let parsed;
-    try { parsed = JSON.parse(text); } catch { return null; }
-    return Array.isArray(parsed.blocks) && parsed.blocks.length === list.length ? parsed.blocks : null;
+    const where = ctx.chapter ? `These fragments come from “${ctx.chapter}”. ` : '';
+    const before = ctx.prev ? `For continuity, the passage just before this one was:\n${ctx.prev.src}\n…which you translated as:\n${ctx.prev.out}\n\n` : '';
+    const parsed = await claudeJson({ system: claudeSystem(ctx), schema, user: `${before}${where}Translate these ${list.length} fragment(s) into ${langInfo(ctx.target).name}:\n\n${JSON.stringify(list)}` }, ctx);
+    return Array.isArray(parsed?.blocks) && parsed.blocks.length === list.length ? parsed.blocks : null;
   };
   const go = async (list) => {
     const res = await run(list);
@@ -146,11 +154,14 @@ async function translateClaude(blocks, ctx) {
     const mid = Math.ceil(list.length / 2);
     return [...await go(list.slice(0, mid)), ...await go(list.slice(mid))];
   };
-  return go(blocks);
+  const out = await go(blocks);
+  const last = blocks.length - 1;
+  if (last >= 0) ctx.prev = { src: blocks[last].replace(/<[^>]+>/g, '').slice(-700), out: out[last].replace(/<[^>]+>/g, '').slice(-700) };
+  return out;
 }
 
 async function translateGoogle(blocks, ctx) {
-  if (!ctx.keys.googleKey) throw new Error('Add your Google Cloud API key in Settings → Translation.');
+  if (!ctx.keys.googleKey) throw new Error('Add your Google Cloud API key in Settings → Voice & translation.');
   const res = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(ctx.keys.googleKey)}`, {
     method: 'POST', signal: ctx.signal, headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ q: blocks, source: baseCode(ctx.source), target: baseCode(ctx.target), format: 'html' }),
@@ -162,7 +173,7 @@ async function translateGoogle(blocks, ctx) {
 
 async function translateLibre(blocks, ctx) {
   const url = (ctx.keys.libreUrl || '').replace(/\/+$/, '');
-  if (!url) throw new Error('Add a LibreTranslate server address in Settings → Translation.');
+  if (!url) throw new Error('Add a LibreTranslate server address in Settings → Voice & translation.');
   const res = await fetch(`${url}/translate`, {
     method: 'POST', signal: ctx.signal, headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ q: blocks, source: baseCode(ctx.source), target: baseCode(ctx.target), format: 'html', api_key: ctx.keys.libreKey || undefined }),
@@ -221,6 +232,7 @@ export function prepareTranslation(book, target, provider) {
 export async function translateElement(book, el, ctx) {
   const src = el.source || { title: el.title, subtitle: el.subtitle, content: el.content };
   const [title, subtitle] = await translateTitles([src.title, src.subtitle], ctx);
+  ctx.chapter = src.title || '';
   const content = el.type === 'toc' || el.type === 'blank' ? src.content : await translateHtml(src.content, ctx);
   Object.assign(el, { title, subtitle, content, trStatus: 'machine' });
 }
@@ -228,7 +240,7 @@ export async function translateElement(book, el, ctx) {
 /** Translate everything still pending. Calls onProgress(done, total, el) and onSave() as pages finish. */
 export async function runTranslation(book, { keys, signal, onProgress, onSave, onStatus, only } = {}) {
   const tr = book.translation;
-  const ctx = { provider: tr.provider, source: tr.source, target: tr.target, glossary: tr.glossary, keys: keys || {}, signal, onStatus };
+  const ctx = { provider: tr.provider, source: tr.source, target: tr.target, glossary: tr.glossary, keys: keys || {}, signal, onStatus, book: bookContext(book) };
   if (tr.provider === 'manual') return;
   if (!tr.metaDone) {
     onStatus?.('Translating the title and description…');
@@ -249,6 +261,45 @@ export async function runTranslation(book, { keys, signal, onProgress, onSave, o
     onProgress?.(done, list.length, el);
     await onSave?.();
   }
+}
+
+/** What a translator should know about the book (used by Claude for context). */
+export function bookContext(book) {
+  const m = book.translation?.meta || book.meta || {};
+  return { title: m.title || book.meta?.title || '', genre: book.meta?.genre || '', description: m.description || book.meta?.description || '' };
+}
+
+/**
+ * Several context-aware translations for a word or sentence, each with a note on when to use it.
+ * mode 'translate': `text` is in `source`, find the best ways to say it in `target`.
+ * mode 'improve': `text` is already in `target` (part of a translation of `original`); suggest better wordings.
+ * Returns [{ text, note }]. Claude gives 3–5 options; other providers give one.
+ */
+export async function suggestTranslations({ text, context = '', original = '', mode = 'translate' }, ctx) {
+  const S = langInfo(ctx.source), T = langInfo(ctx.target);
+  if (ctx.provider !== 'claude') {
+    if (mode === 'improve') {
+      if (!original) return [];
+      return [{ text: plainText((await translateFragments([original], ctx))[0]), note: `Fresh machine translation of the whole original sentence/paragraph (${PROVIDERS.find((p) => p.id === ctx.provider)?.label || ctx.provider}).` }];
+    }
+    return [{ text: plainText((await translateFragments([text], ctx))[0]), note: PROVIDERS.find((p) => p.id === ctx.provider)?.label || '' }];
+  }
+  const schema = {
+    type: 'object', additionalProperties: false, required: ['suggestions'],
+    properties: { suggestions: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['text', 'note'], properties: { text: { type: 'string' }, note: { type: 'string' } } } } },
+  };
+  const system = [
+    `You are a literary translator and editor working between ${S.name} and ${T.name} (${T.native}).`,
+    'Give 3 to 5 genuinely different options, best first. Each must fit the surrounding sentence grammatically and match its tone and register. Prefer what a native writer would naturally say over literal equivalents.',
+    `Write each note in ${S.code.startsWith('en') ? 'English' : 'English, briefly'}: one short line on the nuance (literal / idiomatic / formal / colloquial / poetic, regional usage, connotations) and when to choose it.`,
+    ctx.glossary ? `Author’s glossary and notes — follow them:\n${ctx.glossary}` : '',
+  ].filter(Boolean).join('\n\n');
+  const book = ctx.book?.title ? `Book: “${ctx.book.title}”${ctx.book.genre ? ` (${ctx.book.genre})` : ''}.\n` : '';
+  const user = mode === 'improve'
+    ? `${book}Original ${S.name} passage:\n${original}\n\nCurrent ${T.name} translation of that passage:\n${context}\n\nSuggest better ${T.name} wordings for this part of the translation: «${text}». Each option replaces exactly that part, so it must read correctly in the sentence.`
+    : `${book}Surrounding text (${S.name}):\n${context || text}\n\nTranslate «${text}» into ${T.name}, as it is meant in this context.`;
+  const parsed = await claudeJson({ system, user, schema, maxTokens: 16000 }, ctx);
+  return (parsed?.suggestions || []).filter((x) => x.text).slice(0, 5);
 }
 
 export function translationProgress(book) {

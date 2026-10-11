@@ -12,9 +12,11 @@ import { state, setApp } from '../core/store.js';
 import { openSettings } from './settings.js';
 import { appearanceButton } from './appearance.js';
 
+import logoSvg from '../../assets/logo.svg?raw';
+
 export function brand(onClick) {
   return h('div.brand', { on: { click: onClick }, title: 'Booky home' },
-    h('span.brand-mark', icon('book-open', 18)), 'Booky');
+    h('span.brand-mark', { html: logoSvg }), 'Booky');
 }
 
 export function themeButton() {

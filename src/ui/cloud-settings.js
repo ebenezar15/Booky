@@ -1,12 +1,12 @@
 // Settings → Online sharing: connect Booky to the author's Supabase project.
 import { h, btn, icon, field, input, toast, clear, add } from './dom.js';
 import { state } from '../core/store.js';
-import { saveConnection, testConnection, sendCode, verifyCode, signOut, cloudConfigured, cloudUser, DEFAULT_VIEWER } from '../share/cloud.js';
+import { saveConnection, testConnection, sendCode, verifyCode, signOut, cloudConfigured, cloudUser, DEFAULT_VIEWER, DEFAULT_PROJECT } from '../share/cloud.js';
 import setupSql from '../../supabase/migrations/20261011000000_booky_review_sharing.sql?raw';
 
 export function cloudSettingsPanel() {
   const c = state.app.cloud || {};
-  let url = c.url || '', anonKey = c.anonKey || '', viewer = c.viewerUrl || '';
+  let url = c.url || DEFAULT_PROJECT.url, anonKey = c.anonKey || DEFAULT_PROJECT.anonKey, viewer = c.viewerUrl || '';
   const status = h('div');
   const account = h('div');
   const showStatus = (kind, msg) => { clear(status); add(status, h(`div.notice${kind === 'error' ? '.notice-error' : ''}`, icon(kind === 'error' ? 'triangle-alert' : 'circle-check', 16), h('span', msg))); };

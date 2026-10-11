@@ -1,9 +1,10 @@
 // "Export PDF" dialog: typesets the book off-screen, then either downloads a PDF file
 // directly or opens the print dialog for a vector PDF.
-import { h, btn, clear, modal, toast, downloadBlob, slugify, select, field, add } from './dom.js';
+import { h, btn, clear, modal, toast, downloadBlob, slugify, select, field, add, celebrate } from './dom.js';
 import { trimOf } from '../core/themes.js';
 import { PrintPreview } from '../render/preview.js';
 import { pdfFromPreview, PDF_QUALITY } from '../export/pdf.js';
+import { printDocument } from '../render/preview.js';
 
 export async function exportPdfDialog(book, { onlyId = null, quality = 'print' } = {}) {
   const hostEl = h('div', { style: { position: 'fixed', left: '-10000px', top: 0, width: '1200px', height: '900px', overflow: 'hidden' } });
@@ -31,7 +32,7 @@ export async function exportPdfDialog(book, { onlyId = null, quality = 'print' }
       });
       downloadBlob(blob, name);
       status.textContent = `Saved ${name} (${(blob.size / 1048576).toFixed(1)} MB).`;
-      toast('PDF downloaded', 'success');
+      toast('PDF downloaded', 'success'); celebrate();
     } catch (e) {
       status.textContent = `PDF export stopped: ${e.message}`;
     } finally { download.disabled = false; }
@@ -45,8 +46,26 @@ export async function exportPdfDialog(book, { onlyId = null, quality = 'print' }
       h('p.small.muted', 'One click, saves straight to your Downloads folder. Each page is rendered as a high-resolution image — accepted by KDP, IngramSpark and Lulu at 300 DPI.'),
       field('Quality', select(Object.entries(PDF_QUALITY).map(([k, v]) => [k, v.label]), q, (v) => { q = v; })),
       download, progress, status),
+    globalThis.bookyDesktop ? h('div.pdf-option.pdf-best',
+      h('h4', '★ Save a print-ready vector PDF'),
+      h('p.small.muted', 'Sharpest text with embedded fonts, exact trim size — the best file for KDP, IngramSpark and printers. Identical on Windows and Mac.'),
+      (() => {
+        const st = h('p.small.muted');
+        const b = btn('Save vector PDF…', { kind: 'primary', icon: 'file-down', onClick: async () => {
+          b.disabled = true; st.textContent = 'Typesetting and saving…';
+          try {
+            const res = await globalThis.bookyDesktop.printPdf(printDocument(book, { onlyId, interactive: false }).html, name);
+            if (res?.filePath) {
+              clear(st); add(st, `Saved ${res.filePath.split(/[\\/]/).pop()} (${(res.bytes / 1048576).toFixed(1)} MB). `, h('a', { href: '#', on: { click: (e) => { e.preventDefault(); globalThis.bookyDesktop.showFile(res.filePath); } } }, 'Show in folder'));
+              toast('PDF saved', 'success'); celebrate();
+            } else st.textContent = '';
+          } catch (e) { st.textContent = `Could not save the PDF: ${e.message}`; }
+          b.disabled = false;
+        } });
+        return [b, st];
+      })()) : null,
     h('div.pdf-option',
-      h('h4', '2 · Vector PDF via the print dialog (sharpest text)'),
+      h('h4', `${globalThis.bookyDesktop ? '3' : '2'} · Vector PDF via the print dialog`),
       h('p.small.muted', 'Choose “Save as PDF”, Margins: Default, Scale: 100%, and turn on Background graphics. The paper size is set to your trim size and fonts are embedded.'),
       btn('Open print dialog', { icon: 'printer', onClick: () => pv.print() })),
   );

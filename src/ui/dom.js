@@ -98,6 +98,25 @@ export function toast(msg, kind = 'info', ms = 2800) {
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, ms);
 }
 
+// ---------- celebration ----------
+/** A short confetti burst from a point (or the centre of an element) for finished milestones. */
+export function celebrate(from) {
+  if (document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = from instanceof Element ? from.getBoundingClientRect() : null;
+  const x = r ? r.left + r.width / 2 : from?.x ?? innerWidth / 2, y = r ? r.top + r.height / 2 : from?.y ?? innerHeight / 3;
+  const colors = ['#7c3aed', '#a855f7', '#d946ef', '#fbbf24', '#34d399', '#60a5fa'];
+  for (let i = 0; i < 36; i++) {
+    const p = h('i.confetti', { style: { left: `${x}px`, top: `${y}px`, background: colors[i % colors.length] } });
+    document.body.appendChild(p);
+    const a = Math.random() * Math.PI * 2, d = 90 + Math.random() * 170;
+    p.animate([
+      { transform: 'translate(-50%, -50%) rotate(0deg)', opacity: 1 },
+      { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d - 60}px) rotate(${Math.random() * 720 - 360}deg)`, opacity: 1, offset: 0.7 },
+      { transform: `translate(${Math.cos(a) * d * 1.1}px, ${Math.sin(a) * d + 80}px) rotate(${Math.random() * 720}deg)`, opacity: 0 },
+    ], { duration: 1100 + Math.random() * 500, easing: 'cubic-bezier(.2,.8,.3,1)' }).onfinish = () => p.remove();
+  }
+}
+
 // ---------- modals ----------
 export function modal({ title, body, footer, width = 560, onClose, cls = '' }) {
   const close = () => { overlay.classList.remove('show'); setTimeout(() => overlay.remove(), 180); document.removeEventListener('keydown', onKey); onClose?.(); };

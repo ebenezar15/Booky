@@ -1,5 +1,5 @@
 // Publish mode: pre-flight checklist and every export format.
-import { h, icon, btn, clear, modal, toast, downloadBlob, slugify, add } from './dom.js';
+import { h, icon, btn, clear, modal, toast, downloadBlob, slugify, add, celebrate } from './dom.js';
 import { state, setMode, save } from '../core/store.js';
 import { bookWords, elementWords, displayTitle, htmlToText, ELEMENT_TYPES } from '../core/model.js';
 import { trimOf } from '../core/themes.js';
@@ -45,10 +45,10 @@ export function renderPublish(host) {
             btn('Preview', { kind: 'ghost', onClick: () => setMode('format') }),
           ]),
           card('tablet', 'linear-gradient(135deg,#e07a5f,#f2a65a)', 'EPUB ebook', 'Reflowable EPUB 3 with cover, navigation and metadata — upload to Kindle (KDP), Apple Books, Kobo, Google Play, Barnes & Noble.', [
-            btn('Download EPUB', { kind: 'primary', icon: 'download', onClick: () => run('Building EPUB', async () => { const { buildEpub } = await import('../export/epub.js'); downloadBlob(await buildEpub(book), `${fileBase}.epub`); save(); toast('EPUB ready', 'success'); }) }),
+            btn('Download EPUB', { kind: 'primary', icon: 'download', onClick: () => run('Building EPUB', async () => { const { buildEpub } = await import('../export/epub.js'); downloadBlob(await buildEpub(book), `${fileBase}.epub`); save(); toast('EPUB ready', 'success'); celebrate(); }) }),
           ]),
           card('file-text', 'linear-gradient(135deg,#2b6cb0,#4299e1)', 'Word document (DOCX)', 'A styled manuscript with headings, footnotes and images — for editors, agents, or publishers who ask for Word.', [
-            btn('Download DOCX', { icon: 'download', onClick: () => run('Building DOCX', async () => { const { buildDocx } = await import('../export/docx.js'); downloadBlob(await buildDocx(book), `${fileBase}.docx`); toast('DOCX ready', 'success'); }) }),
+            btn('Download DOCX', { icon: 'download', onClick: () => run('Building DOCX', async () => { const { buildDocx } = await import('../export/docx.js'); downloadBlob(await buildDocx(book), `${fileBase}.docx`); toast('DOCX ready', 'success'); celebrate(); }) }),
           ]),
           card('image', 'linear-gradient(135deg,#2f9e77,#6cc6a0)', 'Covers', 'Ebook cover (JPG, 1600 × 2560) and full print wrap with spine and back cover (PDF / PNG at 300 DPI).', [
             btn('Open cover designer', { icon: 'image', onClick: () => setMode('cover') }),

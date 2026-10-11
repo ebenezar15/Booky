@@ -21,12 +21,14 @@ export const SHORTCUTS = [
   ['Rephrase selected sentence', 'Ctrl Alt R'],
   ['Align left / centre / right / justify', 'Ctrl Shift L / E / R / J'],
   ['Phonetic typing on / off (Indian languages)', 'Ctrl Shift Space'],
+  ['Voice typing on / off', 'Ctrl Alt V'],
+  ['Translate / suggest wording for the selection', 'Ctrl Alt T'],
   ['Undo / Redo', 'Ctrl Z / Ctrl Shift Z'],
 ];
 
 export function openSettings(tab = 'general') {
   const body = h('div');
-  const tabs = segmented([['general', 'General'], ['proofing', 'Proofing'], ['fonts', 'Fonts'], ['translate', 'Translation'], ['cloud', 'Online sharing'], ['keys', 'Shortcuts'], ['about', 'About']], tab, (t) => draw(t));
+  const tabs = segmented([['general', 'General'], ['proofing', 'Proofing'], ['fonts', 'Fonts'], ['translate', 'Voice & translation'], ['cloud', 'Online sharing'], ['keys', 'Shortcuts'], ['about', 'About']], tab, (t) => draw(t));
   function draw(t) {
     clear(body);
     if (t === 'general') {
@@ -35,6 +37,7 @@ export function openSettings(tab = 'general') {
         h('div.col', { style: { gap: '12px', marginTop: '6px' } },
           toggle(state.app.typewriter, (v) => setApp({ typewriter: v }), 'Typewriter scrolling (keep the cursor line centred)'),
           toggle(state.app.smartQuotes !== false, (v) => setApp({ smartQuotes: v }), 'Smart quotes & dashes while typing (“ ” ‘ ’ —)'),
+          toggle(state.app.animations !== false, (v) => setApp({ animations: v }), 'Animations (page turns, transitions, celebrations)'),
         ),
         h('p.hint', { style: { marginTop: '16px' } }, 'Your books are saved automatically in this browser’s private storage. Use “Download backup” in the Publish tab to keep a copy elsewhere.'),
       );

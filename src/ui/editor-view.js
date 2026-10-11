@@ -22,6 +22,8 @@ import { rephrase } from '../lang/rephrase.js';
 import { renderSections } from '../render/book.js';
 import { toggleBinder, toggleInspector } from './workspace.js';
 import { originalPane } from './translate.js';
+import { suggestForSelection } from './translate-suggest.js';
+import { startVoice, pickEngine, localesFor, shapeTranscript } from '../lang/voice.js';
 
 let editor = null;
 export const getEditor = () => editor;
@@ -85,6 +87,79 @@ export function renderEditor(host) {
       { custom: h('div.ph-help', h('span.small', 'A word converts when you press space, Enter or punctuation. Ctrl Z restores the English letters.')) }]);
   });
   drawPhoneticBtn();
+
+  // ---------- voice typing ----------
+  let voice = null;
+  const micBtn = h('button.icon-btn.mic-btn', { type: 'button', 'aria-label': 'Voice typing' }, icon('mic', 18));
+  const voiceText = h('span.vp-text');
+  const voiceLevel = h('span.vp-level', h('i'), h('i'), h('i'), h('i'), h('i'));
+  const voicePill = h('div.voice-pill', { 'aria-live': 'polite' }, h('span.vp-dot'), voiceLevel, voiceText,
+    h('button.vp-stop', { type: 'button', title: 'Stop (Ctrl Alt V)', on: { click: () => toggleVoice() } }, icon('square', 12), ' Stop'));
+  center.appendChild(voicePill);
+  const voiceLocale = () => {
+    const list = localesFor(book.meta.language);
+    return list.some(([l]) => l === book.settings.voiceLocale) ? book.settings.voiceLocale : list[0][0];
+  };
+  const localeLabel = () => localesFor(book.meta.language).find(([l]) => l === voiceLocale())?.[1] || voiceLocale();
+  const drawMic = () => {
+    micBtn.classList.toggle('active', !!voice);
+    micBtn.title = voice ? 'Stop voice typing (Ctrl Alt V)' : `Voice typing — ${localeLabel()} (Ctrl Alt V). Right-click for language.`;
+    voicePill.classList.toggle('show', !!voice);
+  };
+  function insertSpoken(raw) {
+    if (!editor || editor.isDestroyed) return;
+    const { $from } = editor.state.selection;
+    const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '\ufffc');
+    const text = shapeTranscript(raw, before, { english: isEnglish(book.meta.language) });
+    if (!text) return;
+    let chain = editor.chain().focus();
+    text.split('\n\n').forEach((para, i) => {
+      if (i) chain = chain.splitBlock();
+      para.split('\n').forEach((line, j) => {
+        if (j) chain = chain.setHardBreak();
+        if (line) chain = chain.command(({ tr }) => { tr.insertText(line); return true; });
+      });
+    });
+    chain.run();
+  }
+  function voiceHelp() {
+    const desktop = !!globalThis.bookyDesktop;
+    const m = modal({
+      title: 'Voice typing', width: 500,
+      body: h('div.col', { style: { gap: '10px' } },
+        h('p', desktop ? 'To dictate inside the Booky app, add a Google Cloud key with the Speech-to-Text API enabled (Settings → Voice & translation).' : 'This browser has no speech recognition. Open Booky in Chrome, Edge or Safari — or add a Google Cloud key with the Speech-to-Text API (Settings → Voice & translation).'),
+        h('p.muted', 'You can also use your computer’s built-in dictation, which types straight into Booky:'),
+        h('ul', h('li', h('b', 'Windows: '), 'press Windows + H'), h('li', h('b', 'Mac: '), 'press Fn (🌐) twice, or Edit → Start Dictation'))),
+      footer: [btn('Open settings', { onClick: () => { m.close(); import('./settings.js').then((x) => x.openSettings('translate')); } }), btn('OK', { kind: 'primary', onClick: () => m.close() })],
+    });
+  }
+  function toggleVoice() {
+    if (voice) { voice.stop(); voice = null; drawMic(); return; }
+    const keys = state.app.translate || {};
+    const engine = pickEngine(state.app.voiceEngine, keys);
+    if (!engine) { voiceHelp(); return; }
+    try {
+      voice = startVoice({
+        engine, locale: voiceLocale(), keys,
+        onInterim: (t) => { voiceText.textContent = t === '…' ? `Hearing you… (${localeLabel()})` : t || `Listening — ${localeLabel()}`; },
+        onFinal: (t) => { insertSpoken(t); voiceText.textContent = `Listening — ${localeLabel()}`; },
+        onState: (st) => { voicePill.classList.toggle('busy', st === 'processing'); if (st === 'stopped' && voice) { voice = null; drawMic(); } },
+        onLevel: (v) => voiceLevel.style.setProperty('--lv', v.toFixed(2)),
+        onError: (msg) => { toast(msg, 'error', 6000); voice?.stop(); voice = null; drawMic(); },
+      });
+      voiceText.textContent = `Listening — ${localeLabel()}`;
+      editor?.commands.focus();
+    } catch (e) { toast(e.message, 'error', 6000); voice = null; }
+    drawMic();
+  }
+  micBtn.addEventListener('click', toggleVoice);
+  micBtn.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    menu(micBtn, [{ header: 'Speak in' }, ...localesFor(book.meta.language).map(([l, name]) => ({ label: name, checked: l === voiceLocale(), onClick: () => { book.settings.voiceLocale = l; touch('settings'); if (voice) { toggleVoice(); toggleVoice(); } drawMic(); } })),
+      { divider: true }, { label: 'Voice settings…', icon: 'settings', onClick: () => import('./settings.js').then((x) => x.openSettings('translate')) },
+      { custom: h('div.ph-help', h('span.small.muted', isEnglish(book.meta.language) ? 'Say “comma”, “full stop”, “question mark”, “new paragraph”, “open quote” / “close quote”.' : 'Speak naturally — punctuation is added automatically where the service supports it.')) }]);
+  });
+  drawMic();
 
   // ---------- toolbar ----------
   const styleSel = select([
@@ -162,6 +237,8 @@ export function renderEditor(host) {
     imgTools,
     h('span.grow'),
     phoneticBtn,
+    micBtn,
+    iconBtn('languages', 'Translate / suggest wording for the selection (Ctrl Alt T)', () => suggestForSelection(editor, book)),
     iconBtn('wand-sparkles', 'Rephrase sentence (Ctrl Alt R)', () => openRephrase()),
     iconBtn('search', 'Find & replace (Ctrl F)', () => openFind()),
     tb.focusBtn = iconBtn('focus', 'Focus mode (Ctrl Shift F)', () => toggleFocus()),
@@ -228,6 +305,7 @@ export function renderEditor(host) {
   function mount() {
     if (editor) { saveContent?.flush(); editor.destroy(); editor = null; }
     clear(page);
+    page.classList.remove('turn'); void page.offsetWidth; page.classList.add('turn');
     scroller.querySelector('.original-pane')?.remove();
     scroller.classList.remove('with-original');
     const el = currentElement();
@@ -272,7 +350,7 @@ export function renderEditor(host) {
     page.appendChild(host);
     const sideBySide = !!(state.app.showOriginal && el.source && book.translation);
     scroller.classList.toggle('with-original', sideBySide);
-    if (sideBySide) scroller.insertBefore(originalPane(el, { insert: (html) => editor?.chain().focus().insertContent(html).run() }), page);
+    if (sideBySide) scroller.insertBefore(originalPane(el, { insert: (text) => editor?.chain().focus().command(({ tr }) => { tr.insertText(text); return true; }).run() }), page);
     saveContent = debounce(() => {
       if (!editor || editor.isDestroyed) return;
       el.content = editor.getHTML();
@@ -627,6 +705,8 @@ export function renderEditor(host) {
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && !e.shiftKey) { e.preventDefault(); openFind(); }
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyR') { e.preventDefault(); openRephrase(); }
+    if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyV') { e.preventDefault(); toggleVoice(); }
+    if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyT') { e.preventDefault(); suggestForSelection(editor, book); }
   };
   document.addEventListener('keydown', onKey);
 
@@ -648,6 +728,7 @@ export function renderEditor(host) {
     on('open-rephrase', (r) => openRephrase(r)),
   ];
   return () => {
+    voice?.stop();
     saveContent?.flush();
     offs.forEach((f) => f());
     document.removeEventListener('keydown', onKey);

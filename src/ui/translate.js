@@ -1,23 +1,30 @@
 // Translate a book into a new project, then review it page by page against the original.
-import { h, btn, icon, modal, field, select, textarea, input, toast, clear, add, segmented, confirmDialog } from './dom.js';
+import { h, btn, icon, celebrate, modal, field, select, textarea, input, toast, clear, add, segmented, confirmDialog } from './dom.js';
 import { state, setApp, touch, emit, selectElement, save } from '../core/store.js';
 import { db } from '../core/db.js';
 import { LANGUAGES, langInfo, applyLanguageDesign, isRtl } from '../core/languages.js';
 import { fontStack } from '../core/fonts.js';
 import { orderedElements } from '../core/model.js';
-import { PROVIDERS, prepareTranslation, runTranslation, translateHtml, translationProgress } from '../lang/translate.js';
+import { PROVIDERS, prepareTranslation, runTranslation, translationProgress } from '../lang/translate.js';
+import { openSuggest } from './translate-suggest.js';
 
 const keys = () => state.app.translate || {};
 const setKeys = (patch) => setApp({ translate: { ...keys(), ...patch } });
 
-/** Settings → Translation: provider keys, stored only in this browser. */
+/** Settings → Voice & translation: provider keys, stored only in this browser. */
 export function translationSettingsPanel() {
   const k = keys();
+  const desktop = !!globalThis.bookyDesktop;
   return h('div.col', { style: { gap: '12px' } },
-    h('p.muted', 'Keys are saved only in this browser and are sent only to the service you choose. The built-in browser translator and manual mode need no key.'),
+    h('div.section-title', 'Voice typing'),
+    field('Speech recognition', select([['auto', 'Automatic'], ['browser', 'Browser (Chrome, Edge, Safari)'], ['google', 'Google Cloud Speech-to-Text (needs the Google key below)']], state.app.voiceEngine || 'auto', (v) => setApp({ voiceEngine: v })),
+      desktop ? 'In the desktop app, voice typing uses Google Cloud Speech-to-Text. Without a key you can still use your computer’s dictation: Windows + H on Windows, or press Fn (🌐) twice on a Mac.'
+        : 'The browser engine is free and supports Tamil, Hindi and the other Indian languages in Chrome and Edge. Your computer’s own dictation (Windows + H, or Fn twice on a Mac) works too.'),
+    h('div.section-title', { style: { marginTop: '8px' } }, 'Translation'),
+    h('p.muted', 'Keys are saved only on this computer and are sent only to the service you choose. The built-in browser translator and manual mode need no key. Claude gives the most context-aware translations and several suggestions with explanations.'),
     field('Anthropic API key (Claude)', input(k.claudeKey || '', (v) => setKeys({ claudeKey: v.trim() }), { type: 'password', placeholder: 'sk-ant-…', autocomplete: 'off' }),
       'Create one at console.anthropic.com → API keys. Usage is billed to your Anthropic account.'),
-    field('Google Cloud Translation API key', input(k.googleKey || '', (v) => setKeys({ googleKey: v.trim() }), { type: 'password', placeholder: 'AIza…', autocomplete: 'off' })),
+    field('Google Cloud API key', input(k.googleKey || '', (v) => setKeys({ googleKey: v.trim() }), { type: 'password', placeholder: 'AIza…', autocomplete: 'off' }), 'Enable “Cloud Translation API” and/or “Cloud Speech-to-Text API” for this key in Google Cloud Console.'),
     field('LibreTranslate server', input(k.libreUrl || '', (v) => setKeys({ libreUrl: v.trim() }), { placeholder: 'https://libretranslate.com' })),
     field('LibreTranslate API key (if needed)', input(k.libreKey || '', (v) => setKeys({ libreKey: v.trim() }), { type: 'password', autocomplete: 'off' })),
   );
@@ -47,7 +54,7 @@ export function openTranslateDialog(book, { onCreated } = {}) {
     if (!providerReady(provider)) {
       add(warn, h('div.generated-note', icon('triangle-alert', 16), h('div',
         provider === 'browser' ? 'This browser has no built-in translator. Use desktop Chrome/Edge, or choose another provider.' : 'Add your key first: ',
-        provider === 'browser' ? null : h('a', { href: '#', on: { click: async (e) => { e.preventDefault(); const { openSettings } = await import('./settings.js'); openSettings('translate'); } } }, 'Settings → Translation'))));
+        provider === 'browser' ? null : h('a', { href: '#', on: { click: async (e) => { e.preventDefault(); const { openSettings } = await import('./settings.js'); openSettings('translate'); } } }, 'Settings → Voice & translation'))));
     }
   };
   drawHint();
@@ -75,6 +82,7 @@ export function openTranslateDialog(book, { onCreated } = {}) {
         const ok = await progressRun(copy, { onSave: () => db.putBook(JSON.parse(JSON.stringify(copy))) });
         onCreated?.(copy);
         location.hash = `#/book/${copy.id}`;
+        if (ok) setTimeout(() => celebrate(), 400);
         if (ok) toast(`Translated into ${langInfo(target).name}. Review each page against the original — Original tab on the right.`, 'success', 6000);
       } }),
     ],
@@ -90,7 +98,7 @@ function progressRun(book, { onSave, only } = {}) {
     let finished = false;
     const m = modal({
       title: `Translating into ${langInfo(book.translation.target).name}`, width: 480,
-      body: h('div.col', { style: { gap: '10px' } }, label, h('div.progress', bar),
+      body: h('div.col', { style: { gap: '10px' } }, label, h('div.progress.live', bar),
         h('p.hint', 'You can stop at any time — finished pages are kept, and “Continue translation” picks up where it stopped.')),
       footer: [btn('Stop', { onClick: () => ctrl.abort() })],
       onClose: () => { if (!finished) ctrl.abort(); },
@@ -133,7 +141,7 @@ function chooseProvider(book) {
       title: 'Translate with', width: 440,
       body: field('Provider', select(PROVIDERS.filter((p) => p.id !== 'manual').map((p) => ({ value: p.id, label: p.label })), provider, (v) => { provider = v; })),
       footer: [btn('Cancel', { onClick: () => { m.close(); resolve(false); } }), btn('Continue', { kind: 'primary', onClick: () => {
-        if (!providerReady(provider)) { toast('Add a key for this provider in Settings → Translation', 'warn'); return; }
+        if (!providerReady(provider)) { toast('Add a key for this provider in Settings → Voice & translation', 'warn'); return; }
         book.translation.provider = provider; setKeys({ provider }); m.close(); resolve(true);
       } })],
     });
@@ -191,7 +199,7 @@ export function drawOriginalTab(body, el) {
   );
 }
 
-/** Side-by-side pane in the editor: the original, with click-to-translate for single paragraphs. */
+/** Side-by-side pane in the editor: the original; click a paragraph (or select words in it) for translation suggestions. */
 export function originalPane(el, { insert } = {}) {
   const tr = state.book.translation;
   const S = langInfo(tr.source);
@@ -200,16 +208,15 @@ export function originalPane(el, { insert } = {}) {
     el.source.title ? h('h2.op-title', { style: { fontFamily: fontStack(S.heading) } }, el.source.title) : null,
     h('div.op-body', { html: el.source.content || '' }));
   pane.querySelectorAll('.op-body > *').forEach((block) => {
-    block.title = 'Click: translate this paragraph again and insert it at the cursor';
-    block.addEventListener('click', async () => {
-      if (tr.provider === 'manual' || !providerReady(tr.provider)) { toast('Choose a translation provider first (Original tab → Translate this page)', 'warn'); return; }
-      block.classList.add('busy');
-      try {
-        const html = await translateHtml(block.outerHTML, { provider: tr.provider, source: tr.source, target: tr.target, glossary: tr.glossary, keys: keys() });
-        insert?.(html);
-        toast('Inserted at the cursor — Ctrl Z to undo', 'success', 2000);
-      } catch (e) { toast(e.message, 'error', 6000); }
-      block.classList.remove('busy');
+    if (!block.textContent.trim()) return;
+    block.title = 'Click for translation suggestions for this paragraph';
+    block.addEventListener('click', () => {
+      const sel = getSelection();
+      const picked = sel && !sel.isCollapsed && block.contains(sel.anchorNode) ? sel.toString().trim() : '';
+      openSuggest({
+        anchorRect: block.getBoundingClientRect(), text: picked || block.textContent.trim(), context: block.textContent.trim(),
+        mode: 'translate', source: tr.source, target: tr.target, onPick: (t) => insert?.(t), pickLabel: 'Insert at cursor',
+      });
     });
   });
   return pane;
