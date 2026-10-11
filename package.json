@@ -1,0 +1,68 @@
+{
+  "name": "booky",
+  "version": "1.0.0",
+  "description": "Booky — an offline book writing, formatting and publishing studio",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/gen-fonts.mjs && vite build && node scripts/post-build.mjs",
+    "preview": "vite preview",
+    "fonts": "node scripts/gen-fonts.mjs",
+    "test": "node --test tests/*.test.js",
+    "predev": "node scripts/gen-fonts.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ebenezar15/Booky.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ebenezar15/Booky/issues"
+  },
+  "homepage": "https://github.com/ebenezar15/Booky#readme",
+  "dependencies": {
+    "@fontsource/abril-fatface": "^5.3.0",
+    "@fontsource/alegreya": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/cormorant-garamond": "^5.3.0",
+    "@fontsource/courier-prime": "^5.3.0",
+    "@fontsource/crimson-pro": "^5.3.0",
+    "@fontsource/eb-garamond": "^5.3.0",
+    "@fontsource/great-vibes": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/lato": "^5.3.0",
+    "@fontsource/libre-baskerville": "^5.3.0",
+    "@fontsource/lora": "^5.3.0",
+    "@fontsource/merriweather": "^5.3.0",
+    "@fontsource/montserrat": "^5.3.0",
+    "@fontsource/oswald": "^5.3.0",
+    "@fontsource/playfair-display": "^5.3.0",
+    "@fontsource/source-serif-4": "^5.3.1",
+    "@fontsource/spectral": "^5.3.0",
+    "@tiptap/core": "^3.31.4",
+    "@tiptap/extension-highlight": "^3.31.4",
+    "@tiptap/extension-image": "^3.31.4",
+    "@tiptap/extension-placeholder": "^3.31.4",
+    "@tiptap/extension-subscript": "^3.31.4",
+    "@tiptap/extension-superscript": "^3.31.4",
+    "@tiptap/extension-text-align": "^3.31.4",
+    "@tiptap/extension-text-style": "^3.31.4",
+    "@tiptap/extension-typography": "^3.31.4",
+    "@tiptap/extensions": "^3.31.4",
+    "@tiptap/pm": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
+    "dictionary-en": "^4.0.0",
+    "jszip": "^3.10.2",
+    "lucide": "^1.55.0",
+    "mammoth": "^1.13.0",
+    "nspell": "^2.1.5",
+    "pagedjs": "^0.4.3"
+  },
+  "devDependencies": {
+    "vite": "^8.3.4",
+    "vite-plugin-singlefile": "^2.3.3"
+  },
+  "type": "module",
+  "private": true
+}

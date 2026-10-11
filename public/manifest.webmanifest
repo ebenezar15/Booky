@@ -1,0 +1,10 @@
+{
+  "name": "Booky — Write · Format · Publish",
+  "short_name": "Booky",
+  "description": "Offline book writing, formatting and publishing studio.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f1eb",
+  "theme_color": "#4b3fc4",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
