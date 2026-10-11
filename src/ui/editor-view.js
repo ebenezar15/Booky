@@ -6,12 +6,14 @@ import { h, icon, iconBtn, clear, menu, popover, promptDialog, closeMenu, pickFi
 import { state, on, emit, touch, currentElement, selectElement, setApp, sessionWords } from '../core/store.js';
 import { ELEMENT_TYPES, computeNumbers, chapterLabel, countWords, orderedElements } from '../core/model.js';
 import { SCENE_BREAKS } from '../core/themes.js';
-import { allFonts, fontStack } from '../core/fonts.js';
+import { allFonts, fontStack, fontOptions } from '../core/fonts.js';
 import { baseExtensions } from '../editor/schema.js';
-import { PARAGRAPH_STYLES, Typewriter } from '../editor/extensions.js';
+import { PARAGRAPH_STYLES, Typewriter, PhoneticTyping } from '../editor/extensions.js';
+import { transliterateWord, PHONETIC_SCRIPTS, PHONETIC_HELP } from '../lang/translit.js';
 import { Proofing, issuesAt, proofKey, sentenceAround, dismissed } from '../editor/proofing.js';
 import { FindHighlight, findMatches, setFindState } from '../editor/find.js';
 import { Annotations } from '../editor/annotations.js';
+import { isEnglish, isRtl, langInfo } from '../core/languages.js';
 import { ensureReviews, COMMENT_TYPES } from '../core/feedback.js';
 import { reviewerById, setStatus, applySuggestion, goNext } from './feedback-actions.js';
 import { suggest, addToDictionary, ignoreWord, initSpell } from '../lang/spell.js';
@@ -28,6 +30,7 @@ const COLORS = ['#000000', '#444444', '#888888', '#b91c1c', '#c2410c', '#a16207'
 const HIGHLIGHTS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa', '#e9d5ff'];
 
 function proofSettings() {
+  if (!isEnglish(state.book?.meta.language)) return { spell: false, grammar: false, style: false, fiction: false };
   return { spell: state.app.spellcheck !== false, grammar: state.app.grammar !== false, style: state.app.styleHints !== false, fiction: state.app.fictionHints !== false };
 }
 
@@ -47,7 +50,8 @@ export function renderEditor(host) {
   const applyView = () => {
     const s = book.settings;
     page.style.maxWidth = `${s.pageWidth || 760}px`;
-    page.style.setProperty('--writing-font', `"${s.writingFont || 'Lora'}"`);
+    const L = langInfo(book.meta.language);
+    page.style.setProperty('--writing-font', `"${s.writingFont || 'Lora'}"${L.script !== 'latin' ? `, "${book.format.body.font}", "${L.body}"` : ''}`);
     page.style.setProperty('--writing-size', `${s.writingSize || 18}px`);
     const sb = book.format.sceneBreak;
     const sym = sb.style === 'custom' ? sb.custom : SCENE_BREAKS[sb.style] ?? '* * *';
@@ -55,6 +59,31 @@ export function renderEditor(host) {
     center.classList.toggle('hide-style', state.app.styleHints === false);
   };
   applyView();
+
+  // ---------- phonetic typing (Indian languages) ----------
+  const canPhonetic = () => PHONETIC_SCRIPTS.includes(langInfo(book.meta.language).script);
+  const phoneticOn = () => canPhonetic() && book.settings.phonetic !== false;
+  const phoneticBtn = h('button.icon-btn.phonetic-btn', { type: 'button' });
+  function drawPhoneticBtn() {
+    const L = langInfo(book.meta.language);
+    phoneticBtn.classList.toggle('hidden', !canPhonetic());
+    phoneticBtn.classList.toggle('active', phoneticOn());
+    phoneticBtn.textContent = { tamil: 'அ', devanagari: 'अ', malayalam: 'അ', telugu: 'అ', kannada: 'ಅ', bengali: 'অ', gujarati: 'અ', gurmukhi: 'ਅ', oriya: 'ଅ' }[L.script] || 'अ';
+    phoneticBtn.title = `Phonetic ${L.name} typing ${phoneticOn() ? 'ON' : 'OFF'} — type in English letters, e.g. “vaNakkam” (Ctrl Shift Space). Right-click for the key guide.`;
+  }
+  function togglePhonetic() {
+    book.settings.phonetic = !phoneticOn();
+    touch('settings');
+    drawPhoneticBtn();
+    toast(book.settings.phonetic ? `Phonetic ${langInfo(book.meta.language).name} typing on — type in English letters` : 'Phonetic typing off — use your keyboard’s own layout', 'info', 2200);
+  }
+  phoneticBtn.addEventListener('click', togglePhonetic);
+  phoneticBtn.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    menu(phoneticBtn, [{ header: `Phonetic ${langInfo(book.meta.language).name} typing` }, ...PHONETIC_HELP.map(([k, d]) => ({ custom: h('div.ph-help', h('code', k), h('span.muted.small', d)) })),
+      { custom: h('div.ph-help', h('span.small', 'A word converts when you press space, Enter or punctuation. Ctrl Z restores the English letters.')) }]);
+  });
+  drawPhoneticBtn();
 
   // ---------- toolbar ----------
   const styleSel = select([
@@ -68,7 +97,7 @@ export function renderEditor(host) {
   }, { class: 'tb-style', title: 'Paragraph style' });
   styleSel.classList.add('tb-style');
 
-  const fontSel = select([['', 'Default font'], ...allFonts().map((f) => ({ value: f, label: f, style: `font-family:${fontStack(f)}` }))], '', (v) => {
+  const fontSel = select([['', 'Default font'], ...fontOptions(book.meta.language)], '', (v) => {
     v ? editor.chain().focus().setFontFamily(v).run() : editor.chain().focus().unsetFontFamily().run();
   }, { title: 'Font (overrides the book design for selected text)' });
   fontSel.classList.add('tb-font');
@@ -131,6 +160,7 @@ export function renderEditor(host) {
     iconBtn('remove-formatting', 'Clear formatting', () => editor.chain().focus().unsetAllMarks().setParagraph().updateAttributes('paragraph', { pstyle: '' }).unsetTextAlign().run()),
     imgTools,
     h('span.grow'),
+    phoneticBtn,
     iconBtn('wand-sparkles', 'Rephrase sentence (Ctrl Alt R)', () => openRephrase()),
     iconBtn('search', 'Find & replace (Ctrl F)', () => openFind()),
     tb.focusBtn = iconBtn('focus', 'Focus mode (Ctrl Shift F)', () => toggleFocus()),
@@ -151,7 +181,7 @@ export function renderEditor(host) {
     menu(anchor, [
       { header: 'Writing view (does not affect the printed book)' },
       { custom: h('div', { style: { padding: '4px 10px 10px', width: '260px' } },
-        field('Writing font', select(allFonts().map((f) => ({ value: f, label: f, style: `font-family:${fontStack(f)}` })), s.writingFont, (v) => { s.writingFont = v; touch('settings'); applyView(); })),
+        field('Writing font', select(fontOptions(book.meta.language), s.writingFont, (v) => { s.writingFont = v; touch('settings'); applyView(); })),
         field('Text size', slider(s.writingSize, 13, 28, 1, (v) => { s.writingSize = v; applyView(); touch('settings'); }, (v) => `${v}px`)),
         field('Page width', slider(s.pageWidth, 520, 1100, 20, (v) => { s.pageWidth = v; applyView(); touch('settings'); }, (v) => `${v}px`)),
         h('div.col', { style: { gap: '10px' } },
@@ -255,13 +285,19 @@ export function renderEditor(host) {
         Proofing.configure({ getSettings: proofSettings, onUpdate: () => { emit('proof', editor); updateStatus(); } }),
         FindHighlight,
         Typewriter.configure({ enabled: () => state.app.typewriter, scroller: () => scroller }),
+        PhoneticTyping.configure({
+          enabled: () => phoneticOn(),
+          convert: (w) => transliterateWord(w, langInfo(book.meta.language).script),
+          onToggle: () => togglePhonetic(),
+        }),
         Annotations.configure({
           getComments: () => (state.app.showReviewNotes === false ? [] : ensureReviews(book).comments.filter((c) => c.elId === el.id && c.status === 'open')),
           getReviewer: reviewerById,
         }),
       ],
       editorProps: {
-        attributes: { spellcheck: 'false', class: 'book-prose', 'aria-label': 'Manuscript text' },
+        // English is checked by Booky's own dictionary; other languages use the browser's spell checker if it has one.
+        attributes: { spellcheck: isEnglish(book.meta.language) ? 'false' : 'true', lang: book.meta.language || 'en', dir: isRtl(book.meta.language) ? 'rtl' : 'ltr', class: 'book-prose', 'aria-label': 'Manuscript text' },
         transformPastedHTML: (html) => html
           .replace(/<!--[\s\S]*?-->/g, '')
           .replace(/\sstyle="([^"]*)"/gi, (m, s) => { const a = s.match(/text-align:\s*(center|right|justify)/i); return a ? ` style="text-align:${a[1]}"` : ''; })
@@ -597,6 +633,8 @@ export function renderEditor(host) {
     on('app', (p) => { if ('styleHints' in p || 'spellcheck' in p || 'grammar' in p || 'fictionHints' in p) { applyView(); editor?.storage.proofing.schedule(10); } }),
     on('spell-changed', () => editor?.storage.proofing.schedule(10)),
     on('format', applyView),
+    on('meta', () => { drawPhoneticBtn(); applyView(); if (editor && editor.view.dom.getAttribute('lang') !== (book.meta.language || 'en')) mount(); }),
+    on('elements', () => { if (editor && editor.view.dom.getAttribute('lang') !== (book.meta.language || 'en')) { drawPhoneticBtn(); applyView(); mount(); } }),
     on('replace-content', () => mount()),
     on('editor-command', (fn) => editor && fn(editor)),
     on('reviews', () => editor?.storage.annotations?.refresh()),

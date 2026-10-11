@@ -1,9 +1,10 @@
 // Library / home screen: book shelf, templates, import.
 import { h, icon, btn, iconBtn, menu, modal, toast, confirmDialog, field, pickFile, downloadBlob, slugify, timeAgo, segmented, clear, input, add, select, slider } from './dom.js';
 import { db } from '../core/db.js';
+import { LANGUAGES, langInfo, applyLanguageDesign } from '../core/languages.js';
 import { BOOK_TEMPLATES, bookFromTemplate } from '../core/templates.js';
 import { THEMES, TRIM_SIZES, defaultFormat, applyTheme } from '../core/themes.js';
-import { allFonts, fontStack } from '../core/fonts.js';
+import { allFonts, fontStack, fontOptions } from '../core/fonts.js';
 import { bookWords, createBook, createElement, normalizeBook, uid, applyCase, formatNumber } from '../core/model.js';
 import { coverThumbnail } from '../render/cover.js';
 import { readManuscript, splitIntoChapters, chunksToElements, importSummary, IMPORT_ACCEPT } from '../import/importer.js';
@@ -129,9 +130,24 @@ export function downloadBackup(book) {
   downloadBlob(blob, `${slugify(book.meta.title)}.booky`);
 }
 
+const SAMPLES = {
+  latin: ['The morning came slowly over the harbour, grey at first and then gold, and the gulls began their arguments above the boats.', 'She folded the letter twice and put it in her pocket, where it stayed for the rest of the summer.'],
+  tamil: ['காலை மெல்ல துறைமுகத்தின் மேல் விடிந்தது; முதலில் சாம்பலாகவும் பின்னர் பொன்னாகவும் வானம் மாறியது.', 'அவள் அந்தக் கடிதத்தை இரண்டாக மடித்துத் தன் சட்டைப் பையில் வைத்துக்கொண்டாள்.'],
+  devanagari: ['सुबह धीरे-धीरे बंदरगाह पर उतरी, पहले धूसर और फिर सुनहरी।', 'उसने चिट्ठी को दो बार मोड़ा और अपनी जेब में रख लिया।'],
+  malayalam: ['പ്രഭാതം പതുക്കെ തുറമുഖത്തിനു മുകളിൽ വിടർന്നു.', 'അവൾ ആ കത്ത് രണ്ടായി മടക്കി പോക്കറ്റിൽ വച്ചു.'],
+  telugu: ['ఉదయం నెమ్మదిగా రేవు మీద వెలిగింది.', 'ఆమె ఆ ఉత్తరాన్ని రెండుసార్లు మడిచి జేబులో పెట్టుకుంది.'],
+  kannada: ['ಬೆಳಗು ನಿಧಾನವಾಗಿ ಬಂದರಿನ ಮೇಲೆ ಮೂಡಿತು.', 'ಅವಳು ಆ ಪತ್ರವನ್ನು ಎರಡು ಬಾರಿ ಮಡಚಿ ಜೇಬಿನಲ್ಲಿಟ್ಟಳು.'],
+  bengali: ['ভোর ধীরে ধীরে বন্দরের ওপর নেমে এল।', 'সে চিঠিটা দুবার ভাঁজ করে পকেটে রাখল।'],
+  gujarati: ['સવાર ધીમે ધીમે બંદર પર ઊતરી.', 'તેણે પત્ર બે વાર વાળીને ખિસ્સામાં મૂક્યો.'],
+  gurmukhi: ['ਸਵੇਰ ਹੌਲੀ-ਹੌਲੀ ਬੰਦਰਗਾਹ ਉੱਤੇ ਉੱਤਰੀ।', 'ਉਸ ਨੇ ਚਿੱਠੀ ਦੋ ਵਾਰ ਮੋੜ ਕੇ ਜੇਬ ਵਿੱਚ ਰੱਖ ਲਈ।'],
+  oriya: ['ସକାଳ ଧୀରେ ଧୀରେ ବନ୍ଦର ଉପରେ ଆସିଲା।', 'ସେ ଚିଠିଟିକୁ ଦୁଇଥର ଭାଙ୍ଗି ପକେଟରେ ରଖିଲା।'],
+  arabic: ['صبح آہستہ آہستہ بندرگاہ پر اتری۔', 'اس نے خط کو دو بار تہہ کیا اور جیب میں رکھ لیا۔'],
+  sinhala: ['උදෑසන සෙමින් වරාය මතට පැමිණියේය.', 'ඇය ලිපිය දෙවරක් නවා සාක්කුවට දැමුවාය.'],
+};
+
 export function newBookDialog(tplId = 'novel') {
   let chosen = tplId;
-  const meta = { title: '', subtitle: '', author: state.app.lastAuthor || '' };
+  const meta = { title: '', subtitle: '', author: state.app.lastAuthor || '', language: 'en' };
   const customs = state.app.customTemplates || [];
   const all = () => [...BOOK_TEMPLATES, ...customs.map((c) => ({ ...c, icon: 'star' }))];
   // Design choices start from the template's theme and can be changed before creating the book.
@@ -158,14 +174,14 @@ export function newBookDialog(tplId = 'novel') {
     add(sample,
       h('div', { style: { textAlign: f.headings.align, fontFamily: fontStack(f.headings.numberFont || f.headings.font), fontSize: '9px', letterSpacing: f.headings.numberSpacing + 'em' } }, num),
       h('div', { style: { textAlign: f.headings.align, fontFamily: fontStack(f.headings.font), fontSize: '17px', fontStyle: f.headings.titleItalic ? 'italic' : '', fontWeight: f.headings.titleWeight, textTransform: f.headings.titleCase === 'upper' ? 'uppercase' : '', margin: '2px 0 10px' } }, 'The Beginning'),
-      ...['The morning came slowly over the harbour, grey at first and then gold, and the gulls began their arguments above the boats.', 'She folded the letter twice and put it in her pocket, where it stayed for the rest of the summer.'].map((t, i) => h('p', {
+      ...(SAMPLES[langInfo(meta.language).script] || SAMPLES.latin).map((t, i) => h('p', {
         style: { fontFamily: fontStack(f.body.font), fontSize: `${f.body.size * 0.92}px`, lineHeight: f.body.leading, textAlign: f.body.align, margin: f.body.spacing === 'block' ? `0 0 ${f.body.paraGap}em` : 0, textIndent: f.body.spacing === 'indent' && i ? `${f.body.indent}em` : 0, letterSpacing: `${f.body.letterSpacing || 0}em`, hyphens: 'auto' },
       }, t)));
   };
   const drawDesign = () => {
     clear(designBox);
     const f = design;
-    const fonts = allFonts().map((n) => ({ value: n, label: n, style: `font-family:${fontStack(n)}` }));
+    const fonts = fontOptions(meta.language || 'en');
     const ch = () => drawSample();
     add(designBox,
       h('div.grid-2',
@@ -191,6 +207,11 @@ export function newBookDialog(tplId = 'novel') {
   const create = async () => {
     const book = bookFromTemplate(chosen, { title: meta.title.trim() || 'Untitled Book', subtitle: meta.subtitle.trim(), author: meta.author.trim() }, customs);
     book.format = design;
+    if (meta.language !== 'en') {
+      const toc = book.elements.find((e) => e.type === 'toc');
+      if (toc) toc.title = langInfo(meta.language).labels.contents;
+    }
+    book.meta.language = meta.language;
     setApp({ lastAuthor: meta.author.trim() });
     await db.putBook(book);
     m.close();
@@ -203,7 +224,13 @@ export function newBookDialog(tplId = 'novel') {
         h('div.grid-2',
           field('Title', input('', (v) => (meta.title = v), { placeholder: 'The Great Untitled' })),
           field('Author / pen name', input(meta.author, (v) => (meta.author = v), { placeholder: 'Your name' }))),
-        field('Subtitle (optional)', input('', (v) => (meta.subtitle = v))),
+        h('div.grid-2',
+          field('Subtitle (optional)', input('', (v) => (meta.subtitle = v))),
+          field('Language', select(LANGUAGES.map((l) => [l.code, l.native === l.name ? l.name : `${l.name} — ${l.native}`]), meta.language, (v) => {
+            meta.language = v;
+            applyLanguageDesign({ format: design, elements: [], meta: {} }, v);
+            drawDesign();
+          }))),
         h('div.field-label', { style: { margin: '6px 0 8px' } }, 'Template'),
         grid,
         h('p.hint', { style: { marginTop: '10px' } }, 'Templates set up the pages (front matter, chapters, back matter). Save your own from Format → “Save as template”.')),

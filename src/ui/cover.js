@@ -1,7 +1,7 @@
 // Cover designer: front cover for ebooks and full print wrap (back · spine · front).
 import { h, icon, btn, iconBtn, clear, field, input, textarea, select, toggle, slider, color, segmented, pickFile, compressImage, downloadBlob, slugify, toast, debounce, add } from './dom.js';
 import { state, touch } from '../core/store.js';
-import { allFonts, fontStack, ensureFontsLoaded } from '../core/fonts.js';
+import { allFonts, fontStack, ensureFontsLoaded, fontOptions } from '../core/fonts.js';
 import { uid } from '../core/model.js';
 import { drawFront, drawWrap, drawGuides, wrapDims } from '../render/cover.js';
 import { COVER_TEMPLATES, coverText as T } from '../core/cover-templates.js';
@@ -84,7 +84,7 @@ export function renderCover(host) {
   canvas.addEventListener('pointerup', () => { if (drag) { drag = null; touch('cover'); drawPane(); } });
 
   const change = (redraw = false) => { touch('cover'); draw(); if (redraw) drawPane(); };
-  const fonts = () => allFonts().map((n) => ({ value: n, label: n, style: `font-family:${fontStack(n)}` }));
+  const fonts = () => fontOptions(book.meta.language);
 
   function acc(id, ic, title, content, open = false) {
     const sec = h(`div.acc${open ? '.open' : ''}`);

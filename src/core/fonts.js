@@ -1,28 +1,50 @@
 // Font registry: fonts bundled with the app (work offline) + fonts the user uploads.
-import families from '../fonts/families.json';
+import catalog from '../fonts/catalog.json';
 import fontCss from '../fonts/fonts.css?inline';
 import { state, setApp } from './store.js';
+import { SCRIPT_LABELS, langInfo } from './languages.js';
 
-export const BUNDLED_FONTS = families;
+export const FONT_CATALOG = catalog;
+export const BUNDLED_FONTS = catalog.map((f) => f.name);
+export const FONT_META = Object.fromEntries(catalog.map((f) => [f.name, f.category]));
 
-export const FONT_META = {
-  'EB Garamond': 'serif', 'Crimson Pro': 'serif', 'Libre Baskerville': 'serif', Lora: 'serif',
-  Merriweather: 'serif', 'Playfair Display': 'display', 'Cormorant Garamond': 'serif', 'Source Serif 4': 'serif',
-  Alegreya: 'serif', Spectral: 'serif', Inter: 'sans', Montserrat: 'sans', Lato: 'sans', Oswald: 'display',
-  Cinzel: 'display', 'Abril Fatface': 'display', 'Great Vibes': 'script', 'Courier Prime': 'mono',
-};
-
-export const SYSTEM_FONTS = ['Georgia', 'Times New Roman', 'Palatino Linotype', 'Book Antiqua', 'Garamond', 'Arial', 'Helvetica', 'Verdana', 'Trebuchet MS'];
+// Popular fonts that are usually already installed on Windows / Mac (used if present).
+export const SYSTEM_FONTS = ['Times New Roman', 'Georgia', 'Garamond', 'Palatino Linotype', 'Book Antiqua', 'Bookman Old Style', 'Baskerville', 'Cambria',
+  'Calibri', 'Arial', 'Helvetica', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Century Gothic', 'Gill Sans', 'Futura', 'Segoe UI', 'Courier New',
+  'Iowan Old Style', 'Charter', 'Hoefler Text', 'Didot', 'Nirmala UI', 'Latha', 'Mangal'];
 
 export function allFonts() {
   return [...BUNDLED_FONTS, ...state.app.customFonts.map((f) => f.name), ...SYSTEM_FONTS];
 }
 
-export function fontStack(name) {
-  if (!name) return 'serif';
+/** Font choices for a select, with the book's own script first and groups labelled. */
+export function fontOptions(langCode) {
+  const script = langInfo(langCode).script;
+  const opt = (n, extra = '') => ({ value: n, label: `${n}${extra}`, style: `font-family:${fontStack(n)}` });
+  const groups = [];
+  const byScript = (sc) => catalog.filter((f) => (sc === 'latin' ? f.scripts.length === 1 && f.scripts[0] === 'latin' : f.scripts.includes(sc)));
+  const order = [script, ...Object.keys(SCRIPT_LABELS).filter((s) => s !== script)];
+  for (const sc of order) {
+    const list = byScript(sc);
+    if (!list.length) continue;
+    groups.push({ value: `__${sc}`, label: `── ${SCRIPT_LABELS[sc]} ──`, disabled: true });
+    for (const f of list) groups.push(opt(f.name, f.note ? `  (${f.note})` : ''));
+  }
+  if (state.app.customFonts.length) {
+    groups.push({ value: '__custom', label: '── Your fonts ──', disabled: true });
+    state.app.customFonts.forEach((f) => groups.push(opt(f.name)));
+  }
+  groups.push({ value: '__system', label: '── Installed on this computer ──', disabled: true });
+  SYSTEM_FONTS.forEach((n) => groups.push(opt(n)));
+  return groups;
+}
+
+// langFont: a font for the book's language, used for any characters `name` lacks (e.g. Tamil text in a Latin font).
+export function fontStack(name, langFont) {
+  if (!name) return langFont ? `"${langFont}", serif` : 'serif';
   const kind = FONT_META[name];
   const fallback = kind === 'sans' ? 'Helvetica, Arial, sans-serif' : kind === 'mono' ? '"Courier New", monospace' : 'Georgia, "Times New Roman", serif';
-  return `"${name}", ${fallback}`;
+  return `"${name}", ${langFont && langFont !== name ? `"${langFont}", ` : ''}${fallback}`;
 }
 
 export function customFontCss() {
@@ -31,9 +53,30 @@ export function customFontCss() {
     .join('\n');
 }
 
-// CSS (with embedded font data in production builds) for iframes and exports.
-export function fontFaceCss() {
-  return fontCss + '\n' + customFontCss();
+/** @font-face CSS for all fonts, or only for the given family names (keeps previews and exports small). */
+export function fontFaceCss(families) {
+  const all = fontCss + '\n' + customFontCss();
+  if (!families) return all;
+  const want = new Set([...families].filter(Boolean));
+  return (all.match(/@font-face\s*{[^}]*}/g) || []).filter((b) => {
+    const m = b.match(/font-family:\s*(?:['"]([^'"]+)['"]|([^;}]+))/); // the build may strip the quotes
+    const fam = (m?.[1] || m?.[2] || '').trim();
+    return fam && want.has(fam);
+  }).join('\n');
+}
+
+/** Every font a book uses: its design, cover, and any font set on text in the manuscript. */
+export function fontsUsedBy(book) {
+  const f = book.format;
+  const set = new Set([f.body.font, f.headings.font, f.headings.numberFont, f.headings.subheadFont, f.firstPara.dropCapFont, f.header.font, f.pageNumbers.font]);
+  for (const l of book.cover?.layers || []) set.add(l.font);
+  if (book.cover) { set.add(book.cover.spine?.font); set.add(book.cover.back?.font); }
+  for (const e of book.elements) for (const m of (e.content || '').matchAll(/font-family:\s*(?:&quot;|["'])?([^;"'&]+)/g)) set.add(m[1].split(',')[0].trim());
+  const L = langInfo(book.meta?.language);
+  if (L.script !== 'latin') { set.add(L.body); set.add(L.heading); }
+  set.delete('');
+  set.delete(undefined);
+  return set;
 }
 
 let styleEl;

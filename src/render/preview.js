@@ -3,7 +3,8 @@
 import pagedPolyfill from '@paged/paged.polyfill.min.js?raw';
 import { renderSections } from './book.js';
 import { typographyCss, printCss, ebookCss, previewChromeCss } from './css.js';
-import { fontFaceCss } from '../core/fonts.js';
+import { fontFaceCss, fontsUsedBy } from '../core/fonts.js';
+import { isRtl } from '../core/languages.js';
 import { escapeHtml } from '../core/model.js';
 
 const safeScript = (code) => code.replace(/<\/script/gi, '<\\/script');
@@ -14,9 +15,9 @@ export function printDocument(book, { onlyId, token = '', interactive = true } =
   const body = sections.map((s) => s.html).join('\n');
   return {
     sections,
-    html: `<!doctype html><html lang="${escapeHtml(book.meta.language || 'en')}"><head><meta charset="utf-8">
+    html: `<!doctype html><html lang="${escapeHtml(book.meta.language || 'en')}" dir="${isRtl(book.meta.language) ? 'rtl' : 'ltr'}"><head><meta charset="utf-8">
 <title>${escapeHtml(book.meta.title)}</title>
-<style data-pagedjs-ignore>${fontFaceCss()}</style>
+<style data-pagedjs-ignore>${fontFaceCss(fontsUsedBy(book))}</style>
 ${interactive ? `<style data-pagedjs-ignore>${previewChromeCss()}</style>` : ''}
 <style>${css}</style>
 </head><body>
@@ -155,8 +156,8 @@ export class PrintPreview {
 // Scrolling ebook preview (reflowable, like an e-reader).
 export function ebookPreviewHtml(book, sections, { theme = 'light', fontScale = 1 } = {}) {
   const colors = { light: ['#ffffff', '#1d1d1f'], sepia: ['#f6edd9', '#3b2f1e'], dark: ['#151515', '#d9d6cf'] }[theme] || ['#fff', '#111'];
-  return `<!doctype html><html lang="${escapeHtml(book.meta.language || 'en')}"><head><meta charset="utf-8">
-<style>${fontFaceCss()}</style>
+  return `<!doctype html><html lang="${escapeHtml(book.meta.language || 'en')}" dir="${isRtl(book.meta.language) ? 'rtl' : 'ltr'}"><head><meta charset="utf-8">
+<style>${fontFaceCss(fontsUsedBy(book))}</style>
 <style>
 ${ebookCss(book)}
 html { background: ${colors[0]}; color: ${colors[1]}; font-size: ${16 * fontScale}px; }

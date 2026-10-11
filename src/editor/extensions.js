@@ -1,5 +1,6 @@
 // Custom TipTap extensions for book writing.
 import { Node, Mark, Extension, mergeAttributes } from '@tiptap/core';
+import { Plugin } from '@tiptap/pm/state';
 import Image from '@tiptap/extension-image';
 
 // Paragraph styles (verse, epigraph, caption, …) stored as a class on blocks.
@@ -152,5 +153,51 @@ export const Typewriter = Extension.create({
       const target = box.top + box.height * 0.45;
       scroller.scrollTop += coords.top - target;
     } catch { /* position not rendered */ }
+  },
+});
+
+// Phonetic typing: Latin letters become the book's script when a word is finished
+// (space, Enter or punctuation). Toggle in the toolbar; Ctrl/⌘ + Shift + Space.
+export const PhoneticTyping = Extension.create({
+  name: 'phoneticTyping',
+  addOptions() {
+    return { enabled: () => false, convert: (w) => w, onToggle: () => {} };
+  },
+  addKeyboardShortcuts() {
+    const convertPending = () => {
+      if (!this.options.enabled()) return false;
+      const { state, view } = this.editor;
+      const { $from, empty } = state.selection;
+      if (!empty || !$from.parent.isTextblock) return false;
+      const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '￼');
+      const m = before.match(/[A-Za-z~]+$/);
+      if (!m) return false;
+      const out = this.options.convert(m[0]);
+      if (out === m[0]) return false;
+      view.dispatch(state.tr.insertText(out, $from.pos - m[0].length, $from.pos));
+      return false; // let Enter continue normally
+    };
+    return {
+      Enter: convertPending,
+      'Mod-Shift-Space': () => { this.options.onToggle(); return true; },
+    };
+  },
+  addProseMirrorPlugins() {
+    const ext = this;
+    return [new Plugin({
+      props: {
+        handleTextInput(view, from, to, text) {
+          if (!ext.options.enabled() || !/^[\s.,!?;:'"“”‘’()\-–—…।॥]$/.test(text)) return false;
+          const $from = view.state.doc.resolve(from);
+          if (!$from.parent.isTextblock) return false;
+          const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '￼');
+          const m = before.match(/[A-Za-z~]+$/);
+          if (!m) return false;
+          const out = ext.options.convert(m[0]);
+          view.dispatch(view.state.tr.insertText(out + text, from - m[0].length, to));
+          return true;
+        },
+      },
+    })];
   },
 });

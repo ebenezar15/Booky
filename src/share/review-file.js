@@ -3,15 +3,18 @@ import viewerJs from './viewer-runtime.js?raw';
 import viewerCss from './viewer.css?raw';
 import { renderSections } from '../render/book.js';
 import { ebookCss } from '../render/css.js';
-import { fontFaceCss } from '../core/fonts.js';
+import { fontFaceCss, fontsUsedBy } from '../core/fonts.js';
 import { escapeHtml, uid } from '../core/model.js';
 import { encryptJson } from './crypto.js';
+import { isRtl } from '../core/languages.js';
 
 // Only embed the fonts the book actually uses (keeps the file small enough to email).
 function usedFontCss(book) {
+  const used = fontsUsedBy(book);
+  for (const l of book.cover?.layers || []) used.delete(l.font);
   const f = book.format;
-  const used = new Set([f.body.font, f.headings.font, f.headings.numberFont, f.headings.subheadFont, f.firstPara.dropCapFont].filter(Boolean));
-  return (fontFaceCss().match(/@font-face\s*{[^}]*}/g) || []).filter((b) => [...used].some((n) => b.includes(`'${n}'`) || b.includes(`"${n}"`))).join('\n');
+  [f.body.font, f.headings.font, f.headings.numberFont, f.headings.subheadFont, f.firstPara.dropCapFont].forEach((n) => n && used.add(n));
+  return fontFaceCss(used);
 }
 
 const safeScript = (code) => code.replace(/<\/script/gi, '<\\/script');
@@ -38,7 +41,7 @@ export async function buildReviewHtml(book, reviewer, opts) {
   const box = await encryptJson(payload, reviewer.email, opts.passcode);
   const pub = { title: book.meta.title, author: book.meta.author, box };
   const html = `<!doctype html>
-<html lang="${escapeHtml(book.meta.language || 'en')}"><head><meta charset="utf-8">
+<html lang="${escapeHtml(book.meta.language || 'en')}" dir="${isRtl(book.meta.language) ? 'rtl' : 'ltr'}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>${escapeHtml(book.meta.title)} — private review copy</title>

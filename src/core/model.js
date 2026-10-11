@@ -234,7 +234,7 @@ export function htmlToText(html) {
 }
 
 export function countWords(text) {
-  const m = text.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu);
+  const m = text.match(/[\p{L}\p{M}\p{N}]+(?:['’\-][\p{L}\p{M}\p{N}]+)*/gu);
   return m ? m.length : 0;
 }
 

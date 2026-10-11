@@ -136,7 +136,7 @@ export function sentences(text) {
 }
 
 export function words(text) {
-  return text.match(/[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu) || [];
+  return text.match(/[\p{L}\p{M}\p{N}]+(?:['’][\p{L}\p{M}]+)*/gu) || [];
 }
 
 export function syllables(word) {

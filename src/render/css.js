@@ -1,12 +1,15 @@
 // Generates the book stylesheet from the format settings, for print (Paged.js /
 // PDF) and for ebooks (EPUB/HTML). Print uses absolute units; ebooks use ems so
 // reader font-size controls still work.
-import { fontStack } from '../core/fonts.js';
+import { fontStack as baseStack } from '../core/fonts.js';
+import { langInfo } from '../core/languages.js';
 import { trimOf } from '../core/themes.js';
 
 const cssStr = (s) => `"${String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ')}"`;
 
 export function typographyCss(book, target) {
+  const L = langInfo(book.meta.language);
+  const fontStack = (n) => baseStack(n, L.script !== 'latin' ? L.body : '');
   const f = book.format;
   const b = f.body, h = f.headings, fp = f.firstPara;
   const print = target === 'print';
@@ -136,6 +139,8 @@ function pageBoxes(book, s, side, frontRoman, first) {
 }
 
 export function printCss(book, sections) {
+  const L = langInfo(book.meta.language);
+  const fontStack = (n) => baseStack(n, L.script !== 'latin' ? L.body : '');
   const f = book.format;
   const { w, h } = trimOf(f);
   const m = f.margins;

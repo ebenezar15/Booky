@@ -1,7 +1,8 @@
 // Web page, Markdown, plain-text and print-ready HTML exports.
 import { renderSections, includedElements } from '../render/book.js';
 import { ebookCss } from '../render/css.js';
-import { fontFaceCss } from '../core/fonts.js';
+import { fontFaceCss, fontsUsedBy } from '../core/fonts.js';
+import { isRtl } from '../core/languages.js';
 import { escapeHtml, fillPlaceholders, fillText, htmlToText, computeNumbers, chapterLabel, ELEMENT_TYPES } from '../core/model.js';
 import { htmlToMarkdown } from '../import/text.js';
 import { printDocument } from '../render/preview.js';
@@ -11,14 +12,14 @@ export function buildHtml(book) {
   const sections = renderSections(book, 'ebook').map((s) => ({ ...s, html: s.html.replace(/href="s\d+\.xhtml#/g, 'href="#') }));
   const nav = sections.filter((s) => s.inToc).map((s) => `<li><a href="#${s.anchor}">${escapeHtml(s.nav)}</a></li>`).join('');
   return `<!doctype html>
-<html lang="${escapeHtml(book.meta.language || 'en')}">
+<html lang="${escapeHtml(book.meta.language || 'en')}" dir="${isRtl(book.meta.language) ? 'rtl' : 'ltr'}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(book.meta.title)}</title>
 <meta name="author" content="${escapeHtml(book.meta.author)}">
 <meta name="description" content="${escapeHtml(book.meta.description)}">
-<style>${fontFaceCss()}</style>
+<style>${fontFaceCss(fontsUsedBy(book))}</style>
 <style>
 ${ebookCss(book)}
 body { max-width: 38em; margin: 0 auto; padding: 3em 1.4em 6em; font-size: 18px; background: #fffdf9; color: #1d1b22; }

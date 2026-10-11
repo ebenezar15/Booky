@@ -3,7 +3,7 @@ import { h, icon, btn, iconBtn, clear, field, input, select, toggle, slider, col
 import { state, on, touch, setApp } from '../core/store.js';
 import { templateFromBook } from '../core/templates.js';
 import { THEMES, TRIM_SIZES, SCENE_BREAKS, ORNAMENTS, applyTheme, trimOf } from '../core/themes.js';
-import { allFonts, fontStack } from '../core/fonts.js';
+import { allFonts, fontStack, fontOptions } from '../core/fonts.js';
 import { orderedElements, displayTitle, bookWords, elementWords, formatNumber, applyCase } from '../core/model.js';
 import { PrintPreview, ebookPreviewHtml } from '../render/preview.js';
 import { renderSections } from '../render/book.js';
@@ -111,7 +111,7 @@ export function renderFormat(host) {
 
   // ---------- settings ----------
   const change = (redrawPane = false) => { touch('format'); autoRefresh(); if (redrawPane) drawPane(); };
-  const fonts = () => allFonts().map((n) => ({ value: n, label: n, style: `font-family:${fontStack(n)}` }));
+  const fonts = () => fontOptions(book.meta.language);
   const fontsWithDefault = (label = 'Same as heading') => [{ value: '', label }, ...fonts()];
   const num = (obj, key, attrs = {}, redraw) => input(obj[key], (v) => { if (v === '' || isNaN(v)) return; obj[key] = +v; change(redraw); }, { type: 'number', ...attrs });
   const sel = (obj, key, opts, redraw = false) => select(opts, obj[key], (v) => { obj[key] = v; change(redraw); });

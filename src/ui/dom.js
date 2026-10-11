@@ -218,8 +218,8 @@ export function field(label, control, hint) {
 export function select(options, value, onChange, attrs = {}) {
   const s = h('select.input', { ...attrs, on: { change: () => onChange(s.value) } },
     options.map((o) => {
-      const [v, l, style] = Array.isArray(o) ? o : typeof o === 'object' ? [o.value ?? o.id, o.label, o.style] : [o, o];
-      return h('option', { value: v, selected: String(v) === String(value), style }, l);
+      const [v, l, style, disabled] = Array.isArray(o) ? o : typeof o === 'object' ? [o.value ?? o.id, o.label, o.style, o.disabled] : [o, o];
+      return h('option', { value: v, selected: String(v) === String(value), style, disabled }, l);
     }));
   return s;
 }

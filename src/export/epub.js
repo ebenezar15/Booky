@@ -5,6 +5,7 @@ import { ebookCss } from '../render/css.js';
 import { escapeHtml, uid } from '../core/model.js';
 import { frontCoverDataURL } from '../render/cover.js';
 import { fontFaceCss, ensureFontsLoaded } from '../core/fonts.js';
+import { isRtl } from '../core/languages.js';
 
 const XHTML_NS = ' xmlns="http://www.w3.org/1999/xhtml"';
 
@@ -28,7 +29,7 @@ const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'imag
 function page(book, title, body, { cls = '' } = {}) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${escapeHtml(book.meta.language || 'en')}" xml:lang="${escapeHtml(book.meta.language || 'en')}">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${escapeHtml(book.meta.language || 'en')}" xml:lang="${escapeHtml(book.meta.language || 'en')}"${isRtl(book.meta.language) ? ' dir="rtl"' : ''}>
 <head>
 <meta charset="UTF-8" />
 <title>${escapeHtml(title)}</title>
@@ -199,7 +200,7 @@ ${m.series ? `<meta property="belongs-to-collection" id="series">${escapeHtml(m.
 <manifest>
 ${manifest.join('\n')}
 </manifest>
-<spine toc="ncx">
+<spine toc="ncx"${isRtl(m.language) ? ' page-progression-direction="rtl"' : ''}>
 ${spine.join('\n')}
 </spine>
 <guide>

@@ -1,8 +1,10 @@
 // Book details (metadata) used on title/copyright pages, EPUB metadata and covers.
 import { h, btn, modal, field, input, textarea, segmented, clear, select, add } from './dom.js';
 import { state, touch } from '../core/store.js';
+import { LANGUAGES, langInfo, applyLanguageDesign } from '../core/languages.js';
+import { confirmDialog, toast } from './dom.js';
 
-const LANGS = [['en', 'English'], ['en-GB', 'English (UK)'], ['en-US', 'English (US)'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'], ['it', 'Italian'], ['pt', 'Portuguese'], ['nl', 'Dutch'], ['sv', 'Swedish'], ['pl', 'Polish'], ['hi', 'Hindi'], ['ta', 'Tamil'], ['ja', 'Japanese'], ['zh', 'Chinese']];
+const LANGS = LANGUAGES.map((l) => [l.code, l.native === l.name ? l.name : `${l.name} — ${l.native}`]);
 
 export function openDetails(tab = 'basics') {
   const b = state.book;
@@ -17,7 +19,13 @@ export function openDetails(tab = 'basics') {
       f('Subtitle', 'subtitle'),
       h('div.grid-2', f('Author / pen name', 'author'), f('Copyright holder', 'copyrightHolder', { placeholder: m.author || 'Defaults to author' })),
       h('div.grid-2', f('Series', 'series'), f('Number in series', 'seriesNumber', { placeholder: 'e.g. 1' })),
-      h('div.grid-2', field('Language', select(LANGS, m.language, set('language'))), f('Genre', 'genre', { placeholder: 'e.g. Fantasy' })),
+      h('div.grid-2', field('Language', select(LANGS, m.language, async (v) => {
+        m.language = v; touch('meta');
+        const L = langInfo(v);
+        if (await confirmDialog(`Set up the book for ${L.name}?`, `Switch the fonts to ${L.body} / ${L.heading}, use “${L.labels.chapter}” for chapter numbers and “${L.labels.contents}” for the contents page${L.dir === 'rtl' ? ', and lay pages out right-to-left' : ''}. You can change everything afterwards in Format.`, { okLabel: 'Apply' })) {
+          applyLanguageDesign(b, v); touch('format'); touch('elements'); toast('Book set up for ' + L.name, 'success');
+        }
+      })), f('Genre', 'genre', { placeholder: 'e.g. Fantasy' })),
     );
     if (t === 'publishing') add(body, 
       h('div.grid-2', f('Publisher / imprint', 'publisher'), f('Publisher city', 'publisherCity')),

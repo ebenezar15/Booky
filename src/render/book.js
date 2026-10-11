@@ -35,9 +35,15 @@ function textNodes(root) {
   return out;
 }
 
+// First user-perceived character, so Indic letters keep their vowel signs (e.g. "கா" not "க").
+function firstGrapheme(s) {
+  try { return new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)[Symbol.iterator]().next().value?.segment || s[0]; } catch { return s.match(/^.\p{M}*/u)?.[0] || s[0]; }
+}
+
 function applyDropCap(p, doc) {
   for (const t of textNodes(p)) {
-    const m = t.data.match(/^(\s*)([“"‘'(\[]*\p{L}|\p{N})/u);
+    const lead = t.data.match(/^(\s*)([“"‘'(\[]*)(?=[\p{L}\p{N}])/u);
+    const m = lead && [lead[0] + firstGrapheme(t.data.slice(lead[0].length)), lead[1], lead[2] + firstGrapheme(t.data.slice(lead[0].length))];
     if (!m) { if (t.data.trim()) return; continue; }
     const span = doc.createElement('span');
     span.className = 'bk-dropcap';
