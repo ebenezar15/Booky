@@ -71,9 +71,10 @@ export function renderWorkspace(root) {
     modeBtns.forEach((b) => b.classList.toggle('on', b.dataset.mode === state.mode));
     const m = state.mode;
     if (m === 'write') {
-      if (state.app.showBinder !== false) viewCleanup.push(renderBinder(body));
+      viewCleanup.push(renderBinder(body));
       viewCleanup.push(renderEditor(body));
-      if (state.app.showInspector !== false) viewCleanup.push(renderInspector(body));
+      viewCleanup.push(renderInspector(body));
+      applyPanels();
     } else if (m === 'plan') {
       viewCleanup.push(renderBinder(body));
       viewCleanup.push(renderPlan(body));
@@ -92,7 +93,6 @@ export function renderWorkspace(root) {
     on('saving', setSave),
     on('meta', refreshTitle),
     on('changed', () => { wordsText.textContent = `${bookWords(book).toLocaleString()} words`; }),
-    on('layout', renderMode),
     () => viewCleanup.forEach((f) => f && f()),
   );
 
@@ -100,11 +100,34 @@ export function renderWorkspace(root) {
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save().then(() => toast('Saved', 'success', 1200)); }
     if (mod && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); if (state.mode !== 'write') setMode('write'); setTimeout(() => document.dispatchEvent(new CustomEvent('booky:focus-mode')), 30); }
-    if (mod && e.key === '\\') { e.preventDefault(); setApp({ showBinder: state.app.showBinder === false }); renderMode(); }
+    if (mod && e.key === '\\') { e.preventDefault(); toggleBinder(); }
   };
   document.addEventListener('keydown', onKey);
   cleanup.push(() => document.removeEventListener('keydown', onKey));
 }
 
-export function toggleBinder() { setApp({ showBinder: state.app.showBinder === false }); touch('layout'); }
-export function toggleInspector() { setApp({ showInspector: state.app.showInspector === false }); touch('layout'); }
+const narrow = () => window.innerWidth <= 900;
+
+// Wide screens: panels are shown/hidden and the choice is remembered.
+// Narrow screens: panels slide over the editor only when opened.
+function applyPanels() {
+  document.querySelector('.workspace .binder')?.classList.toggle('hidden', state.app.showBinder === false);
+  document.querySelector('.workspace .inspector')?.classList.toggle('hidden', state.app.showInspector === false);
+}
+
+function togglePanel(sel, key) {
+  const el = document.querySelector(`.workspace ${sel}`);
+  if (!el) return;
+  if (narrow()) {
+    el.classList.remove('hidden');
+    const open = !el.classList.contains('open');
+    document.querySelectorAll('.workspace .open').forEach((n) => n.classList.remove('open'));
+    el.classList.toggle('open', open);
+    return;
+  }
+  setApp({ [key]: state.app[key] === false });
+  applyPanels();
+}
+
+export function toggleBinder() { togglePanel('.binder', 'showBinder'); }
+export function toggleInspector() { togglePanel('.inspector', 'showInspector'); }

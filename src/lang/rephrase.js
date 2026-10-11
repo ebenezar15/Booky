@@ -97,6 +97,20 @@ export function reorder(text) {
   return null;
 }
 
+// "The wind came in like a living thing." -> "Like a living thing, the wind came in."
+export function frontSimile(text) {
+  const m = text.match(/^(.{8,}?),?\s+(like an?|like the|as if|as though)\s+([^,;]+?)([.!?]?)$/i);
+  if (!m || words(m[3]).length > 10) return null;
+  return tidy(`${cap(m[2])} ${m[3]}, ${decap(m[1])}${m[4] || '.'}`);
+}
+
+// "She waited by the door until dawn." -> "Until dawn, she waited by the door."
+export function frontPhrase(text) {
+  const m = text.match(/^(.{8,}?)\s+((?:in|on|at|from|over|under|across|through|into|beside|behind|after|before|during|until|beneath|above|along|toward|towards|without|with)\s+(?:the|a|an|his|her|their|its|my|our|your|this|that|each|every|dawn|dusk|night|morning|midnight)\b[^,;]*?)([.!?]?)$/i);
+  if (!m || words(m[2]).length > 7 || words(m[1]).length < 3) return null;
+  return tidy(`${cap(m[2])}, ${decap(m[1])}${m[3] || '.'}`);
+}
+
 export function concise(text) {
   let t = text
     .replace(/^There (is|are|was|were) (an?|the|some|many|several)?\s*([\w\s]+?) (who|that|which) /i, (all, be, det, noun) => `${cap(((det ? det + ' ' : '') + noun).trim())} `)
@@ -107,10 +121,13 @@ export function concise(text) {
   return tidy(t);
 }
 
+// Words whose synonyms are safe to swap without context (adjectives, adverbs, past-tense verbs).
+const SAFE_SWAP = new Set(['big', 'small', 'happy', 'sad', 'angry', 'afraid', 'scared', 'beautiful', 'pretty', 'ugly', 'fast', 'quick', 'slow', 'old', 'important', 'interesting', 'strange', 'dark', 'bright', 'cold', 'hot', 'quiet', 'loud', 'tired', 'hard', 'easy', 'smart', 'nice', 'great', 'said', 'asked', 'shouted', 'whispered', 'walked', 'ran', 'looked', 'smiled', 'laughed', 'cried', 'turned', 'grabbed', 'pulled', 'pushed', 'started', 'began', 'stopped', 'wanted', 'tried', 'showed', 'suddenly', 'maybe', 'often', 'however', 'calm', 'nervous', 'shocked', 'surprised', 'wet', 'dirty', 'clean', 'strong', 'weak', 'rich', 'poor', 'little', 'large']);
+
 export function varyWords(text, seed = 0) {
   let changed = 0;
   const out = text.replace(/\b([A-Za-z]+)\b/g, (w) => {
-    const list = THESAURUS[w.toLowerCase()];
+    const list = SAFE_SWAP.has(w.toLowerCase()) ? THESAURUS[w.toLowerCase()] : null;
     if (!list || changed >= 2) return w;
     changed++;
     const s = list[(seed + changed) % list.length];
@@ -128,6 +145,8 @@ export function rephrase(sentence) {
     ['More concise', concise(simplify(src))],
     ['Split into two', split(src)],
     ['Reordered', reorder(src)],
+    ['Lead with the image', frontSimile(src)],
+    ['Lead with the setting', frontPhrase(src)],
     ['Casual (contractions)', contractions(src, 'casual')],
     ['Formal (no contractions)', contractions(src, 'formal')],
     ['Varied word choice', varyWords(src, 0)],

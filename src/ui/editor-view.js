@@ -128,7 +128,7 @@ export function renderEditor(host) {
     iconBtn('remove-formatting', 'Clear formatting', () => editor.chain().focus().unsetAllMarks().setParagraph().updateAttributes('paragraph', { pstyle: '' }).unsetTextAlign().run()),
     imgTools,
     h('span.grow'),
-    iconBtn('wand-sparkles', 'Rephrase sentence (Ctrl Shift R)', () => openRephrase()),
+    iconBtn('wand-sparkles', 'Rephrase sentence (Ctrl Alt R)', () => openRephrase()),
     iconBtn('search', 'Find & replace (Ctrl F)', () => openFind()),
     tb.focusBtn = iconBtn('focus', 'Focus mode (Ctrl Shift F)', () => toggleFocus()),
     iconBtn('a-large-small', 'Writing view settings', (e) => viewMenu(e.currentTarget)),
@@ -368,7 +368,7 @@ export function renderEditor(host) {
         items.push({ label: `Synonyms for “${word}”`, icon: 'book-a', sub: syns.map((s) => ({ label: s, onClick: () => editor.chain().focus().insertContentAt({ from: $p.start() + a, to: $p.start() + b }, s).run() })) });
       }
     }
-    items.push({ label: 'Rephrase sentence…', icon: 'wand-sparkles', hint: 'Ctrl⇧R', onClick: () => openRephrase(posInfo && sel.empty ? { at: posInfo.pos } : null) });
+    items.push({ label: 'Rephrase sentence…', icon: 'wand-sparkles', hint: 'Ctrl Alt R', onClick: () => openRephrase(posInfo && sel.empty ? { at: posInfo.pos } : null) });
     items.push({ label: 'Copy', icon: 'copy', disabled: sel.empty, onClick: () => document.execCommand('copy') });
     items.push({ label: 'Cut', icon: 'copy', disabled: sel.empty, onClick: () => document.execCommand('cut') });
     items.push({ divider: true });
@@ -559,12 +559,7 @@ export function renderEditor(host) {
       if (next) { e.preventDefault(); selectElement(next.id); }
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && !e.shiftKey) { e.preventDefault(); openFind(); }
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') { e.preventDefault(); openRephrase(); }
-    if ((e.ctrlKey || e.metaKey) && e.altKey && /^[0-4]$/.test(e.key)) {
-      e.preventDefault();
-      if (e.key === '0') editor?.chain().focus().setParagraph().run();
-      else editor?.chain().focus().toggleHeading({ level: +e.key }).run();
-    }
+    if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyR') { e.preventDefault(); openRephrase(); }
   };
   document.addEventListener('keydown', onKey);
 

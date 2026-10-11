@@ -39,3 +39,9 @@ test('readability', () => {
   const r = readability('The cat sat on the mat. It was happy.');
   assert.ok(r.ease > 80);
 });
+
+test('rephrase restructures simple sentences', async () => {
+  const { frontSimile, frontPhrase } = await import('../src/lang/rephrase.js');
+  assert.equal(frontSimile('The wind came in off the sea like a living thing.'), 'Like a living thing, the wind came in off the sea.');
+  assert.equal(frontPhrase('She waited by the door until dawn.'), 'Until dawn, she waited by the door.');
+});

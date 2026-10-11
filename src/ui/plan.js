@@ -132,7 +132,7 @@ export function renderPlan(host) {
     const total = bookWords(book);
     const pct = g.target ? Math.min(1, total / g.target) : 0;
     const R = 52, C = 2 * Math.PI * R;
-    const ring = `<svg class="ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="12"/><circle cx="60" cy="60" r="${R}" fill="none" stroke="url(#gg)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}" transform="rotate(-90 60 60)"/><defs><linearGradient id="gg"><stop offset="0" stop-color="var(--primary)"/><stop offset="1" stop-color="var(--accent)"/></linearGradient></defs><text x="60" y="66" text-anchor="middle" font-size="22" font-weight="700" fill="var(--text)">${Math.round(pct * 100)}%</text></svg>`;
+    const ring = `<svg class="ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="12"/><circle cx="60" cy="60" r="${R}" fill="none" stroke="url(#gg)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}" opacity="${pct > 0 ? 1 : 0}" transform="rotate(-90 60 60)"/><defs><linearGradient id="gg"><stop offset="0" stop-color="var(--primary)"/><stop offset="1" stop-color="var(--accent)"/></linearGradient></defs><text x="60" y="66" text-anchor="middle" font-size="22" font-weight="700" fill="var(--text)">${Math.round(pct * 100)}%</text></svg>`;
     // daily words over the last 30 days
     const days = [];
     const hist = g.history;

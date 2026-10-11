@@ -30,8 +30,8 @@ export function renderInspector(host) {
     clear(tabsEl);
     const ed = getEditor();
     const n = ed ? allIssues(ed.state).length : 0;
-    TABS.forEach((t) => tabsEl.appendChild(h(`button.insp-tab${t.id === tab ? '.on' : ''}`, { type: 'button', role: 'tab', on: { click: () => { tab = lastTab = t.id; draw(); } } },
-      icon(t.icon, 14), t.label, t.id === 'check' && n ? h('span.badge', n) : null)));
+    TABS.forEach((t) => tabsEl.appendChild(h(`button.insp-tab${t.id === tab ? '.on' : ''}`, { type: 'button', role: 'tab', title: t.label, on: { click: () => { tab = lastTab = t.id; draw(); } } },
+      icon(t.icon, 15), h('span.insp-label', t.label), t.id === 'check' && n ? h('span.badge', n) : null)));
   };
 
   function draw() {

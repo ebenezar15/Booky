@@ -55,12 +55,13 @@ export function renderFormat(host) {
     segmented([['light', 'Light'], ['sepia', 'Sepia'], ['dark', 'Dark']], readerTheme, (v) => { readerTheme = v; refresh(); }),
     iconBtn('a-large-small', 'Reader font size', () => { fontScale = fontScale >= 1.4 ? 0.85 : +(fontScale + 0.15).toFixed(2); refresh(); }),
   );
+  const printBtn = btn('Print / PDF', { icon: 'printer', kind: 'primary', cls: 'btn-sm', title: 'Open the print dialog — choose “Save as PDF”', onClick: () => preview.print() });
   const bar = h('div.preview-bar',
-    segmented([['print', 'Print book'], ['ebook', 'Ebook']], target, (v) => { target = v; printTools.classList.toggle('hidden', v !== 'print'); ebookTools.classList.toggle('hidden', v !== 'ebook'); refresh(); }),
+    segmented([['print', 'Print book'], ['ebook', 'Ebook']], target, (v) => { target = v; printTools.classList.toggle('hidden', v !== 'print'); ebookTools.classList.toggle('hidden', v !== 'ebook'); printBtn.classList.toggle('hidden', v !== 'print'); refresh(); }),
     scopeSel, printTools, ebookTools, h('span.grow'), pages,
     toggle(auto, (v) => { auto = v; }, 'Auto'),
     iconBtn('refresh-cw', 'Refresh preview', () => refresh()),
-    btn('Print / PDF', { icon: 'printer', kind: 'primary', cls: 'btn-sm', title: 'Open the print dialog — choose “Save as PDF”', onClick: () => { if (target !== 'print') { toast('Switch to the Print book preview first', 'warn'); return; } preview.print(); } }),
+    printBtn,
   );
   add(pv, bar, previewHost);
 

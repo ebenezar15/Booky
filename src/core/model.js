@@ -73,7 +73,7 @@ export function createElement(type, overrides = {}) {
     notes: '',
     status: 'todo',
     label: '',
-    numbered: !!def.numbered,
+    numbered: !!def.numbered || type === 'part',
     showTitle: def.heading,
     include: { print: true, ebook: type !== 'blank' && type !== 'half-title' && type !== 'frontispiece' },
     startOn: type === 'chapter' || type === 'part' || def.section === 'front' ? 'default' : 'default',

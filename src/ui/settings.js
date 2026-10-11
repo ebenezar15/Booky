@@ -15,7 +15,8 @@ export const SHORTCUTS = [
   ['Save now', 'Ctrl S'],
   ['Focus mode', 'Ctrl Shift F'],
   ['Next / previous chapter', 'Alt ↓ / Alt ↑'],
-  ['Rephrase selected sentence', 'Ctrl Shift R'],
+  ['Rephrase selected sentence', 'Ctrl Alt R'],
+  ['Align left / centre / right / justify', 'Ctrl Shift L / E / R / J'],
   ['Undo / Redo', 'Ctrl Z / Ctrl Shift Z'],
 ];
 

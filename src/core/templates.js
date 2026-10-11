@@ -1,5 +1,6 @@
 // Starter book templates (structure + design theme) shown on "New Book".
 import { createBook, createElement } from './model.js';
+import { COVER_TEMPLATES } from './cover-templates.js';
 
 const ch = (title = '', content) => createElement('chapter', { title, ...(content ? { content } : {}) });
 const p = (t) => `<p>${t}</p>`;
@@ -101,6 +102,8 @@ export function bookFromTemplate(tplId, meta = {}) {
   const tpl = BOOK_TEMPLATES.find((t) => t.id === tplId) || BOOK_TEMPLATES[0];
   const book = createBook({ theme: tpl.theme, meta });
   book.elements = tpl.build();
+  const cover = { novel: 'classic', 'novel-parts': 'fantasy', nonfiction: 'nonfiction', memoir: 'literary', poetry: 'minimal', children: 'children', stories: 'literary', academic: 'nonfiction', blank: 'classic' }[tpl.id];
+  if (cover && COVER_TEMPLATES[cover]) { COVER_TEMPLATES[cover].apply(book.cover); book.cover.template = cover; }
   book.template = tpl.id;
   return book;
 }

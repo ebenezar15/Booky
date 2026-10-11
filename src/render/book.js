@@ -192,7 +192,8 @@ function tocHtml(book, sections, target) {
     const sub = (t.depth || 1) > 1 && s.subheads.length
       ? `<ol class="bk-toc-sub">${s.subheads.filter((h) => h.level <= t.depth).map((h) => `<li class="bk-toc-item lvl-${h.level}"><a href="#${h.id}"><span class="bk-toc-text">${escapeHtml(h.text)}</span>${target === 'print' ? '<span class="bk-toc-dots"></span>' : ''}</a></li>`).join('')}</ol>`
       : '';
-    const label = s.label && t.showNumbers !== false ? `<span class="bk-toc-num">${escapeHtml(s.label)}</span>` : '';
+    // Untitled chapters show just their number; titled ones get the number as a prefix.
+    const label = s.label && s.title && t.showNumbers !== false ? `<span class="bk-toc-num">${escapeHtml(s.label)}</span>` : '';
     return `<li class="bk-toc-item kind-${s.kind}${s.front ? ' is-front' : ''}"><a href="${target === 'ebook' ? s.file : ''}#${s.anchor}">${label}<span class="bk-toc-text">${escapeHtml(s.title || s.label)}</span>${target === 'print' ? '<span class="bk-toc-dots"></span>' : ''}</a>${sub}</li>`;
   };
   return `<nav class="bk-toc"><ol>${items.map(li).join('')}</ol></nav>`;

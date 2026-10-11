@@ -69,8 +69,7 @@ export function typographyCss(book, target) {
 .bk-notes ol { margin: 0 0 0 1.4em; padding: 0; }
 .bk-note p { text-indent: 0; margin: 0 0 .3em; }
 .bk-dropcap { font-family: ${fontStack(fp.dropCapFont || h.font)}; ${fp.dropCapColor ? `color: ${fp.dropCapColor};` : ''} }
-.has-dropcap .bk-dropcap { float: left; font-size: ${(lines * b.leading * 0.83).toFixed(2)}em; line-height: 0.82; padding: 0.06em 0.08em 0 0; margin-top: 0.02em; }
-@supports (initial-letter: 3) { .has-dropcap .bk-dropcap { float: none; font-size: 1em; line-height: inherit; padding: 0 .1em 0 0; margin: 0; initial-letter: ${lines}; -webkit-initial-letter: ${lines}; } }
+.has-dropcap .bk-dropcap { float: left; font-size: ${(((lines - 1) * b.leading + 0.72) / 0.7).toFixed(2)}em; line-height: 0.78; margin: 0.035em 0.07em 0 0; padding: 0; }
 .bk-lead { font-variant: small-caps; letter-spacing: .05em; }
 .bk-leadline::first-line { font-variant: small-caps; letter-spacing: .04em; }
 .bk-chap-head { padding-top: ${sink}; margin-bottom: ${after}; text-align: ${h.align}; hyphens: manual; text-indent: 0; break-after: avoid; page-break-after: avoid; }
