@@ -1,0 +1,55 @@
+# Publishes the website (landing page, the app and the review page) whichever way
+# GitHub Pages is set up in Settings → Pages:
+#  - Source "GitHub Actions": deploys the files directly;
+#  - Source "Deploy from a branch": asks GitHub to rebuild the site from this branch.
+name: Publish website
+
+on:
+  push:
+    branches: [main, claude/sleepy-tesla-l6eefn]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mode=$(gh api "repos/${{ github.repository }}/pages" --jq .build_type 2>/dev/null || echo none)
+          echo "Pages build type: $mode"
+          echo "type=$mode" >> "$GITHUB_OUTPUT"
+      - if: steps.mode.outputs.type == 'workflow'
+        uses: actions/checkout@v4
+      - if: steps.mode.outputs.type == 'workflow'
+        run: |
+          mkdir -p _site/release _site/public
+          cp index.html review.html .nojekyll _site/
+          cp release/Booky.html _site/release/
+          cp public/* _site/public/
+      - if: steps.mode.outputs.type == 'workflow'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - if: steps.mode.outputs.type == 'workflow'
+        id: deploy
+        uses: actions/deploy-pages@v4
+      - if: steps.mode.outputs.type == 'legacy'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" && echo "Rebuild requested"
+      - if: steps.mode.outputs.type == 'none'
+        run: echo "::warning::GitHub Pages is not turned on (Settings → Pages)."
