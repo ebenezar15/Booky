@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { FONT_LIST } from './font-list.mjs';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = path.resolve(import.meta.dirname, '..'); // works on Windows too
 const out = path.join(root, 'src/fonts');
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });

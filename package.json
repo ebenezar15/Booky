@@ -184,9 +184,9 @@
     "files": [
       "desktop/**/*",
       "dist/index.html",
-      "build/icon.png",
       "build/icon.ico",
-      "package.json"
+      "package.json",
+      "build/icon.png"
     ],
     "asar": true,
     "fileAssociations": [
@@ -207,7 +207,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "build/icon.png",
+      "icon": "build/icon.icns",
       "identity": null,
       "hardenedRuntime": false,
       "target": [

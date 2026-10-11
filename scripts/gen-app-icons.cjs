@@ -1,5 +1,6 @@
 // Renders assets/logo.svg into the desktop app icons (run when the logo changes; outputs are committed):
-//   build/icon.png      1024 px, macOS style (rounded tile with margin and shadow) — electron-builder makes the .icns
+//   build/icon.png      1024 px, macOS style (rounded tile with margin and shadow)
+//   build/icon.icns     macOS app and document icon
 //   build/icon.ico      Windows icon with 16–256 px images
 //   build/icon-512.png  full-bleed tile (Linux / installers)
 //   public/icon-192.png, public/icon-512.png  web app icons
@@ -19,6 +20,18 @@ async function render(page, size, { mac = false } = {}) {
     <div style="position:absolute;left:${off}px;top:${off}px;width:${inner}px;height:${inner}px;${mac ? `filter:drop-shadow(0 ${size * 0.012}px ${size * 0.02}px rgba(30,0,60,.35))` : ''}">
     ${svg.replace('<svg ', `<svg width="${inner}" height="${inner}" `)}</div></body></html>`);
   return page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } });
+}
+
+// ICNS container holding PNG images (macOS app and document icons).
+function icns(entries) {
+  const chunks = entries.map(({ type, data }) => {
+    const head = Buffer.alloc(8);
+    head.write(type, 0, 'ascii'); head.writeUInt32BE(data.length + 8, 4);
+    return Buffer.concat([head, data]);
+  });
+  const head = Buffer.alloc(8);
+  head.write('icns', 0, 'ascii'); head.writeUInt32BE(8 + chunks.reduce((n, c) => n + c.length, 0), 4);
+  return Buffer.concat([head, ...chunks]);
 }
 
 // ICO container holding PNG images (supported since Windows Vista).
@@ -43,6 +56,10 @@ function ico(pngs) {
   fs.mkdirSync(path.join(root, 'build'), { recursive: true });
   fs.writeFileSync(path.join(root, 'build/icon.png'), await render(page, 1024, { mac: true }));
   fs.writeFileSync(path.join(root, 'build/icon-512.png'), await render(page, 512));
+  const macTypes = [['icp4', 16], ['icp5', 32], ['icp6', 64], ['ic07', 128], ['ic08', 256], ['ic09', 512], ['ic10', 1024], ['ic11', 32], ['ic12', 64], ['ic13', 256], ['ic14', 512]];
+  const macEntries = [];
+  for (const [type, size] of macTypes) macEntries.push({ type, data: await render(page, size, { mac: true }) });
+  fs.writeFileSync(path.join(root, 'build/icon.icns'), icns(macEntries));
   const sizes = [16, 24, 32, 48, 64, 128, 256];
   const pngs = [];
   for (const s of sizes) pngs.push({ size: s, data: await render(page, s) });
