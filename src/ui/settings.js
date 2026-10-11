@@ -3,6 +3,7 @@ import { h, btn, icon, iconBtn, modal, toggle, field, pickFile, toast, segmented
 import { state, setApp } from '../core/store.js';
 import { addCustomFont, removeCustomFont, BUNDLED_FONTS, fontStack } from '../core/fonts.js';
 import { removeFromDictionary } from '../lang/spell.js';
+import { appearancePanel } from './appearance.js';
 
 export const SHORTCUTS = [
   ['Bold / Italic / Underline', 'Ctrl B / I / U'],
@@ -27,7 +28,7 @@ export function openSettings(tab = 'general') {
     clear(body);
     if (t === 'general') {
       add(body, 
-        field('Appearance', segmented([['light', 'Light', 'sun'], ['sepia', 'Sepia', 'coffee'], ['dark', 'Dark', 'moon']].map(([v, l, i]) => [v, l]), state.app.theme, (v) => setApp({ theme: v }))),
+        appearancePanel(),
         h('div.col', { style: { gap: '12px', marginTop: '6px' } },
           toggle(state.app.typewriter, (v) => setApp({ typewriter: v }), 'Typewriter scrolling (keep the cursor line centred)'),
           toggle(state.app.smartQuotes !== false, (v) => setApp({ smartQuotes: v }), 'Smart quotes & dashes while typing (“ ” ‘ ’ —)'),

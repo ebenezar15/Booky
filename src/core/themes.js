@@ -61,7 +61,7 @@ const BASE = {
   cropMarks: false,
   body: {
     font: 'EB Garamond', size: 11.5, leading: 1.45, align: 'justify', hyphenate: true,
-    spacing: 'indent', indent: 1.5, paraGap: 0.7, color: '#111111',
+    spacing: 'indent', indent: 1.5, paraGap: 0.7, indentGap: 0, letterSpacing: 0, wordSpacing: 0, color: '#111111',
   },
   headings: {
     font: 'EB Garamond', numberFont: '', align: 'center', sink: 1.4, afterSpace: 0.45,
@@ -75,7 +75,7 @@ const BASE = {
   firstPara: { dropCap: false, dropCapLines: 3, dropCapFont: '', dropCapColor: '', leadIn: 'smallcaps-line', leadWords: 4, indent: false },
   sceneBreak: { style: 'stars', custom: '', noIndentAfter: true },
   header: { show: true, verso: 'author', recto: 'chapter', font: '', size: 8.5, case: 'upper', italic: false, spacing: 0.16, align: 'center' },
-  pageNumbers: { position: 'bottom-center', showOnChapterStart: true, frontRoman: true, font: '', size: 9.5 },
+  pageNumbers: { position: 'bottom-center', showOnChapterStart: true, frontRoman: true, font: '', size: 9.5, style: 'plain', startAt: 1, color: '' },
   toc: { showNumbers: true, pageNumbers: true, leaders: true, depth: 1, numberStyle: 'smallcaps' },
   layout: { chapterStart: 'right', partStart: 'right', frontStart: 'right', widows: 2, orphans: 2 },
   ebook: { useBookFonts: true, embedFonts: false, justify: false, indent: true, includeToc: true, dropCaps: false },

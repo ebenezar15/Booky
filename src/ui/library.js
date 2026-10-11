@@ -1,12 +1,15 @@
 // Library / home screen: book shelf, templates, import.
-import { h, icon, btn, iconBtn, menu, modal, toast, confirmDialog, field, pickFile, downloadBlob, slugify, timeAgo, segmented, clear, input, add } from './dom.js';
+import { h, icon, btn, iconBtn, menu, modal, toast, confirmDialog, field, pickFile, downloadBlob, slugify, timeAgo, segmented, clear, input, add, select, slider } from './dom.js';
 import { db } from '../core/db.js';
 import { BOOK_TEMPLATES, bookFromTemplate } from '../core/templates.js';
-import { bookWords, createBook, createElement, normalizeBook, uid } from '../core/model.js';
+import { THEMES, TRIM_SIZES, defaultFormat, applyTheme } from '../core/themes.js';
+import { allFonts, fontStack } from '../core/fonts.js';
+import { bookWords, createBook, createElement, normalizeBook, uid, applyCase, formatNumber } from '../core/model.js';
 import { coverThumbnail } from '../render/cover.js';
 import { readManuscript, splitIntoChapters, chunksToElements, importSummary, IMPORT_ACCEPT } from '../import/importer.js';
 import { state, setApp } from '../core/store.js';
 import { openSettings } from './settings.js';
+import { appearanceButton } from './appearance.js';
 
 export function brand(onClick) {
   return h('div.brand', { on: { click: onClick }, title: 'Booky home' },
@@ -32,12 +35,36 @@ export async function renderLibrary(root) {
     h('div.grow'),
     h('div.topbar-actions',
       btn('Import', { icon: 'upload', kind: 'ghost', onClick: () => importFlow() }),
+      appearanceButton(),
       themeButton(),
       iconBtn('settings', 'Settings', () => openSettings()),
     ));
 
+  let query = '', sort = sessionStorage.getItem('booky-sort') || 'recent';
+  const normalized = books.map((b) => normalizeBook(b));
+  const grid = h('div.book-grid');
+  const drawShelf = () => {
+    clear(grid);
+    const q = query.toLowerCase();
+    const list = normalized
+      .filter((b) => !q || [b.meta.title, b.meta.author, b.meta.series, b.meta.genre].join(' ').toLowerCase().includes(q))
+      .sort((a, b) => sort === 'title' ? (a.meta.title || '').localeCompare(b.meta.title || '')
+        : sort === 'words' ? bookWords(b) - bookWords(a)
+        : sort === 'created' ? b.createdAt - a.createdAt
+        : b.updatedAt - a.updatedAt);
+    list.forEach((b) => grid.appendChild(bookCard(b)));
+    if (!list.length) grid.appendChild(h('p.muted', 'No projects match your search.'));
+  };
+  drawShelf();
+  const totalWords = normalized.reduce((n, b) => n + bookWords(b), 0);
   const shelf = books.length
-    ? h('div.book-grid', books.map((b) => bookCard(normalizeBook(b))))
+    ? h('div',
+      h('div.shelf-bar',
+        h('input.input', { type: 'search', placeholder: 'Search projects by title, author, series…', style: { maxWidth: '340px' }, on: { input: (e) => { query = e.target.value; drawShelf(); } } }),
+        select([['recent', 'Recently edited'], ['created', 'Newest'], ['title', 'Title A–Z'], ['words', 'Most words']], sort, (v) => { sort = v; sessionStorage.setItem('booky-sort', v); drawShelf(); }, { style: 'width:auto' }),
+        h('span.grow'),
+        h('span.muted.small', `${books.length} project${books.length === 1 ? '' : 's'} · ${totalWords.toLocaleString()} words written`)),
+      grid)
     : h('div.empty-state', icon('feather', 34), h('h3', 'Your shelf is empty'), h('p', 'Start a new book from a template below, or import an existing manuscript (Word, Markdown, text).'));
 
   const lib = h('main.library',
@@ -49,10 +76,10 @@ export async function renderLibrary(root) {
         btn('Import manuscript', { icon: 'file-up', cls: 'btn-lg', onClick: () => importFlow() }),
         btn('Open backup (.booky)', { icon: 'folder-open', kind: 'ghost', cls: 'btn-lg', onClick: () => importFlow('.booky,.json') }),
       )),
-    books.length ? h('section.lib-section', h('h2', `Your books · ${books.length}`), shelf) : null,
+    books.length ? h('section.lib-section', h('h2', 'Your projects'), shelf) : null,
     h('section.lib-section',
       h('h2', 'Start from a template'),
-      h('div.tpl-grid', BOOK_TEMPLATES.map((t) => h('button.tpl-card', { type: 'button', on: { click: () => newBookDialog(t.id) } },
+      h('div.tpl-grid', [...BOOK_TEMPLATES, ...(state.app.customTemplates || []).map((c) => ({ ...c, icon: 'star', desc: c.desc || 'Your saved template' }))].map((t) => h('button.tpl-card', { type: 'button', on: { click: () => newBookDialog(t.id) } },
         h('span.tpl-ic', icon(t.icon, 20)), h('b', t.name), h('span', t.desc))))),
     books.length ? null : h('section.lib-section', shelf),
     h('footer.lib-foot',
@@ -105,33 +132,84 @@ export function downloadBackup(book) {
 export function newBookDialog(tplId = 'novel') {
   let chosen = tplId;
   const meta = { title: '', subtitle: '', author: state.app.lastAuthor || '' };
+  const customs = state.app.customTemplates || [];
+  const all = () => [...BOOK_TEMPLATES, ...customs.map((c) => ({ ...c, icon: 'star' }))];
+  // Design choices start from the template's theme and can be changed before creating the book.
+  let design = null;
+  const resetDesign = () => {
+    const c = customs.find((x) => x.id === chosen);
+    design = c ? JSON.parse(JSON.stringify(c.format)) : defaultFormat(BOOK_TEMPLATES.find((t) => t.id === chosen)?.theme);
+  };
+  resetDesign();
   const grid = h('div.tpl-grid', { style: { gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' } });
+  const designBox = h('div.design-box');
+  const sample = h('div.design-sample');
   const draw = () => {
     clear(grid);
-    BOOK_TEMPLATES.forEach((t) => grid.appendChild(h('button.tpl-card', {
+    all().forEach((t) => grid.appendChild(h('button.tpl-card', {
       type: 'button', style: { padding: '10px', borderColor: t.id === chosen ? 'var(--primary)' : '', boxShadow: t.id === chosen ? 'var(--focus)' : '' },
-      on: { click: () => { chosen = t.id; draw(); } },
+      on: { click: () => { chosen = t.id; resetDesign(); draw(); drawDesign(); } },
     }, h('span.tpl-ic', { style: { width: '30px', height: '30px' } }, icon(t.icon, 16)), h('b', { style: { fontSize: '13px' } }, t.name))));
   };
+  const drawSample = () => {
+    const f = design;
+    const num = f.headings.numberStyle === 'none' ? '' : applyCase(`${f.headings.numberPrefix ? f.headings.numberPrefix + ' ' : ''}${formatNumber(1, f.headings.numberStyle)}`, f.headings.numberCase);
+    clear(sample);
+    add(sample,
+      h('div', { style: { textAlign: f.headings.align, fontFamily: fontStack(f.headings.numberFont || f.headings.font), fontSize: '9px', letterSpacing: f.headings.numberSpacing + 'em' } }, num),
+      h('div', { style: { textAlign: f.headings.align, fontFamily: fontStack(f.headings.font), fontSize: '17px', fontStyle: f.headings.titleItalic ? 'italic' : '', fontWeight: f.headings.titleWeight, textTransform: f.headings.titleCase === 'upper' ? 'uppercase' : '', margin: '2px 0 10px' } }, 'The Beginning'),
+      ...['The morning came slowly over the harbour, grey at first and then gold, and the gulls began their arguments above the boats.', 'She folded the letter twice and put it in her pocket, where it stayed for the rest of the summer.'].map((t, i) => h('p', {
+        style: { fontFamily: fontStack(f.body.font), fontSize: `${f.body.size * 0.92}px`, lineHeight: f.body.leading, textAlign: f.body.align, margin: f.body.spacing === 'block' ? `0 0 ${f.body.paraGap}em` : 0, textIndent: f.body.spacing === 'indent' && i ? `${f.body.indent}em` : 0, letterSpacing: `${f.body.letterSpacing || 0}em`, hyphens: 'auto' },
+      }, t)));
+  };
+  const drawDesign = () => {
+    clear(designBox);
+    const f = design;
+    const fonts = allFonts().map((n) => ({ value: n, label: n, style: `font-family:${fontStack(n)}` }));
+    const ch = () => drawSample();
+    add(designBox,
+      h('div.grid-2',
+        field('Design theme', select(Object.entries(THEMES).map(([id, t]) => [id, t.label]), f.theme, (v) => { design = applyTheme(design, v); drawDesign(); })),
+        field('Trim size', select(TRIM_SIZES.filter((t) => t.id !== 'custom').map((t) => [t.id, t.label]), f.trim, (v) => { f.trim = v; }))),
+      h('div.grid-2',
+        field('Body font', select(fonts, f.body.font, (v) => { f.body.font = v; ch(); })),
+        field('Heading font', select(fonts, f.headings.font, (v) => { f.headings.font = v; ch(); }))),
+      h('div.grid-2',
+        field('Text size', slider(f.body.size, 8, 18, 0.5, (v) => { f.body.size = v; ch(); }, (v) => `${v} pt`)),
+        field('Line spacing', slider(f.body.leading, 1, 2.2, 0.05, (v) => { f.body.leading = v; ch(); }, (v) => v.toFixed(2)))),
+      h('div.grid-2',
+        field('Paragraphs', segmented([['indent', 'Indented'], ['block', 'Spaced']], f.body.spacing, (v) => { f.body.spacing = v; ch(); })),
+        field('Alignment', segmented([['justify', 'Justified'], ['left', 'Left']], f.body.align, (v) => { f.body.align = v; ch(); }))),
+      h('div.grid-2',
+        field('Chapter numbers', select([['word', 'Chapter One'], ['numeral', 'Chapter 1'], ['roman', 'I, II'], ['padded', '01'], ['none', 'Hidden']], f.headings.numberStyle, (v) => { f.headings.numberStyle = v; ch(); })),
+        field('Drop cap', segmented([['no', 'Off'], ['yes', 'On']], f.firstPara.dropCap ? 'yes' : 'no', (v) => { f.firstPara.dropCap = v === 'yes'; }))),
+    );
+    drawSample();
+  };
   draw();
+  drawDesign();
   const create = async () => {
-    const book = bookFromTemplate(chosen, { title: meta.title.trim() || 'Untitled Book', subtitle: meta.subtitle.trim(), author: meta.author.trim() });
+    const book = bookFromTemplate(chosen, { title: meta.title.trim() || 'Untitled Book', subtitle: meta.subtitle.trim(), author: meta.author.trim() }, customs);
+    book.format = design;
     setApp({ lastAuthor: meta.author.trim() });
     await db.putBook(book);
     m.close();
     location.hash = `#/book/${book.id}`;
   };
   const m = modal({
-    title: 'Create a new book', width: 620,
-    body: [
-      h('div.grid-2',
-        field('Title', input('', (v) => (meta.title = v), { placeholder: 'The Great Untitled' })),
-        field('Author / pen name', input(meta.author, (v) => (meta.author = v), { placeholder: 'Your name' }))),
-      field('Subtitle (optional)', input('', (v) => (meta.subtitle = v))),
-      h('div.field-label', { style: { margin: '6px 0 8px' } }, 'Template'),
-      grid,
-      h('p.hint', { style: { marginTop: '10px' } }, 'Templates set up the structure (front matter, chapters, back matter) and a matching interior design. Everything can be changed later.'),
-    ],
+    title: 'Create a new book', width: 920,
+    body: h('div.newbook',
+      h('div',
+        h('div.grid-2',
+          field('Title', input('', (v) => (meta.title = v), { placeholder: 'The Great Untitled' })),
+          field('Author / pen name', input(meta.author, (v) => (meta.author = v), { placeholder: 'Your name' }))),
+        field('Subtitle (optional)', input('', (v) => (meta.subtitle = v))),
+        h('div.field-label', { style: { margin: '6px 0 8px' } }, 'Template'),
+        grid,
+        h('p.hint', { style: { marginTop: '10px' } }, 'Templates set up the pages (front matter, chapters, back matter). Save your own from Format → “Save as template”.')),
+      h('div',
+        h('div.field-label', { style: { marginBottom: '8px' } }, 'Customise the design'),
+        sample, designBox)),
     footer: [btn('Cancel', { onClick: () => m.close() }), btn('Create book', { kind: 'primary', icon: 'sparkles', onClick: create })],
   });
 }

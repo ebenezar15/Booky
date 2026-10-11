@@ -6,6 +6,7 @@ import { takeSnapshot } from '../core/actions.js';
 import { getEditor } from './editor-view.js';
 import { allIssues } from '../editor/proofing.js';
 import { readability, easeLabel, overusedWords } from '../lang/grammar.js';
+import { textMetrics, readabilityAdvice } from '../lang/analysis.js';
 
 const TABS = [
   { id: 'page', label: 'Page', icon: 'sliders-horizontal' },
@@ -91,6 +92,9 @@ export function renderInspector(host) {
         h('div.stat', h('b', r.grade), h('span', 'Reading grade level')),
         h('div.stat', h('b', r.avgSentence), h('span', 'Avg. words / sentence')),
         h('div.stat', h('b', issues.length), h('span', 'Suggestions'))),
+      (() => { const a = readabilityAdvice(textMetrics(text)); return h('div.card', { style: { padding: '10px 12px', marginBottom: '12px' } },
+        h('div.row', h('b', 'Readability score'), h('span.grow'), h('span.score-pill', { style: { background: a.score >= 75 ? 'var(--success)' : a.score >= 55 ? 'var(--warning)' : 'var(--danger)' } }, a.score)),
+        h('ul.small', { style: { margin: '6px 0 0', paddingLeft: '18px', color: 'var(--text-2)' } }, a.tips.slice(0, 3).map((t) => h('li', t.text)))); })(),
       h('div.filter-row', pill('all', 'All'), pill('spelling', 'Spelling', '--spell'), pill('grammar', 'Grammar', '--grammar'), pill('style', 'Style', '--style'), pill('clarity', 'Clarity', '--clarity')),
     );
     const list = h('div.issue-list');

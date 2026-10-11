@@ -1,11 +1,13 @@
 // Format mode: interior design settings + live paginated print / ebook preview.
-import { h, icon, btn, iconBtn, clear, field, input, select, toggle, slider, color, segmented, pickFile, compressImage, debounce, toast, add } from './dom.js';
-import { state, on, touch } from '../core/store.js';
+import { h, icon, btn, iconBtn, clear, field, input, select, toggle, slider, color, segmented, pickFile, compressImage, debounce, toast, add, promptDialog, confirmDialog } from './dom.js';
+import { state, on, touch, setApp } from '../core/store.js';
+import { templateFromBook } from '../core/templates.js';
 import { THEMES, TRIM_SIZES, SCENE_BREAKS, ORNAMENTS, applyTheme, trimOf } from '../core/themes.js';
 import { allFonts, fontStack } from '../core/fonts.js';
-import { orderedElements, displayTitle, bookWords, formatNumber, applyCase } from '../core/model.js';
+import { orderedElements, displayTitle, bookWords, elementWords, formatNumber, applyCase } from '../core/model.js';
 import { PrintPreview, ebookPreviewHtml } from '../render/preview.js';
 import { renderSections } from '../render/book.js';
+import { exportPdfDialog } from './pdf-dialog.js';
 
 const openSections = new Set(['theme']);
 
@@ -55,7 +57,10 @@ export function renderFormat(host) {
     segmented([['light', 'Light'], ['sepia', 'Sepia'], ['dark', 'Dark']], readerTheme, (v) => { readerTheme = v; refresh(); }),
     iconBtn('a-large-small', 'Reader font size', () => { fontScale = fontScale >= 1.4 ? 0.85 : +(fontScale + 0.15).toFixed(2); refresh(); }),
   );
-  const printBtn = btn('Print / PDF', { icon: 'printer', kind: 'primary', cls: 'btn-sm', title: 'Open the print dialog — choose “Save as PDF”', onClick: () => preview.print() });
+  const printBtn = btn('', { icon: 'file-down', kind: 'primary', cls: 'btn-sm', title: 'Download a print-ready PDF of what is shown in the preview', onClick: () => {
+    const onlyId = scope === 'chapter' ? state.currentId : scope.startsWith('el:') ? scope.slice(3) : null;
+    exportPdfDialog(book, { onlyId });
+  } });
   const bar = h('div.preview-bar',
     segmented([['print', 'Print book'], ['ebook', 'Ebook']], target, (v) => { target = v; printTools.classList.toggle('hidden', v !== 'print'); ebookTools.classList.toggle('hidden', v !== 'ebook'); printBtn.classList.toggle('hidden', v !== 'print'); refresh(); }),
     scopeSel, printTools, ebookTools, h('span.grow'), pages,
@@ -78,6 +83,9 @@ export function renderFormat(host) {
         const r = await preview.render(book, { onlyId });
         if (my !== renderToken) return;
         pages.textContent = `${r.pages} page${r.pages === 1 ? '' : 's'}${onlyId ? '' : ` · ${trimLabel()}`}`;
+        if (!onlyId) pages.textContent += ` · ${bookWords(book).toLocaleString()} words`;
+        const sb = pane.querySelector('.acc[data-id="stats"].open .acc-body');
+        if (sb) drawStats(sb);
         if (!onlyId && r.pages) { book.cover.lastPageCount = r.pages + (r.pages % 2); }
         if (preview._firstFit !== false) { preview._firstFit = false; preview.fitWidth(); if (preview.zoom > 1) preview.setZoom(1); }
       } finally { if (my === renderToken) loading.classList.add('hidden'); }
@@ -112,7 +120,7 @@ export function renderFormat(host) {
   const seg = (obj, key, opts, redraw = false) => segmented(opts, obj[key], (v) => { obj[key] = v; change(redraw); });
 
   function acc(id, ic, title, build) {
-    const sec = h(`div.acc${openSections.has(id) ? '.open' : ''}`);
+    const sec = h(`div.acc${openSections.has(id) ? '.open' : ''}`, { dataset: { id } });
     const body = h('div.acc-body');
     const head = h('button.acc-head', { type: 'button', 'aria-expanded': String(openSections.has(id)), on: { click: () => {
       const open = !sec.classList.contains('open');
@@ -124,6 +132,32 @@ export function renderFormat(host) {
     add(sec, head, body);
     if (openSections.has(id)) build(body);
     return sec;
+  }
+
+  // Word counts per chapter, with the printed page each starts on (from the last full preview).
+  function drawStats(b) {
+    clear(b);
+    const els = orderedElements(book).filter((e) => e.include.print || e.include.ebook);
+    const total = bookWords(book);
+    const pagesDone = preview.pages && scope === 'book' && target === 'print' ? preview.pages : book.cover.lastPageCount || 0;
+    const startPage = (id) => preview.doc?.querySelector(`[data-el="${id}"]`)?.closest('.pagedjs_page')?.getAttribute('data-folio') || '';
+    const max = Math.max(1, ...els.map((e) => elementWords(e)));
+    add(b,
+      h('div.stat-grid', { style: { marginBottom: '12px' } },
+        h('div.stat', h('b', total.toLocaleString()), h('span', 'Words')),
+        h('div.stat', h('b', pagesDone || '—'), h('span', 'Printed pages')),
+        h('div.stat', h('b', pagesDone ? Math.round(total / pagesDone) : '—'), h('span', 'Words per page')),
+        h('div.stat', h('b', total / 238 < 60 ? `${Math.max(1, Math.round(total / 238))} min` : `${Math.round(total / 238 / 6) / 10} h`), h('span', 'Reading time'))),
+      h('div.wc-table', els.filter((e) => e.type !== 'toc').map((e) => {
+        const w = elementWords(e);
+        return h('div.wc-row', { title: displayTitle(book, e) },
+          h('span.wc-title', displayTitle(book, e)),
+          h('span.wc-bar', h('i', { style: { width: `${(w / max) * 100}%` } })),
+          h('span.wc-num', w.toLocaleString()),
+          h('span.wc-page', startPage(e.id) ? `p. ${startPage(e.id)}` : ''));
+      })),
+      h('p.hint', 'Page numbers appear after a whole-book print preview.'),
+    );
   }
 
   function drawPane() {
@@ -144,6 +178,25 @@ export function renderFormat(host) {
               h('b', t.label), h('small', t.desc));
           })));
       }),
+      acc('mine', 'star', 'My templates', (b) => {
+        const list = state.app.customTemplates || [];
+        add(b,
+          h('p.hint', { style: { marginTop: 0 } }, 'Save this book’s complete design (fonts, spacing, headings, page numbers, cover style and page structure) and reuse it for new projects.'),
+          btn('Save current design as template…', { icon: 'save', kind: 'primary', cls: 'btn-block', onClick: async () => {
+            const name = await promptDialog('Save as template', 'Template name', `${book.meta.title} style`);
+            if (!name) return;
+            setApp({ customTemplates: [...list, templateFromBook(book, name)] });
+            toast(`Template “${name}” saved — use it from New book`, 'success');
+            drawPane();
+          } }),
+          h('div', { style: { height: '10px' } }),
+          ...list.map((t) => h('div.layer-row', icon('star', 15), h('span', t.name),
+            btn('Apply', { cls: 'btn-sm', title: 'Apply this template’s design to the current book', onClick: () => { book.format = JSON.parse(JSON.stringify(t.format)); change(true); toast(`Applied “${t.name}”`, 'success'); } }),
+            iconBtn('trash', 'Delete template', async () => { if (await confirmDialog('Delete template?', `“${t.name}” will be removed. Books made with it are not affected.`, { okLabel: 'Delete', danger: true })) { setApp({ customTemplates: list.filter((x) => x.id !== t.id) }); drawPane(); } }, { size: 15 }))),
+          list.length ? null : h('p.muted.small', 'No saved templates yet.'),
+        );
+      }),
+      acc('stats', 'chart-column', 'Word count & statistics', (b) => drawStats(b)),
       acc('page', 'ruler', 'Trim size & margins', (b) => {
         add(b, 
           field('Trim size', sel(F, 'trim', TRIM_SIZES.map((t) => [t.id, t.label]), true), 'The finished size of your printed book. Check your printer’s supported sizes (KDP, IngramSpark, Lulu…).'),
@@ -165,8 +218,12 @@ export function renderFormat(host) {
           field('Alignment', seg(F.body, 'align', [['justify', 'Justified'], ['left', 'Left']])),
           field('Paragraphs', seg(F.body, 'spacing', [['indent', 'First-line indent'], ['block', 'Space between']], true)),
           F.body.spacing === 'indent'
-            ? field('Indent size', sld(F.body, 'indent', 0.5, 3, 0.1, (v) => `${v} em`))
+            ? h('div', field('Indent size', sld(F.body, 'indent', 0.5, 3, 0.1, (v) => `${v} em`)),
+              field('Extra space between paragraphs', sld(F.body, 'indentGap', 0, 1, 0.05, (v) => `${v} em`)))
             : field('Space between paragraphs', sld(F.body, 'paraGap', 0.2, 1.6, 0.1, (v) => `${v} em`)),
+          h('div.grid-2',
+            field('Letter spacing', sld(F.body, 'letterSpacing', -0.03, 0.1, 0.005, (v) => `${v.toFixed(3)} em`)),
+            field('Word spacing', sld(F.body, 'wordSpacing', -0.1, 0.4, 0.01, (v) => `${v.toFixed(2)} em`))),
           h('div.col', { style: { gap: '10px', marginBottom: '12px' } }, tog(F.body, 'hyphenate', 'Hyphenation (smoother justified text)')),
           h('div.grid-2', field('Widow lines', num(F.layout, 'widows', { min: 1, max: 4 })), field('Orphan lines', num(F.layout, 'orphans', { min: 1, max: 4 }))),
           field('Text colour', color(F.body.color, (v) => { F.body.color = v; change(); })),
@@ -245,7 +302,11 @@ export function renderFormat(host) {
             tog(R, 'italic', 'Italic')) : null,
           h('div.section-title', { style: { marginTop: '18px' } }, 'Page numbers'),
           field('Position', sel(N, 'position', [['bottom-center', 'Bottom centre'], ['bottom-outside', 'Bottom outside'], ['top-outside', 'Top outside'], ['top-center', 'Top centre'], ['none', 'No page numbers']])),
+          h('div.grid-2',
+            field('Style', sel(N, 'style', [['plain', '12'], ['dashes', '— 12 —'], ['page', 'Page 12'], ['brackets', '[ 12 ]'], ['dots', '· 12 ·'], ['pipe', '| 12']])),
+            field('First body page is', num(N, 'startAt', { min: 0, max: 999, step: 1 }))),
           h('div.grid-2', field('Size (pt)', num(N, 'size', { step: 0.5, min: 6, max: 14 })), field('Font', sel(N, 'font', fontsWithDefault('Heading font')))),
+          h('div.row', { style: { marginBottom: '12px' } }, color(N.color || F.body.color, (v) => { N.color = v; change(); }), h('span.small', 'Page number colour')),
           h('div.col', { style: { gap: '10px' } }, tog(N, 'showOnChapterStart', 'Number on chapter opening pages'), tog(N, 'frontRoman', 'Roman numerals (i, ii, iii) for front matter')),
           h('p.hint', 'Title, copyright, dedication and blank pages never show heads or numbers — that’s the publishing convention.'),
         );

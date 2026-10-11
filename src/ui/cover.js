@@ -5,7 +5,6 @@ import { allFonts, fontStack, ensureFontsLoaded } from '../core/fonts.js';
 import { uid } from '../core/model.js';
 import { drawFront, drawWrap, drawGuides, wrapDims } from '../render/cover.js';
 import { COVER_TEMPLATES, coverText as T } from '../core/cover-templates.js';
-import { escapeHtml } from '../core/model.js';
 
 let selectedLayer = 'title';
 
@@ -28,7 +27,7 @@ export function renderCover(host) {
     h('label.row.small', h('input', { type: 'checkbox', checked: guides, on: { change: (e) => { guides = e.target.checked; draw(); } } }), 'Guides'),
     h('span.grow'), info,
     btn('Download ebook cover', { icon: 'download', cls: 'btn-sm', onClick: () => exportFront() }),
-    btn('Print cover (PDF)', { icon: 'printer', kind: 'primary', cls: 'btn-sm', onClick: () => exportWrapPdf() }),
+    btn('Print cover (PDF)', { icon: 'file-down', kind: 'primary', cls: 'btn-sm', onClick: () => exportWrapPdf() }),
   );
   add(right, bar, stage);
 
@@ -229,13 +228,11 @@ export function renderCover(host) {
   }
 
   async function exportWrapPdf() {
-    toast('Preparing print cover…');
+    toast('Preparing print cover PDF…');
     const { cv, d } = await wrapCanvas(300);
-    const url = cv.toDataURL('image/jpeg', 0.95);
-    const frame = h('iframe', { style: { position: 'fixed', width: '1px', height: '1px', left: '-10px', top: '-10px', border: 0 } });
-    document.body.appendChild(frame);
-    frame.srcdoc = `<!doctype html><html><head><title>${escapeHtml(book.meta.title)} — cover</title><style>@page{size:${d.totalW}in ${d.totalH}in;margin:0}html,body{margin:0}img{width:${d.totalW}in;height:${d.totalH}in;display:block}</style></head><body><img src="${url}"></body></html>`;
-    frame.onload = () => { setTimeout(() => { frame.contentWindow.focus(); frame.contentWindow.print(); setTimeout(() => frame.remove(), 60000); }, 300); };
+    const { pdfFromCanvas } = await import('../export/pdf.js');
+    downloadBlob(await pdfFromCanvas(cv, d.totalW, d.totalH, { title: `${book.meta.title} — cover` }), `${slugify(book.meta.title)}-print-cover.pdf`);
+    toast('Print cover PDF downloaded', 'success');
   }
 
   drawPane();

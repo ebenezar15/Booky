@@ -6,6 +6,7 @@ import { trimOf } from '../core/themes.js';
 import { estimatePages } from '../render/cover.js';
 import { PrintPreview } from '../render/preview.js';
 import { downloadBackup } from './library.js';
+import { platformGrid } from './platforms.js';
 import { openDetails } from './details.js';
 import { checkText } from '../lang/grammar.js';
 import { findMisspelled, WORD_RE, shouldSkip } from '../lang/spell.js';
@@ -33,9 +34,14 @@ export function renderPublish(host) {
     h('p.muted', `${book.meta.title || 'Untitled'} · ${bookWords(book).toLocaleString()} words · approx. ${pages} printed pages at ${w} × ${hh} in`),
     h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 380px)', gap: '22px', alignItems: 'start', marginTop: '8px' } },
       h('div',
-        h('div.export-grid',
-          card('printer', 'linear-gradient(135deg,#4b3fc4,#7b5ce0)', 'Print-ready PDF', 'Paginated interior with your trim size, mirrored margins, running heads and page numbers — ready for KDP Print, IngramSpark, Lulu or any printer.', [
-            btn('Create PDF', { kind: 'primary', icon: 'printer', onClick: () => printPdf(book) }),
+        h('div.card.platform-card',
+          h('h3', { style: { margin: '0 0 2px' } }, 'Publish to a platform'),
+          h('p.muted.small', { style: { margin: '0 0 12px' } }, 'Pick where you are publishing. Booky checks the platform’s requirements and builds a ready-to-upload package with the right files and sizes.'),
+          platformGrid(book)),
+        h('div.section-title', { style: { marginTop: '24px' } }, 'All export formats'),
+        h('div.export-grid', { style: { marginTop: '8px' } },
+          card('file-down', 'var(--grad)', 'Print-ready PDF', 'Paginated interior with your trim size, mirrored margins, running heads and page numbers — ready for KDP Print, IngramSpark, Lulu or any printer.', [
+            btn('Export PDF', { kind: 'primary', icon: 'file-down', onClick: () => printPdf(book) }),
             btn('Preview', { kind: 'ghost', onClick: () => setMode('format') }),
           ]),
           card('tablet', 'linear-gradient(135deg,#e07a5f,#f2a65a)', 'EPUB ebook', 'Reflowable EPUB 3 with cover, navigation and metadata — upload to Kindle (KDP), Apple Books, Kobo, Google Play, Barnes & Noble.', [
@@ -134,30 +140,4 @@ async function proofreadAll(book, out) {
     h('div', h('b', displayTitle(book, r.el)), h('span', `${r.sp} spelling · ${r.g} grammar · ${r.s} style${r.uniq.length ? ` — ${r.uniq.join(', ')}` : ''}`)))));
 }
 
-// Typeset the whole book off-screen and open the print dialog (Save as PDF).
-export async function printPdf(book) {
-  const hostEl = h('div', { style: { position: 'fixed', left: '-10000px', top: 0, width: '1200px', height: '900px', overflow: 'hidden' } });
-  document.body.appendChild(hostEl);
-  const status = h('p', 'Typesetting your book… this can take a little while for long books.');
-  const m = modal({
-    title: 'Create print-ready PDF', width: 520,
-    body: [h('div', { style: { textAlign: 'center', padding: '10px 0' } }, h('div.spinner', { style: { width: '34px', height: '34px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin .8s linear infinite', margin: '0 auto 12px' } }), status)],
-    onClose: () => hostEl.remove(),
-  });
-  const pv = new PrintPreview(hostEl);
-  pv.spread = false;
-  const r = await pv.render(book);
-  book.cover.lastPageCount = r.pages + (r.pages % 2);
-  const t = trimOf(book.format);
-  clear(m.box.querySelector('.modal-body')).append(
-    h('p', h('b', `${r.pages} pages typeset at ${t.w} × ${t.h} in.`)),
-    h('ol', { style: { paddingLeft: '20px', lineHeight: 1.7 } },
-      h('li', 'In the print dialog choose ', h('b', 'Save as PDF'), ' (or “Microsoft Print to PDF”).'),
-      h('li', 'Set ', h('b', 'Margins: Default/None'), ' and ', h('b', 'Scale: 100%'), '.'),
-      h('li', 'Turn on ', h('b', 'Background graphics'), ' if you use images or coloured text.'),
-      h('li', 'Paper size is set automatically to your trim size.')),
-    h('p.hint', 'Tip: Chrome, Edge and Brave give the best results. Fonts are embedded in the PDF automatically.'),
-  );
-  const foot = h('footer.modal-foot', btn('Close', { onClick: () => m.close() }), btn('Open print dialog', { kind: 'primary', icon: 'printer', onClick: () => pv.print() }));
-  m.box.appendChild(foot);
-}
+export { exportPdfDialog as printPdf } from './pdf-dialog.js';

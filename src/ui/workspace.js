@@ -1,21 +1,25 @@
 // Book workspace: top bar with modes (Write · Plan · Format · Cover · Publish).
-import { h, icon, iconBtn, clear, toast, menu, add } from './dom.js';
+import { h, icon, iconBtn, btn, clear, toast, menu, add } from './dom.js';
 import { state, on, setMode, save, touch, setApp } from '../core/store.js';
 import { brand, themeButton, downloadBackup } from './library.js';
 import { renderBinder } from './binder.js';
 import { renderEditor } from './editor-view.js';
 import { renderInspector } from './inspector.js';
 import { renderPlan } from './plan.js';
+import { renderReview } from './review.js';
 import { renderFormat } from './format.js';
 import { renderCover } from './cover.js';
 import { renderPublish } from './publish.js';
 import { openDetails } from './details.js';
 import { openSettings } from './settings.js';
+import { appearanceButton } from './appearance.js';
+import { exportPdfDialog } from './pdf-dialog.js';
 import { bookWords } from '../core/model.js';
 
 const MODES = [
   { id: 'write', label: 'Write', icon: 'pen-line' },
   { id: 'plan', label: 'Plan', icon: 'layout-grid' },
+  { id: 'review', label: 'Review', icon: 'spell-check' },
   { id: 'format', label: 'Format', icon: 'swatch-book' },
   { id: 'cover', label: 'Cover', icon: 'image' },
   { id: 'publish', label: 'Publish', icon: 'package' },
@@ -48,7 +52,9 @@ export function renderWorkspace(root) {
     h('div.topbar-title', titleEl, h('small', saveDot, saveText, '·', wordsText)),
     h('nav.modes', { role: 'tablist' }, modeBtns),
     h('div.topbar-actions',
+      btn('Export PDF', { icon: 'file-down', kind: 'primary', cls: 'btn-sm topbar-pdf', onClick: () => exportPdfDialog(book) }),
       iconBtn('book-open-text', 'Book details (title, author, ISBN…)', () => openDetails()),
+      appearanceButton(),
       themeButton(),
       iconBtn('ellipsis-vertical', 'More', (e) => menu(e.currentTarget, [
         { label: 'Book details…', icon: 'book-open-text', onClick: () => openDetails() },
@@ -78,6 +84,9 @@ export function renderWorkspace(root) {
     } else if (m === 'plan') {
       viewCleanup.push(renderBinder(body));
       viewCleanup.push(renderPlan(body));
+    } else if (m === 'review') {
+      viewCleanup.push(renderBinder(body));
+      viewCleanup.push(renderReview(body));
     } else if (m === 'format') viewCleanup.push(renderFormat(body));
     else if (m === 'cover') viewCleanup.push(renderCover(body));
     else if (m === 'publish') viewCleanup.push(renderPublish(body));

@@ -49,7 +49,7 @@ export function renderBinder(host) {
   const goalBar = h('div');
   const search = h('input.input.binder-search', { placeholder: 'Filter chapters…', type: 'search', on: { input: () => { filter = search.value.toLowerCase(); draw(); } } });
 
-  const pane = h('aside.binder', { 'aria-label': 'Book structure' },
+  const pane = h(`aside.binder${state.app.sidebar === 'light' ? '' : '.deep'}`, { 'aria-label': 'Book structure' },
     h('div.binder-head', h('h3', 'Manuscript'),
       iconBtn('plus', 'Add page or chapter', (e) => menu(e.currentTarget, addMenuItems(null), { align: 'right' }))),
     search, list,

@@ -54,6 +54,8 @@
     "@tiptap/pm": "^3.31.4",
     "@tiptap/starter-kit": "^3.31.4",
     "dictionary-en": "^4.0.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "jszip": "^3.10.2",
     "lucide": "^1.55.0",
     "mammoth": "^1.13.0",

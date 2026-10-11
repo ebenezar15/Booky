@@ -7,11 +7,13 @@ import { renderLibrary } from './ui/library.js';
 import { renderWorkspace } from './ui/workspace.js';
 import { clear, toast } from './ui/dom.js';
 import { initSpell } from './lang/spell.js';
+import { applyColors } from './core/colors.js';
 
 const root = document.getElementById('app');
 
 export function applyTheme() {
   document.documentElement.dataset.theme = state.app.theme || 'light';
+  applyColors(state.app);
 }
 
 async function route() {
@@ -33,7 +35,7 @@ async function boot() {
   installFonts();
   await loadAppSettings();
   applyTheme();
-  on('app', (p) => { if ('theme' in p) applyTheme(); });
+  on('app', (p) => { if (['theme', 'colorScheme', 'customPrimary', 'customAccent'].some((k) => k in p)) applyTheme(); if ('sidebar' in p) document.querySelectorAll('.binder').forEach((b) => b.classList.toggle('deep', p.sidebar !== 'light')); });
   requestPersistence();
   window.addEventListener('hashchange', route);
   await route();

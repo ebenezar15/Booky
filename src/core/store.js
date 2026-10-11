@@ -11,6 +11,12 @@ export const state = {
   saving: 'saved', // saved | pending | saving | error
   app: {
     theme: 'light',
+    colorScheme: 'cadenza',
+    customPrimary: '#7c3aed',
+    customAccent: '#d946ef',
+    sidebar: 'deep',
+    customTemplates: [],
+    references: [],
     dictionary: [],
     ignored: [],
     customFonts: [], // {name, data(dataURL), format}

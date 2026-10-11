@@ -161,16 +161,18 @@ export function estimatePages(book) {
   return Math.max(24, Math.ceil(pages / 2) * 2);
 }
 
-export function wrapDims(book) {
+// paper: optional per-page thickness table from a print platform; wrap: extra hardcover board wrap (in)
+export function wrapDims(book, { paper, wrap = 0 } = {}) {
   const { w, h } = trimOf(book.format);
   const pages = estimatePages(book);
-  const spine = Math.max(0.06, pages * (PAPER[book.cover.paper] || PAPER.cream));
-  const bleed = 0.125;
+  const table = paper || PAPER;
+  const spine = Math.max(0.06, pages * (table[book.cover.paper] || table.cream || PAPER.cream));
+  const bleed = 0.125 + wrap;
   return { trimW: w, trimH: h, spine, bleed, pages, totalW: bleed * 2 + w * 2 + spine, totalH: h + bleed * 2 };
 }
 
-export function drawWrap(ctx, book, dpi, onReady) {
-  const d = wrapDims(book);
+export function drawWrap(ctx, book, dpi, onReady, opts) {
+  const d = wrapDims(book, opts);
   const c = book.cover;
   const px = (inch) => inch * dpi;
   const W = px(d.totalW), H = px(d.totalH);

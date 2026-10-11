@@ -1,0 +1,53 @@
+// "Export PDF" dialog: typesets the book off-screen, then either downloads a PDF file
+// directly or opens the print dialog for a vector PDF.
+import { h, btn, clear, modal, toast, downloadBlob, slugify, select, field, add } from './dom.js';
+import { trimOf } from '../core/themes.js';
+import { PrintPreview } from '../render/preview.js';
+import { pdfFromPreview, PDF_QUALITY } from '../export/pdf.js';
+
+export async function exportPdfDialog(book, { onlyId = null, quality = 'print' } = {}) {
+  const hostEl = h('div', { style: { position: 'fixed', left: '-10000px', top: 0, width: '1200px', height: '900px', overflow: 'hidden' } });
+  document.body.appendChild(hostEl);
+  const body = h('div', { style: { textAlign: 'center', padding: '10px 0' } }, h('div.spinner-lg'), h('p', 'Typesetting your book… long books can take a minute.'));
+  let ctrl = null;
+  const m = modal({ title: 'Export PDF', width: 560, body, onClose: () => { ctrl?.abort(); hostEl.remove(); } });
+  const pv = new PrintPreview(hostEl);
+  pv.spread = false;
+  const r = await pv.render(book, { onlyId });
+  if (!onlyId) book.cover.lastPageCount = r.pages + (r.pages % 2);
+  const t = trimOf(book.format);
+  let q = quality;
+  const progress = h('div.progress.hidden', h('div', { style: { width: '0%' } }));
+  const status = h('p.small.muted');
+  const name = `${slugify(book.meta.title)}${onlyId ? '-chapter' : '-interior'}.pdf`;
+  const download = btn('Download PDF file', { kind: 'primary', icon: 'download', onClick: async () => {
+    download.disabled = true;
+    progress.classList.remove('hidden');
+    ctrl = new AbortController();
+    try {
+      const blob = await pdfFromPreview(pv, {
+        quality: q, title: book.meta.title, author: book.meta.author, signal: ctrl.signal,
+        onProgress: (d, n) => { progress.firstChild.style.width = `${(d / n) * 100}%`; status.textContent = `Rendering page ${d} of ${n}…`; },
+      });
+      downloadBlob(blob, name);
+      status.textContent = `Saved ${name} (${(blob.size / 1048576).toFixed(1)} MB).`;
+      toast('PDF downloaded', 'success');
+    } catch (e) {
+      status.textContent = `PDF export stopped: ${e.message}`;
+    } finally { download.disabled = false; }
+  } });
+  clear(body);
+  body.style.textAlign = 'left';
+  add(body,
+    h('p', h('b', `${r.pages} pages typeset at ${t.w} × ${t.h} in${book.format.bleed ? ` + ${book.format.bleedSize} in bleed` : ''}.`)),
+    h('div.pdf-option',
+      h('h4', '1 · Download a PDF file'),
+      h('p.small.muted', 'One click, saves straight to your Downloads folder. Each page is rendered as a high-resolution image — accepted by KDP, IngramSpark and Lulu at 300 DPI.'),
+      field('Quality', select(Object.entries(PDF_QUALITY).map(([k, v]) => [k, v.label]), q, (v) => { q = v; })),
+      download, progress, status),
+    h('div.pdf-option',
+      h('h4', '2 · Vector PDF via the print dialog (sharpest text)'),
+      h('p.small.muted', 'Choose “Save as PDF”, Margins: Default, Scale: 100%, and turn on Background graphics. The paper size is set to your trim size and fonts are embedded.'),
+      btn('Open print dialog', { icon: 'printer', onClick: () => pv.print() })),
+  );
+}

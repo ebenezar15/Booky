@@ -20,6 +20,15 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 
 ## Features
 
+### 🗃️ Projects & appearance
+- Keep any number of book projects. Search them, sort by recent / newest / title / length, and duplicate, back up or delete them.
+- Colour schemes:
+  - **Cadenza violet** (the same deep-violet look as Mindapp and Practise-app) is the default.
+  - Other presets: Orchid, Indigo, Ocean, Emerald, Rose, Notes orange and Graphite, or pick **your own colours**.
+  - Light, sepia or dark mode.
+  - A deep-colour or light sidebar.
+  - Change them from the 🎨 button.
+
 ### ✍️ Write
 - **Binder** with front matter, body and back matter. Drag and drop to reorder, filter, set status labels (To Do → Final), and choose per page whether it appears in print, in the ebook, or both.
 - **Every standard book page**, each ready to fill in: half title, series page, *Also by*, frontispiece, title page, copyright, dedication, epigraph, table of contents (generated automatically), list of illustrations, foreword, preface, introduction, prologue, parts, chapters, interludes, epilogue, afterword, acknowledgments, appendix, glossary, notes, bibliography, index, about the author, reading-group guide, excerpt, newsletter / call to action, colophon, blank pages and custom pages.
@@ -53,6 +62,12 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 - **Sentence reframing** (Ctrl Alt R or right-click) offers alternatives: simpler, active voice, stronger words, more concise, split in two, reordered, lead with the image or the setting, casual/formal, and varied word choice.
 - **Synonyms** from the right-click menu, a **readability score** with grade level, a most-used-words list, and **Proofread whole book** in the Publish tab.
 
+### 🔬 Review (whole book)
+- **Proofread**: every chapter checked for spelling, grammar, punctuation and style, with a proofreading score. Click any card to jump to that sentence in the editor. **Auto-fix safe issues** corrects unambiguous mistakes (double spaces, repeated words, a/an, "could of"…) and saves a snapshot first.
+- **Readability**: a 0–100 readability score, Flesch reading ease, grade level, words per sentence, passive voice, adverbs, long sentences and dialogue share, with plain-language suggestions. Each chapter is scored separately.
+- **Repetition**: similar or duplicate sentences anywhere in the book, repeated phrases, runs of sentences that start the same way, and echo words used twice within a few lines.
+- **Originality (plagiarism check)**: compares your manuscript, 7+ words at a time, with famous passages and quotations, your other Booky projects, and any reference texts you add (paste or import .docx/.txt/.md/.html). It reports an originality percentage and every matching passage. This runs offline, so it cannot search the internet; a **Search online** button checks a suspicious passage on the web when you are connected.
+
 ### 🗂️ Plan
 - **Corkboard**: chapter cards with synopsis and status. Drag a card to reorder chapters.
 - **Outline**: a table of chapters with POV/label, synopsis, status, word count and target.
@@ -60,17 +75,19 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 - **Goals**: a book word goal, a daily goal, a deadline calculator, a 30-day chart, a streak counter and a 15-minute **writing sprint** timer.
 
 ### 🎨 Format (interior design)
+- **Customisable templates**: when you create a book you can choose the theme, trim size, body and heading fonts, text size, line spacing, paragraph style, alignment, chapter-number style and drop caps, with a live sample. **Save any book's design as your own template** (Format → My templates). It appears on the home screen and in New book, and you can apply it to other projects.
+- **Word count & statistics**: total words, printed pages, words per page, reading time, and each chapter's word count and starting page.
 - **12 design themes**: Classic, Literary, Modern, Romance, Fantasy, Thriller, Mystery, Non-fiction, Memoir, Children's, Poetry and Academic. Every setting can be fine-tuned.
 - **Trim sizes**: 18 presets (5×8, 5.5×8.5, 6×9, A5, A4, B-format, square, landscape…) plus custom sizes.
 - **Margins**: mirrored margins with gutter guidance, optional bleed and crop marks.
-- **Body text**: font, size, line spacing, justified or left-aligned, hyphenation, first-line indent or block paragraphs, and widow/orphan control.
+- **Body text and spacing**: font, size, line spacing, letter spacing, word spacing, justified or left-aligned, hyphenation, first-line indent or block paragraphs, extra space between paragraphs, and widow/orphan control.
 - **Chapter headings**:
   - Number style (One / 1 / 01 / I / hidden), prefix, case, size and spacing.
   - Title font, size, weight, italic and case.
   - Ornaments, a heading image, the space above the heading (sink), and part pages.
 - **Opening paragraphs**: drop caps (2–5 lines, separate font and colour) and small-caps lead-ins.
 - **Scene breaks**: symbols, a custom glyph or your own image.
-- **Running heads and page numbers**: author / title / chapter on verso and recto pages, positioned centred or on the outside edge. Front matter uses roman numerals and body numbering restarts at 1. No running heads appear on opening or display pages.
+- **Running heads and page numbers**: author / title / chapter on verso and recto pages, positioned centred or on the outside edge. Page numbers have a style (12, — 12 —, Page 12, [ 12 ], · 12 ·), a starting number, font, size and colour. Front matter uses roman numerals and body numbering restarts. No running heads appear on opening or display pages.
 - **Page flow**: chapters, parts and front matter can start on right-hand pages, and individual pages can be overridden.
 - **Table of contents**: page numbers, dot leaders and depth.
 - **Live paginated preview** (Paged.js) shown as spreads or single pages, with zoom and margin guides. There is also an **ebook preview** on e-reader, phone and tablet frames with light, sepia and dark reading modes.
@@ -81,7 +98,12 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 - Exports: an **ebook cover** (1600 × 2560 JPG and other sizes) and a **print cover** as a PDF or 300-DPI PNG.
 
 ### 📦 Publish
-- **Print-ready PDF**: typesets the whole book and opens the print dialog with your exact trim size. Choose *Save as PDF*.
+- **Export PDF** (top bar, Format and Publish):
+  - **Download PDF file**: one click, rendered at 150, 220 or 300 DPI and sized exactly to your trim.
+  - **Vector PDF via the print dialog**: the sharpest text.
+- **Publish to a platform**: ready-to-upload ZIP packages that check each platform's requirements (trim sizes, page limits, margins, ISBN) and offer one-click fixes.
+  - **Ebook stores**: Amazon Kindle (KDP), Apple Books, Kobo, Google Play Books, Barnes & Noble Press and Draft2Digital. Each package contains an EPUB, a cover JPG at the store's recommended size, and a metadata sheet (plus a DOCX for Draft2Digital).
+  - **Print-on-demand**: KDP Paperback, KDP Hardcover, IngramSpark, Lulu and B&N Press print. Each package contains a 300-DPI interior PDF, a full cover PDF with the spine width calculated for that printer's paper, and a metadata sheet.
 - **EPUB 3** with cover, navigation, landmarks, metadata, series information and pop-up footnotes. Validated with EPUBCheck: 0 errors, 0 warnings.
 - **DOCX** with real Word styles, mirrored margins, footnotes and images.
 - **HTML** (a single web page), **print-ready HTML**, **Markdown**, **plain text** and **.booky backups**.

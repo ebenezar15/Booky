@@ -24,8 +24,8 @@ export function typographyCss(book, target) {
   return `
 .bk-sec { font-family: ${bodyFont}; font-size: ${print ? b.size + 'pt' : '1em'}; line-height: ${b.leading}; color: ${print ? b.color : 'inherit'};
   text-align: ${justify}; ${b.hyphenate ? 'hyphens: auto; -webkit-hyphens: auto;' : 'hyphens: manual;'} widows: ${f.layout.widows}; orphans: ${f.layout.orphans};
-  font-kerning: normal; font-variant-ligatures: common-ligatures; text-rendering: optimizeLegibility; }
-.bk-content p { margin: 0; text-indent: ${indent ? b.indent + 'em' : '0'}; ${indent ? '' : `margin-bottom: ${b.paraGap}em;`} }
+  font-kerning: normal; font-variant-ligatures: common-ligatures; text-rendering: optimizeLegibility; letter-spacing: ${b.letterSpacing || 0}em; word-spacing: ${b.wordSpacing || 0}em; }
+.bk-content p { margin: 0; text-indent: ${indent ? b.indent + 'em' : '0'}; margin-bottom: ${indent ? (b.indentGap || 0) : b.paraGap}em; }
 .bk-content > p:first-child, .bk-content p.bk-first, .bk-content p.bk-after-break, .bk-content p.ps-noindent,
 .bk-content h2 + p, .bk-content h3 + p, .bk-content h4 + p, .bk-content figure + p, .bk-content blockquote + p,
 .bk-content ul + p, .bk-content ol + p, .bk-content .bk-scene + p, .bk-content .bk-scene-line + p, .bk-content .ps-verse + p:not(.ps-verse) { text-indent: 0; }
@@ -144,7 +144,7 @@ export function printCss(book, sections) {
   const boxStyle = (box) => {
     const isHead = box.startsWith('top');
     const font = fontStack((isHead ? hd.font : pn.font) || f.headings.font || f.body.font);
-    return `font-family: ${font}; font-size: ${isHead ? hd.size : pn.size}pt; ${isHead ? `letter-spacing: ${hd.spacing}em; text-transform: ${hd.case === 'upper' ? 'uppercase' : hd.case === 'smallcaps' ? 'none' : 'none'}; ${hd.case === 'smallcaps' ? 'font-variant: small-caps;' : ''} ${hd.italic ? 'font-style: italic;' : ''} vertical-align: middle;` : 'vertical-align: middle;'} color: ${f.body.color};`;
+    return `font-family: ${font}; font-size: ${isHead ? hd.size : pn.size}pt; ${isHead ? `letter-spacing: ${hd.spacing}em; text-transform: ${hd.case === 'upper' ? 'uppercase' : hd.case === 'smallcaps' ? 'none' : 'none'}; ${hd.case === 'smallcaps' ? 'font-variant: small-caps;' : ''} ${hd.italic ? 'font-style: italic;' : ''} vertical-align: middle;` : 'vertical-align: middle;'} color: ${(!isHead && pn.color) || f.body.color};`;
   };
   const ALL = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'];
   const boxRules = (boxes) => ALL.map((b) => (boxes[b] ? `@${b} { content: ${boxes[b].join(' ')}; ${boxStyle(b)} }` : `@${b} { content: none; }`)).join(' ');
@@ -206,6 +206,8 @@ export function previewChromeCss() {
   body.guides .pagedjs_area { outline: 1px dashed rgba(91, 79, 214, .55); }
   body.guides .pagedjs_page { outline: 1px solid rgba(224, 122, 95, .35); }
   .pagedjs_page.bk-flash { outline: 3px solid #e07a5f; }
+  body.pdf-export .pagedjs_page { box-shadow: none !important; outline: none !important; margin: 0 !important; }
+  body.pdf-export .pagedjs_area { outline: none !important; }
 }
 @media print { html, body { background: #fff !important; } .pagedjs_page { box-shadow: none !important; margin: 0 !important; } .pagedjs_pages { display: block !important; zoom: 1 !important; } }
 `;

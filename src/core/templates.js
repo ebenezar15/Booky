@@ -98,12 +98,43 @@ export const BOOK_TEMPLATES = [
   },
 ];
 
-export function bookFromTemplate(tplId, meta = {}) {
+export function bookFromTemplate(tplId, meta = {}, customTemplates = []) {
+  const custom = customTemplates.find((t) => t.id === tplId);
+  if (custom) return bookFromCustom(custom, meta);
   const tpl = BOOK_TEMPLATES.find((t) => t.id === tplId) || BOOK_TEMPLATES[0];
   const book = createBook({ theme: tpl.theme, meta });
   book.elements = tpl.build();
   const cover = { novel: 'classic', 'novel-parts': 'fantasy', nonfiction: 'nonfiction', memoir: 'literary', poetry: 'minimal', children: 'children', stories: 'literary', academic: 'nonfiction', blank: 'classic' }[tpl.id];
   if (cover && COVER_TEMPLATES[cover]) { COVER_TEMPLATES[cover].apply(book.cover); book.cover.template = cover; }
   book.template = tpl.id;
+  return book;
+}
+
+// A user-saved template: structure (page types, titles and boilerplate pages) + design + cover style.
+export function templateFromBook(book, name, { keepText = false } = {}) {
+  const boiler = new Set(['half-title', 'title', 'copyright', 'dedication', 'epigraph', 'also-by', 'about-author', 'newsletter', 'acknowledgments', 'colophon', 'series-title']);
+  return {
+    id: 'ct_' + Math.random().toString(36).slice(2, 9),
+    name,
+    desc: `${book.elements.length} pages · ${book.format.body.font} ${book.format.body.size}pt`,
+    createdAt: Date.now(),
+    format: JSON.parse(JSON.stringify(book.format)),
+    cover: JSON.parse(JSON.stringify({ ...book.cover, background: { ...book.cover.background, image: '' }, back: { ...book.cover.back, blurb: '' } })),
+    settings: { ...book.settings },
+    structure: book.elements.map((e) => ({
+      type: e.type, section: e.section, numbered: e.numbered, include: e.include, startOn: e.startOn, align: e.align,
+      title: e.type === 'chapter' && !keepText ? '' : e.title,
+      content: keepText || boiler.has(e.type) ? e.content : undefined,
+    })),
+  };
+}
+
+export function bookFromCustom(t, meta = {}) {
+  const book = createBook({ meta });
+  book.format = JSON.parse(JSON.stringify(t.format));
+  book.cover = { ...book.cover, ...JSON.parse(JSON.stringify(t.cover || {})) };
+  book.settings = { ...book.settings, ...(t.settings || {}) };
+  book.elements = t.structure.map((x) => createElement(x.type, Object.fromEntries(Object.entries(x).filter(([, v]) => v !== undefined))));
+  book.template = t.id;
   return book;
 }

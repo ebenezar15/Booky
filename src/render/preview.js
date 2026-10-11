@@ -30,7 +30,8 @@ window.PagedConfig = {
     var pages = Array.prototype.slice.call(document.querySelectorAll('.pagedjs_page'));
     var start = ${book.format.pageNumbers.frontRoman ? "pages.findIndex(function (p) { return p.querySelector('[data-body-start]:not([data-split-from])'); })" : '-1'};
     pages.forEach(function (p, i) {
-      var folio = start > 0 && i < start ? roman(i + 1) : String(start > 0 ? i - start + 1 : i + 1);
+      var n = start > 0 && i < start ? roman(i + 1) : String((start > 0 ? i - start : i) + ${Math.max(0, +book.format.pageNumbers.startAt || 1)});
+      var folio = ${JSON.stringify({ plain: '#', dashes: '— # —', page: 'Page #', brackets: '[ # ]', dots: '· # ·', pipe: '| #' }[book.format.pageNumbers.style] || '#')}.replace('#', n);
       p.style.setProperty('--bk-folio', JSON.stringify(folio));
       p.setAttribute('data-folio', folio);
     });
