@@ -17,13 +17,15 @@ export function translationSettingsPanel() {
   const desktop = !!globalThis.bookyDesktop;
   return h('div.col', { style: { gap: '12px' } },
     h('div.section-title', 'Voice typing'),
-    field('Speech recognition', select([['auto', 'Automatic'], ['browser', 'Browser (Chrome, Edge, Safari)'], ['google', 'Google Cloud Speech-to-Text (needs the Google key below)']], state.app.voiceEngine || 'auto', (v) => setApp({ voiceEngine: v })),
+    field('Speech recognition', select([['auto', 'Automatic'], ['browser', 'Browser (free — Chrome, Edge, Safari)'], ['google', 'Google Cloud Speech-to-Text (paid, needs the Google key below)']], state.app.voiceEngine || 'auto', (v) => setApp({ voiceEngine: v })),
       desktop ? 'In the desktop app, voice typing uses Google Cloud Speech-to-Text. Without a key you can still use your computer’s dictation: Windows + H on Windows, or press Fn (🌐) twice on a Mac.'
         : 'The browser engine is free and supports Tamil, Hindi and the other Indian languages in Chrome and Edge. Your computer’s own dictation (Windows + H, or Fn twice on a Mac) works too.'),
     h('div.section-title', { style: { marginTop: '8px' } }, 'Translation'),
     h('p.muted', 'Keys are saved only on this computer and are sent only to the service you choose. The built-in browser translator and manual mode need no key. Claude gives the most context-aware translations and several suggestions with explanations.'),
     field('Anthropic API key (Claude)', input(k.claudeKey || '', (v) => setKeys({ claudeKey: v.trim() }), { type: 'password', placeholder: 'sk-ant-…', autocomplete: 'off' }),
       'Create one at console.anthropic.com → API keys. Usage is billed to your Anthropic account.'),
+    field('Email for MyMemory (optional, free)', input(k.myMemoryEmail || '', (v) => setKeys({ myMemoryEmail: v.trim() }), { type: 'email', placeholder: 'you@example.com' }), 'Raises the free MyMemory limit from about 5,000 to 50,000 characters a day. Only sent to MyMemory.'),
+    h('div.section-title', { style: { marginTop: '8px' } }, 'Optional paid services'),
     field('Google Cloud API key', input(k.googleKey || '', (v) => setKeys({ googleKey: v.trim() }), { type: 'password', placeholder: 'AIza…', autocomplete: 'off' }), 'Enable “Cloud Translation API” and/or “Cloud Speech-to-Text API” for this key in Google Cloud Console.'),
     field('LibreTranslate server', input(k.libreUrl || '', (v) => setKeys({ libreUrl: v.trim() }), { placeholder: 'https://libretranslate.com' })),
     field('LibreTranslate API key (if needed)', input(k.libreKey || '', (v) => setKeys({ libreKey: v.trim() }), { type: 'password', autocomplete: 'off' })),
@@ -44,7 +46,7 @@ export function openTranslateDialog(book, { onCreated } = {}) {
   const src = book.meta.language || 'en';
   const choices = LANGUAGES.filter((l) => l.code !== src);
   let target = (src.startsWith('en') ? 'ta' : 'en');
-  let provider = keys().provider || (globalThis.Translator ? 'browser' : 'claude');
+  let provider = keys().provider || (globalThis.Translator ? 'browser' : 'mymemory'); // free choices first
   let glossary = book.translation?.glossary || '';
   const hint = h('small.hint');
   const warn = h('div');
@@ -136,7 +138,7 @@ export async function continueTranslation(only) {
 
 function chooseProvider(book) {
   return new Promise((resolve) => {
-    let provider = PROVIDERS.find((p) => p.id !== 'manual' && providerReady(p.id))?.id || 'claude';
+    let provider = PROVIDERS.find((p) => p.id !== 'manual' && providerReady(p.id))?.id || 'mymemory';
     const m = modal({
       title: 'Translate with', width: 440,
       body: field('Provider', select(PROVIDERS.filter((p) => p.id !== 'manual').map((p) => ({ value: p.id, label: p.label })), provider, (v) => { provider = v; })),

@@ -9,7 +9,7 @@
     "fonts": "node scripts/gen-fonts.mjs",
     "test": "node --test tests/*.test.js",
     "predev": "node scripts/gen-fonts.mjs",
-    "release": "npm run build && node -e \"require('fs').mkdirSync('release',{recursive:true});require('fs').copyFileSync('dist/Booky.html','release/Booky.html')\"",
+    "release": "npm run build && node -e \"const f=require('fs');f.mkdirSync('release',{recursive:true});f.copyFileSync('dist/Booky.html','release/Booky.html');f.copyFileSync('dist/review.html','review.html')\"",
     "desktop": "npm run build && electron .",
     "desktop:dev": "electron .",
     "dist:win": "npm run build && electron-builder --win --publish never",

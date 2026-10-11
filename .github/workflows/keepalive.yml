@@ -1,0 +1,18 @@
+# Free Supabase projects pause after about a week without activity. This pings the
+# project every three days so review links keep working. (Free for public repositories.)
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the Booky sharing functions
+        run: |
+          curl -sS -X POST "https://ptoletclsllykfpzlyhi.supabase.co/rest/v1/rpc/booky_version" \
+            -H "apikey: sb_publishable_ELwv4_uL1I19yStlBdVOjA_-96K7jLT" -H "Content-Type: application/json" -d '{}' \
+            --fail-with-body

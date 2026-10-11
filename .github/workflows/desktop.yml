@@ -1,6 +1,6 @@
 # Builds the installable desktop apps on real Windows and macOS machines.
-#  - Every push: installers are attached to the workflow run (Actions → this run → Artifacts).
-#  - Pushing a tag like v1.0.0: they are also published as a GitHub Release.
+#  - Every push: installers are attached to the workflow run and published on the Releases
+#    page as "Booky <version>" (the version comes from package.json).
 name: Desktop apps
 
 on:
@@ -44,7 +44,19 @@ jobs:
           name: Booky-${{ runner.os }}
           path: ${{ matrix.files }}
           if-no-files-found: error
-      - if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+      - id: version
+        shell: bash
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      # Publish (or refresh) the Releases page so there is always a simple download link.
+      - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.v }}
+          name: Booky ${{ steps.version.outputs.v }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
           files: ${{ matrix.files }}
+          body: |
+            **Windows:** download `Booky-Setup-${{ steps.version.outputs.v }}.exe` (installer) or the `portable` .exe.
+            **Mac:** `Booky-${{ steps.version.outputs.v }}-mac-arm64.dmg` for Apple Silicon (M1–M4), `…-mac-x64.dmg` for Intel Macs.
+            First launch: Windows → “More info” → “Run anyway”. Mac → System Settings → Privacy & Security → “Open Anyway”.
+            Prefer no install? Use Booky in your browser: https://ebenezar15.github.io/Booky/

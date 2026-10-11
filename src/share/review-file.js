@@ -35,7 +35,7 @@ export async function buildReviewHtml(book, reviewer, opts) {
   const payload = {
     bookId: book.id, bookTitle: book.meta.title, author: book.meta.author, authorName: opts.authorName || book.meta.author,
     authorEmail: opts.authorEmail || '', roundId, reviewer: { id: reviewer.id, name: reviewer.name, email: reviewer.email, color: reviewer.color },
-    message: opts.message || '', expiresAt: opts.expiresDays ? Date.now() + opts.expiresDays * 86400000 : 0,
+    message: opts.message || '', writeSecret: opts.writeSecret || '', // lets the reviewer send comments online expiresAt: opts.expiresDays ? Date.now() + opts.expiresDays * 86400000 : 0,
     css: ebookCss(book), fontsCss: usedFontCss(book), sections,
   };
   const box = await encryptJson(payload, reviewer.email, opts.passcode);

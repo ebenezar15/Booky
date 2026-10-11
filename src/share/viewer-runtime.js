@@ -1,7 +1,7 @@
 /* Booky review copy — runs inside the shared HTML file (no imports).
    Two ways in: the file itself (book embedded, no network), or the online review page
-   (review.html?c=<copy>&u=<supabase url>&a=<public key>) which signs the reviewer in with
-   an emailed code and downloads the encrypted copy shared with that email.
+   (review.html?c=<copy>&u=<supabase url>&a=<public key>) which downloads the encrypted copy;
+   either way only the invited email + passcode can unlock it.
    The book is encrypted; only the invited reviewer's email + passcode can open it.
    Reviewers can highlight, comment, suggest edits and leave an overall review, but
    cannot edit the text, and copying/printing are blocked. */
@@ -32,33 +32,17 @@
     return { v: 1, kdf: 'PBKDF2-SHA256', iter: iter, salt: b64e(salt), iv: b64e(iv), ct: b64e(ct) };
   }
 
-  // ---------- online mode (Supabase REST, no library) ----------
+  // ---------- online mode (Supabase functions, no library, no sign-in) ----------
   var ONLINE = null, EMAIL = '', PASS = '';
-  function sbKey() { return 'bookySb:' + ONLINE.url; }
-  function saveSession() { try { localStorage.setItem(sbKey(), JSON.stringify(ONLINE.session)); } catch (e) { /* ignore */ } }
-  function loadSession() { try { ONLINE.session = JSON.parse(localStorage.getItem(sbKey()) || 'null'); } catch (e) { ONLINE.session = null; } }
-  async function sb(path, opts) {
-    opts = opts || {};
-    var h = { apikey: ONLINE.key, 'Content-Type': 'application/json' };
-    if (opts.auth !== false) h.Authorization = 'Bearer ' + (await token());
-    if (opts.prefer) h.Prefer = opts.prefer;
-    var res = await fetch(ONLINE.url + path, { method: opts.method || 'GET', headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  async function rpc(name, args) {
+    var res;
+    try {
+      res = await fetch(ONLINE.url + '/rest/v1/rpc/' + name, { method: 'POST', headers: { apikey: ONLINE.key, 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) });
+    } catch (e) { throw new Error('No internet connection — please try again.'); }
     var text = await res.text(), data = null;
     try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
-    if (!res.ok) throw new Error((data && (data.msg || data.message || data.error_description || data.error)) || ('Error ' + res.status));
+    if (!res.ok) throw new Error((data && (data.message || data.msg || data.error)) || ('Error ' + res.status));
     return data;
-  }
-  function setSession(s) {
-    ONLINE.session = { access_token: s.access_token, refresh_token: s.refresh_token, expires_at: Date.now() + (+s.expires_in || 3600) * 1000, email: (s.user && s.user.email) || s.email || '' };
-    saveSession();
-  }
-  async function token() {
-    var s = ONLINE.session;
-    if (!s) throw new Error('Please sign in again.');
-    if (Date.now() < s.expires_at - 60000) return s.access_token;
-    var n = await sb('/auth/v1/token?grant_type=refresh_token', { method: 'POST', auth: false, body: { refresh_token: s.refresh_token } });
-    setSession({ access_token: n.access_token, refresh_token: n.refresh_token, expires_in: n.expires_in, email: s.email });
-    return ONLINE.session.access_token;
   }
   function card(html) {
     var old = $('.rv-lock'); if (old) old.remove();
@@ -70,52 +54,21 @@
     if (DATA) { showLock(); return; }
     var q = new URLSearchParams(location.search);
     if (!q.get('c') || !q.get('u') || !q.get('a')) { card('<h1>Booky review</h1><p>Open the review link the author sent you.</p>'); return; }
-    ONLINE = { copy: q.get('c'), url: q.get('u').replace(/\/+$/, ''), key: q.get('a'), session: null };
-    var hp = new URLSearchParams(location.hash.slice(1)); // magic-link sign-in lands here
-    if (hp.get('access_token')) {
-      setSession({ access_token: hp.get('access_token'), refresh_token: hp.get('refresh_token'), expires_in: hp.get('expires_in') });
-      history.replaceState(null, '', location.pathname + location.search);
-    } else loadSession();
-    if (ONLINE.session && ONLINE.session.refresh_token) fetchCopy(); else signIn();
-  }
-  function signIn(msg) {
-    var lock = card('<h1>Private review copy</h1><p>Sign in with the email address the author invited. We’ll email you a one-time code.</p>' +
-      '<form id="rv-f1"><label>Email address<input id="rv-em" type="email" autocomplete="email" required></label><button class="rv-btn primary" type="submit">Email me a code</button></form>' +
-      '<form id="rv-f2" hidden><label>Code from the email<input id="rv-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" required></label><button class="rv-btn primary" type="submit">Sign in</button></form>' +
-      '<p id="rv-err" class="rv-err">' + esc(msg || '') + '</p><p class="rv-small rv-muted">Can’t find it? Check spam. If the email has a sign-in link instead of a code, just click the link.</p>');
-    var em = '';
-    $('#rv-f1', lock).addEventListener('submit', async function (e) {
-      e.preventDefault(); em = $('#rv-em').value.trim().toLowerCase(); var b = $('#rv-f1 button'); b.disabled = true; $('#rv-err').textContent = '';
-      try {
-        await sb('/auth/v1/otp?redirect_to=' + encodeURIComponent(location.origin + location.pathname + location.search), { method: 'POST', auth: false, body: { email: em, create_user: true } });
-        $('#rv-f1').hidden = true; $('#rv-f2').hidden = false; $('#rv-code').focus();
-      } catch (err) { $('#rv-err').textContent = err.message; b.disabled = false; }
-    });
-    $('#rv-f2', lock).addEventListener('submit', async function (e) {
-      e.preventDefault(); var b = $('#rv-f2 button'); b.disabled = true; $('#rv-err').textContent = '';
-      try {
-        setSession(await sb('/auth/v1/verify', { method: 'POST', auth: false, body: { type: 'email', email: em, token: $('#rv-code').value.trim() } }));
-        if (!ONLINE.session.email) ONLINE.session.email = em;
-        fetchCopy();
-      } catch (err) { $('#rv-err').textContent = 'That code didn’t work (' + err.message + '). Codes expire after a while — request a new one.'; b.disabled = false; }
-    });
+    ONLINE = { copy: q.get('c'), url: q.get('u').replace(/\/+$/, ''), key: q.get('a') };
+    fetchCopy();
   }
   async function fetchCopy() {
     card('<p>Opening your review copy…</p>');
     try {
-      var rows = await sb('/rest/v1/review_copies?id=eq.' + encodeURIComponent(ONLINE.copy) + '&select=title,author,box');
-      if (!rows || !rows.length) {
-        var who = ONLINE.session.email;
-        ONLINE.session = null; saveSession();
-        signIn('This copy isn’t shared with ' + (who || 'that email') + ', or the author has withdrawn it or it expired. Sign in with the invited email.');
-        return;
-      }
+      var rows = await rpc('booky_get_copy', { p_id: ONLINE.copy });
+      if (!rows || !rows.length) { card('<h1>Review copy not available</h1><p>The author has withdrawn this review copy, or it has expired. Please ask them for a new link.</p>'); return; }
       DATA = rows[0];
       var lock = $('.rv-lock'); if (lock) lock.remove();
       showLock();
-      if (ONLINE.session.email) $('#rv-email').value = ONLINE.session.email;
-      $('#rv-pass').focus();
-    } catch (err) { ONLINE.session = null; saveSession(); signIn(err.message); }
+    } catch (err) {
+      card('<h1>Couldn’t open the review copy</h1><p>' + esc(err.message) + '</p><button class="rv-btn primary" id="rv-retry">Try again</button>');
+      $('#rv-retry').onclick = fetchCopy;
+    }
   }
 
   var P = null; // decrypted payload
@@ -370,7 +323,8 @@
     var b = $('#rv-send'); b.disabled = true; b.textContent = 'Sending…';
     var pop = $('#rv-pop');
     try {
-      await sb('/rest/v1/review_submissions', { method: 'POST', prefer: 'return=minimal', body: { copy_id: ONLINE.copy, box: await encrypt(out, EMAIL, PASS) } });
+      if (!P.writeSecret) throw new Error('This copy was made for sharing as a file.');
+      await rpc('booky_send_comments', { p_id: ONLINE.copy, p_write_secret: P.writeSecret, p_box: await encrypt(out, EMAIL, PASS) });
       pop.innerHTML = '<b>Sent to ' + esc(P.authorName || 'the author') + ' ✓</b><p>' + out.comments.length + ' note' + (out.comments.length === 1 ? '' : 's') + (out.overall.rating ? ' and your ' + out.overall.rating + '★ review' : '') + (out.comments.length === 1 && !out.overall.rating ? ' was' : ' were') + ' delivered securely.</p>' +
         '<p class="rv-small rv-muted">You can keep reviewing and send again — the author always gets your latest notes.</p><div class="rv-row"><span style="flex:1"></span><button class="rv-btn primary" id="rv-cancel">OK</button></div>';
     } catch (err) {

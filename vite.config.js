@@ -14,7 +14,9 @@ export default defineConfig({
   },
   plugins: [viteSingleFile({ removeViteModuleLoader: true })],
   worker: { format: 'iife' }, // classic workers also run from file://
+  server: { open: '/app.html' },
   build: {
+    rollupOptions: { input: 'app.html' }, // index.html at the root is the GitHub Pages landing page
     target: 'es2020',
     outDir: 'dist',
     assetsInlineLimit: 100000000,

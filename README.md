@@ -9,7 +9,8 @@ It takes ideas from Atticus, Reedsy Studio, Scrivener and InDesign and puts them
 ## Install the desktop app (Windows & Mac)
 Booky is also an installable app with its own icon. It works the same on Windows and macOS: both use the same engine, so books, layouts and PDFs come out identical.
 
-- **Download:** in this repository, open **Actions → Desktop apps → latest run → Artifacts**. When a version is tagged (e.g. `v1.0.0`), they are also on the **Releases** page.
+- **Download:** from the **[Releases page](https://github.com/ebenezar15/Booky/releases/latest)**. They're also under Actions → Desktop apps → latest run → Artifacts.
+- **No install needed:** open **https://ebenezar15.github.io/Booky/** and click *Open Booky in your browser*.
   - **Windows:** `Booky-Setup-x.y.z.exe`, the installer, which adds Start-menu and desktop shortcuts. There is also a `portable` .exe that runs without installing.
   - **Mac:** `Booky-x.y.z-mac-arm64.dmg` for Apple Silicon (M1–M4), or `…-mac-x64.dmg` for Intel Macs. Open it and drag Booky to Applications.
 - **First launch:** the app isn't signed with a paid Apple or Microsoft certificate yet, so each system asks once.
@@ -99,7 +100,8 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 ### 🔤 Translate a book
 Turn any book into a **new project in another language**. The original stays untouched.
 1. Library card ⋯ → *Translate…* (or ⋮ → *Translate into another language…* inside a book). Pick the language and how to translate:
-   - **Built-in browser translator**: free and private, translated on your computer (desktop Chrome / Edge). Keeps paragraphs and footnotes, but not bold or italic inside a paragraph.
+   - **Built-in browser translator** (free): private, translated on your computer (desktop Chrome / Edge). Keeps paragraphs and footnotes, but not bold or italic inside a paragraph. If it isn't available, Booky switches to MyMemory automatically.
+   - **MyMemory** (free, no key): works everywhere, including the desktop app. About 5,000 characters a day, or 50,000 if you add your email in Settings → Voice & translation. Long books translate over a few days with *Continue translation*.
    - **Claude (Anthropic)**: literary-quality translation that keeps all formatting, footnotes and smart fields. You can give it notes, e.g. "keep character names in English, use informal நீ between friends". Needs your Anthropic API key.
    - **Google Cloud Translation** (API key) or a **LibreTranslate** server.
    - **Manual**: makes the project with the original beside every page, for you or a human translator.
@@ -155,14 +157,13 @@ Share your book with editors, beta readers or friends. Only the people you invit
    - From the **Comments** side panel: **Apply edit** (applies a suggested change in one click), **Done**, **Won't fix**, a private note to yourself, and **Next open comment**, which takes you straight to the next one anywhere in the book.
    - **Download checklist** gives a printable list of every comment.
 
-**Online links (optional, with your Supabase project).** Instead of a file you can send a **link**:
+**Online links (optional, free).** Instead of a file you can send a **link**:
 - Click *Share online link* in the review-copy dialog.
-- The reviewer opens the link and signs in with the invited email. They get a one-time code by email, then enter the passcode.
+- The reviewer opens the link and unlocks it with their email + passcode. There's no account or sign-in.
 - When they click *Send to author*, the comments arrive on your Feedback screen. Booky checks for them automatically, or click **Check for new comments**.
 - You can **withdraw** a link at any time.
-- Everything is encrypted on your computer first, so Supabase only stores scrambled data.
 
-Setup is described under [Online sharing setup](#online-sharing-setup-supabase).
+Setup takes one step, described under [Online sharing setup](#online-sharing-setup-supabase-free-plan).
 
 > Copy protection stops copying, cutting, printing and right-click in the review copy. Like any on-screen document, it can't prevent screenshots or someone retyping the text. The watermark discourages that.
 
@@ -242,23 +243,36 @@ Word (.docx), Markdown, plain text, HTML, RTF and Booky backups. Chapters are de
 
 ---
 
-## Online sharing setup (Supabase)
-You only need this for online review links. Everything else works offline.
+## Online sharing setup (Supabase, free plan)
+You only need this for online review links. Everything else works offline. **No sign-in, no email settings and no payment are needed.**
 
-1. **Database.**
-   - If your Supabase project is connected to this GitHub repository, the migration in `supabase/migrations/` creates the tables and security rules automatically when it reaches the project's production branch. In Supabase → Project Settings → Integrations → GitHub, set the production branch to the branch you deploy (or merge into it).
-   - Otherwise, run it by hand: Booky → Settings → Online sharing → *Copy setup SQL*, then paste it into Supabase → SQL Editor and run it.
-2. **Sign-in emails.**
-   - In Supabase → Authentication → Emails → *Magic Link* template, add `{{ .Token }}` so emails contain a 6-digit code.
-   - Supabase's built-in email sender only delivers to your project's team members, and only a few emails an hour. For real reviewers, add **custom SMTP** under Authentication → Emails → SMTP Settings (e.g. Resend, Brevo, SendGrid or Gmail).
-3. **Review page.**
-   - The workflow `.github/workflows/pages.yml` publishes the app and `review.html` to GitHub Pages. Turn it on once under repository Settings → Pages → Source: **GitHub Actions**.
-   - The review page will then be at `https://ebenezar15.github.io/Booky/review.html`. Add this address under Supabase → Authentication → URL Configuration → *Redirect URLs*.
-4. **Connect Booky.** Your project (`ptoletclsllykfpzlyhi`) and its publishable key are already filled in. In Settings → Online sharing:
-   - Paste the **Project URL** and the **anon / publishable key** (Project Settings → API). Never use the service-role or secret key.
-   - Click *Save & test connection*, then sign in with your email.
+1. **Run the setup SQL once.**
+   - In Booky, go to Settings → Online sharing → **Copy setup SQL**.
+   - In supabase.com, open your project → **SQL Editor** → New query, paste the SQL and click **Run**. Running it again is safe.
+   - If your project is linked to this GitHub repository, the same SQL is in `supabase/migrations/` and may already have run.
+2. **Check the connection.** Click **Save & test connection**. Your project (`ptoletclsllykfpzlyhi`) and its publishable key are already filled in.
 
-Security: row-level security lets an author see only their own copies and comments. A reviewer can only open the copy shared with their signed-in email, and only until it expires or is withdrawn. Anonymous visitors can read nothing.
+How it stays private:
+- The book and the comments are encrypted on your computer with the reviewer's email + passcode, so the database only holds scrambled data.
+- Each copy also has two random secrets:
+  - your **owner secret** stays in your Booky, to read comments and withdraw the link;
+  - the **write secret** is hidden inside the encrypted copy, so only someone who unlocked it with the right email + passcode can send comments.
+- The tables themselves are locked, and visitors can only call the `booky_*` functions, which check those secrets and the expiry dates.
+
+**Staying free:**
+- Supabase's free plan pauses a project after about a week without activity. The `Keep Supabase awake` workflow pings it every three days to stop that.
+- If the project ever does pause, open supabase.com and click **Restore project** (free).
+- Old expired copies are deleted automatically, and only each reviewer's latest few sends are kept, so storage stays tiny.
+
+### What's free and what's optional
+| Feature | Free option | Optional paid alternative |
+| --- | --- | --- |
+| Writing, formatting, PDF, EPUB, review files | Everything, offline | — |
+| Online review links | Supabase free plan + GitHub Pages | — |
+| Translation | Built-in Chrome/Edge translator (unlimited, on your computer). Otherwise **MyMemory**: no key; about 5,000 characters a day, or 50,000 with your email added in Settings | Claude, Google Cloud |
+| Word/sentence suggestions | MyMemory alternatives + the whole sentence for context | Claude (3–5 options with explanations) |
+| Voice typing | Chrome/Edge/Safari speech; Windows + H or Fn Fn (Mac) dictation, including in the desktop app | Google Cloud Speech-to-Text |
+| Desktop apps & website | GitHub Releases + GitHub Pages (free for public repositories) | — |
 
 ## For developers
 
@@ -275,6 +289,13 @@ npm run icons      # re-render app icons from assets/logo.svg
 ```
 
 The app is plain JavaScript (no framework), built with Vite into a single self-contained HTML file.
+
+The app's source entry is `app.html`. The repository root is published as is by GitHub Pages ("Deploy from a branch", root folder):
+- `index.html` is the landing page;
+- `release/Booky.html` is the app;
+- `review.html` is the online review page.
+
+`npm run release` refreshes the last two, so run it before pushing.
 
 | Folder | What it does |
 | --- | --- |

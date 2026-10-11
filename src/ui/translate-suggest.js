@@ -15,10 +15,10 @@ function bestProvider(book) {
   const p = book.translation?.provider !== 'manual' && book.translation?.provider || k.provider;
   if (p === 'google' && k.googleKey) return 'google';
   if (p === 'libre' && k.libreUrl) return 'libre';
-  if (globalThis.Translator) return 'browser';
   if (k.googleKey) return 'google';
   if (k.libreUrl) return 'libre';
-  return null;
+  // Free: MyMemory gives several alternatives; the browser translator gives one.
+  return 'mymemory';
 }
 
 const sameLang = (a, b) => String(a || 'en').split('-')[0] === String(b || 'en').split('-')[0];
@@ -74,7 +74,7 @@ export function openSuggest(opts) {
     opts.target ? null : h('div.row', { style: { gap: '6px', margin: '6px 0' } }, h('span.small.muted', 'into'),
       select(LANGUAGES.filter((l) => !sameLang(l.code, opts.source)).map((l) => ({ value: l.code, label: `${l.name} — ${l.native}` })), target, (v) => { target = v; setApp({ suggestTarget: v }); run(); }, { class: 'input-sm' })),
     list,
-    h('div.ts-foot.small.muted', provider ? `${PROVIDERS.find((p) => p.id === provider)?.label}${provider === 'claude' ? ' · reads the whole paragraph for context' : ' · add an Anthropic key for several suggestions with explanations'}` : ''));
+    h('div.ts-foot.small.muted', provider ? `${PROVIDERS.find((p) => p.id === provider)?.label}${provider === 'claude' ? ' · reads the whole paragraph for context' : ' · free'}` : ''));
   popover(opts.anchorRect, box, { cls: 'ts-pop' });
 
   async function run() {
@@ -95,7 +95,7 @@ export function openSuggest(opts) {
         h('div.ts-text', { lang: target, style: { fontFamily: fontStack(T.body) } }, r.text),
         r.note ? h('div.ts-note', r.note) : null,
         h('div.row', { style: { gap: '6px' } },
-          btn(opts.pickLabel || 'Insert', { icon: 'check', cls: 'btn-sm', kind: i === 0 ? 'primary' : '', onClick: () => { opts.onPick?.(r.text); closeMenu(); } }),
+          r.context ? null : btn(opts.pickLabel || 'Insert', { icon: 'check', cls: 'btn-sm', kind: i === 0 ? 'primary' : '', onClick: () => { opts.onPick?.(r.text); closeMenu(); } }),
           btn('Copy', { icon: 'copy', cls: 'btn-sm', kind: 'ghost', onClick: () => navigator.clipboard?.writeText(r.text).then(() => toast('Copied', 'success', 1200)) })))));
     } catch (e) {
       clear(list);

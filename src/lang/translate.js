@@ -6,9 +6,10 @@ import { langInfo } from '../core/languages.js';
 import { uid } from '../core/model.js';
 
 export const PROVIDERS = [
-  { id: 'browser', label: 'Built-in browser translator', hint: 'Free and private. On-device translation in recent Chrome / Edge on desktop (downloads a language pack once). Keeps paragraphs, loses bold/italic inside paragraphs.' },
-  { id: 'claude', label: 'Claude (Anthropic)', hint: 'Literary-quality translation that keeps formatting, tone and footnotes. Needs your Anthropic API key (billed to your account).' },
-  { id: 'google', label: 'Google Cloud Translation', hint: 'Fast, keeps formatting. Needs a Google Cloud API key with the Translation API enabled.' },
+  { id: 'browser', label: 'Built-in browser translator (free)', hint: 'Free and private. On-device translation in recent Chrome / Edge on desktop (downloads a language pack once). Keeps paragraphs, loses bold/italic inside paragraphs.' },
+  { id: 'mymemory', label: 'MyMemory (free, no key)', hint: 'Free online translation that works everywhere, including the desktop app. Free limit: about 50,000 characters a day (enough for a few chapters a day) — add your email in Settings → Voice & translation for the higher limit. Keeps paragraphs, loses bold/italic inside paragraphs.' },
+  { id: 'claude', label: 'Claude (Anthropic) — paid, your API key', hint: 'Literary-quality translation that keeps formatting, tone and footnotes. Needs your Anthropic API key (billed to your account).' },
+  { id: 'google', label: 'Google Cloud Translation — paid, your API key', hint: 'Fast, keeps formatting. Needs a Google Cloud API key with the Translation API enabled.' },
   { id: 'libre', label: 'LibreTranslate server', hint: 'Open-source; use a public or self-hosted server URL (and key if it needs one).' },
   { id: 'manual', label: 'Manual (translate it yourself)', hint: 'Creates the new project with the original beside every page, ready for you or a translator to write over.' },
 ];
@@ -53,23 +54,49 @@ function splitBlocks(html) {
 
 // ---------- providers ----------
 
+const withTimeout = (promise, ms, what) => Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error(`${what} did not respond`)), ms))]);
+
 async function browserTranslator(source, target, onStatus) {
   const T = globalThis.Translator;
-  if (!T) throw new Error('This browser has no built-in translator. Use Chrome or Edge 138+ on a computer, or pick another provider.');
+  if (!T) throw new Error('This browser has no built-in translator.');
   const opts = { sourceLanguage: baseCode(source), targetLanguage: baseCode(target) };
-  const a = await T.availability(opts);
-  if (a === 'unavailable') throw new Error(`The built-in translator can’t translate ${langInfo(source).name} → ${langInfo(target).name}. Pick another provider.`);
-  return T.create({
+  const a = await withTimeout(T.availability(opts), 8000, 'The built-in translator');
+  if (a === 'unavailable') throw new Error(`The built-in translator can’t translate ${langInfo(source).name} → ${langInfo(target).name}.`);
+  // A language pack may need downloading first (shown as progress); give it a few minutes.
+  return withTimeout(T.create({
     ...opts,
     monitor(m) { m.addEventListener('downloadprogress', (e) => onStatus?.(`Downloading language pack… ${Math.round(e.loaded * 100)}%`)); },
-  });
+  }), a === 'available' ? 20000 : 300000, 'The built-in translator');
 }
 
 let browserCache = null;
 async function translateBrowser(blocks, ctx) {
   const key = `${ctx.source}>${ctx.target}`;
-  if (browserCache?.key !== key) browserCache = { key, t: await browserTranslator(ctx.source, ctx.target, ctx.onStatus) };
-  const t = browserCache.t;
+  if (browserCache?.key !== key) {
+    try {
+      browserCache = { key, t: await browserTranslator(ctx.source, ctx.target, ctx.onStatus) };
+    } catch (e) {
+      // No usable on-device translator here (other browsers, the desktop app, unsupported language pair): use the free online one.
+      browserCache = { key, t: null };
+      ctx.onStatus?.('The built-in translator isn’t available here — using MyMemory (free) instead.');
+    }
+  }
+  if (!browserCache.t) return translateMyMemory(blocks, ctx);
+  return blockwise(blocks, async (text) => {
+    if (browserCache.t) {
+      try { return await browserCache.t.translate(text); } catch (e) {
+        if (e?.name === 'AbortError') throw e;
+        browserCache.t = null;
+        ctx.onStatus?.('The built-in translator stopped — continuing with MyMemory (free).');
+      }
+    }
+    return text.trim() ? myMemoryText(text, ctx) : text;
+  }, ctx);
+}
+
+// Plain-text translators: translate each block's text, keeping the block, its style, footnotes and {{fields}}.
+async function blockwise(blocks, translate, ctx) {
+  const t = { translate };
   const out = [];
   for (const b of blocks) {
     ctx.signal?.throwIfAborted();
@@ -94,6 +121,59 @@ async function translateBrowser(blocks, ctx) {
     out.push(plain ? el.textContent : el.outerHTML);
   }
   return out;
+}
+
+// ---------- MyMemory (free, no key) ----------
+// Splits text into pieces of at most ~450 characters at sentence boundaries (the free API's limit is 500 bytes).
+export function splitForApi(text, max = 450) {
+  const parts = [];
+  let cur = '';
+  for (const sentence of String(text).match(/[^.!?।॥。]+[.!?।॥。]*\s*/gu) || [text]) {
+    if ((cur + sentence).length > max && cur) { parts.push(cur); cur = ''; }
+    if (sentence.length > max) { for (let i = 0; i < sentence.length; i += max) parts.push(sentence.slice(i, i + max)); continue; }
+    cur += sentence;
+  }
+  if (cur) parts.push(cur);
+  return parts;
+}
+
+async function myMemoryRaw(q, ctx) {
+  const pair = `${baseCode(ctx.source)}|${baseCode(ctx.target)}`;
+  const de = ctx.keys?.myMemoryEmail ? `&de=${encodeURIComponent(ctx.keys.myMemoryEmail)}` : '';
+  let res;
+  try {
+    res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=${encodeURIComponent(pair)}${de}`, { signal: ctx.signal });
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e;
+    throw new Error('MyMemory could not be reached — check your internet connection.');
+  }
+  const data = await res.json().catch(() => ({}));
+  const msg = String(data.responseDetails || '');
+  if (+data.responseStatus === 429 || /USED ALL AVAILABLE FREE TRANSLATIONS/i.test(msg) || /USED ALL AVAILABLE FREE TRANSLATIONS/i.test(data.responseData?.translatedText || '')) {
+    throw new Error('Today’s free MyMemory limit is used up. Translation continues tomorrow (“Continue translation”), or add your email in Settings → Voice & translation for a higher free limit.');
+  }
+  if (+data.responseStatus !== 200) throw new Error(`MyMemory: ${msg || res.status}`);
+  return data;
+}
+
+async function myMemoryText(text, ctx) {
+  const leading = text.match(/^\s*/)[0], trailing = text.match(/\s*$/)[0];
+  const out = [];
+  for (const part of splitForApi(text.trim())) out.push((await myMemoryRaw(part, ctx)).responseData.translatedText);
+  return leading + out.join(' ').replace(/\s+/g, ' ').trim() + trailing;
+}
+
+const translateMyMemory = (blocks, ctx) => blockwise(blocks, (text) => (text.trim() ? myMemoryText(text, ctx) : text), ctx);
+
+/** Several free suggestions for a short phrase: MyMemory's best result plus distinct human translations from its memory. */
+async function myMemorySuggestions(text, ctx) {
+  const data = await myMemoryRaw(text.slice(0, 450), ctx);
+  const seen = new Set();
+  const out = [];
+  const add = (t, note) => { const k = (t || '').trim(); if (k && !seen.has(k.toLowerCase())) { seen.add(k.toLowerCase()); out.push({ text: k, note }); } };
+  add(data.responseData?.translatedText, 'Best match (MyMemory)');
+  for (const m of (data.matches || []).filter((x) => +x.quality >= 50 || +x.match >= 0.5).slice(0, 8)) add(m.translation, m['created-by'] && !/MT!/i.test(m['created-by']) ? 'From human translations' : 'Alternative');
+  return out.slice(0, 5);
 }
 
 function claudeSystem(ctx) {
@@ -183,8 +263,8 @@ async function translateLibre(blocks, ctx) {
   return Array.isArray(data.translatedText) ? data.translatedText : [data.translatedText];
 }
 
-const ENGINES = { browser: translateBrowser, claude: translateClaude, google: translateGoogle, libre: translateLibre, manual: async (b) => b };
-const BATCH = { browser: 4000, claude: 6000, google: 8000, libre: 4000, manual: 1e9 };
+const ENGINES = { browser: translateBrowser, mymemory: translateMyMemory, claude: translateClaude, google: translateGoogle, libre: translateLibre, manual: async (b) => b };
+const BATCH = { browser: 4000, mymemory: 4000, claude: 6000, google: 8000, libre: 4000, manual: 1e9 };
 
 /** Translate a list of HTML fragments, keeping empty/non-text fragments as they are. */
 export async function translateFragments(fragments, ctx) {
@@ -278,11 +358,19 @@ export function bookContext(book) {
 export async function suggestTranslations({ text, context = '', original = '', mode = 'translate' }, ctx) {
   const S = langInfo(ctx.source), T = langInfo(ctx.target);
   if (ctx.provider !== 'claude') {
+    const label = PROVIDERS.find((p) => p.id === ctx.provider)?.label || ctx.provider;
     if (mode === 'improve') {
       if (!original) return [];
-      return [{ text: plainText((await translateFragments([original], ctx))[0]), note: `Fresh machine translation of the whole original sentence/paragraph (${PROVIDERS.find((p) => p.id === ctx.provider)?.label || ctx.provider}).` }];
+      return [{ text: plainText((await translateFragments([original], ctx))[0]), note: `Fresh translation of the whole original paragraph (${label}) — compare and copy the part you need.` }];
     }
-    return [{ text: plainText((await translateFragments([text], ctx))[0]), note: PROVIDERS.find((p) => p.id === ctx.provider)?.label || '' }];
+    const list = ctx.provider === 'mymemory' ? await myMemorySuggestions(text, ctx) : [{ text: plainText((await translateFragments([text], ctx))[0]), note: label }];
+    // Context: also translate the whole sentence the selection sits in, so the writer sees how it reads in place.
+    const sentence = sentenceAround(context, text);
+    if (sentence && sentence.length > text.length + 3) {
+      const whole = plainText((await translateFragments([sentence], ctx))[0]);
+      if (whole) list.push({ text: whole, note: 'The whole sentence, translated together — shows the meaning in context', context: true });
+    }
+    return list;
   }
   const schema = {
     type: 'object', additionalProperties: false, required: ['suggestions'],
@@ -300,6 +388,17 @@ export async function suggestTranslations({ text, context = '', original = '', m
     : `${book}Surrounding text (${S.name}):\n${context || text}\n\nTranslate «${text}» into ${T.name}, as it is meant in this context.`;
   const parsed = await claudeJson({ system, user, schema, maxTokens: 16000 }, ctx);
   return (parsed?.suggestions || []).filter((x) => x.text).slice(0, 5);
+}
+
+/** The sentence of `paragraph` that contains `text` (or the paragraph if not found). */
+export function sentenceAround(paragraph, text) {
+  const p = String(paragraph || '');
+  const i = p.indexOf(text);
+  if (i < 0) return '';
+  const start = Math.max(p.lastIndexOf('. ', i), p.lastIndexOf('! ', i), p.lastIndexOf('? ', i), p.lastIndexOf('। ', i));
+  const endMatch = p.slice(i + text.length).search(/[.!?।](\s|$)/);
+  const end = endMatch < 0 ? p.length : i + text.length + endMatch + 1;
+  return p.slice(start < 0 ? 0 : start + 2, end).trim();
 }
 
 export function translationProgress(book) {

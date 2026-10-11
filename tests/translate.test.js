@@ -38,3 +38,16 @@ test('manual provider passes text through untouched', async () => {
   const out = await translateFragments(['<p>Hello {{author}}</p>', ''], { provider: 'manual', source: 'en', target: 'ta', keys: {} });
   assert.deepEqual(out, ['<p>Hello {{author}}</p>', '']);
 });
+
+test('free-API text is split at sentence boundaries under the size limit', async () => {
+  const { splitForApi } = await import('../src/lang/translate.js');
+  const parts = splitForApi('One. Two two. ' + 'x'.repeat(600) + '. Three.', 450);
+  assert.ok(parts.every((p) => p.length <= 450));
+  assert.equal(parts.join(''), 'One. Two two. ' + 'x'.repeat(600) + '. Three.');
+});
+
+test('the sentence around a selection gives translation context', async () => {
+  const { sentenceAround } = await import('../src/lang/translate.js');
+  assert.equal(sentenceAround('He ran. The bank of the river flooded! Night fell.', 'bank'), 'The bank of the river flooded!');
+  assert.equal(sentenceAround('No match here.', 'bank'), '');
+});
