@@ -138,6 +138,7 @@ export function normalizeBook(b) {
   book.goals = { ...base.goals, ...(b.goals || {}) };
   book.settings = { ...base.settings, ...(b.settings || {}) };
   book.bible = Array.isArray(b.bible) ? b.bible : [];
+  book.reviews = b.reviews && typeof b.reviews === 'object' ? b.reviews : { reviewers: [], comments: [], overall: [], rounds: [] };
   book.elements = (b.elements || []).map((e) => {
     const fresh = createElement(e.type || 'custom');
     return { ...fresh, ...e, include: { ...fresh.include, ...(e.include || {}) }, snapshots: e.snapshots || [] };

@@ -11,6 +11,9 @@ import { baseExtensions } from '../editor/schema.js';
 import { PARAGRAPH_STYLES, Typewriter } from '../editor/extensions.js';
 import { Proofing, issuesAt, proofKey, sentenceAround, dismissed } from '../editor/proofing.js';
 import { FindHighlight, findMatches, setFindState } from '../editor/find.js';
+import { Annotations } from '../editor/annotations.js';
+import { ensureReviews, COMMENT_TYPES } from '../core/feedback.js';
+import { reviewerById, setStatus, applySuggestion, goNext } from './feedback-actions.js';
 import { suggest, addToDictionary, ignoreWord, initSpell } from '../lang/spell.js';
 import { synonymsFor } from '../lang/thesaurus.js';
 import { rephrase } from '../lang/rephrase.js';
@@ -252,6 +255,10 @@ export function renderEditor(host) {
         Proofing.configure({ getSettings: proofSettings, onUpdate: () => { emit('proof', editor); updateStatus(); } }),
         FindHighlight,
         Typewriter.configure({ enabled: () => state.app.typewriter, scroller: () => scroller }),
+        Annotations.configure({
+          getComments: () => (state.app.showReviewNotes === false ? [] : ensureReviews(book).comments.filter((c) => c.elId === el.id && c.status === 'open')),
+          getReviewer: reviewerById,
+        }),
       ],
       editorProps: {
         attributes: { spellcheck: 'false', class: 'book-prose', 'aria-label': 'Manuscript text' },
@@ -289,10 +296,28 @@ export function renderEditor(host) {
   // ---------- proofing interactions ----------
   function onProofClick(e) {
     const target = e.target.closest?.('.pf');
+    const annot = e.target.closest?.('.rv-annot');
+    if (!target && annot) { showReviewComment(annot.getAttribute('data-comment'), annot.getBoundingClientRect()); return; }
     if (!target) return;
     const pos = editor.view.posAtDOM(target, 0);
     const issues = issuesAt(editor.state, pos + 0);
     if (issues.length) showIssue(issues[0], target.getBoundingClientRect());
+  }
+
+  function showReviewComment(id, rect) {
+    const c = ensureReviews(book).comments.find((x) => x.id === id);
+    if (!c) return;
+    const rev = reviewerById(c.reviewerId);
+    const pop = h('div.issue-pop',
+      h('div.ip-kind', { style: { color: rev?.color } }, `${rev?.name || 'Reviewer'} · ${COMMENT_TYPES[c.type]?.label || 'Comment'}`),
+      c.note ? h('div.ip-msg', c.note) : null,
+      c.suggestion != null ? h('div.ip-msg', h('s.muted', c.quote), ' → ', h('b', { style: { color: 'var(--success)' } }, c.suggestion)) : null,
+      h('div.ip-actions',
+        c.suggestion != null ? btn('Apply edit', { icon: 'check', cls: 'btn-sm', kind: 'primary', onClick: () => { closeMenu(); applySuggestion(c); } }) : null,
+        btn('Done', { icon: 'circle-check', cls: 'btn-sm', onClick: () => { closeMenu(); setStatus(c, 'resolved'); } }),
+        btn('Won’t fix', { cls: 'btn-sm', kind: 'ghost', onClick: () => { closeMenu(); setStatus(c, 'wontfix'); } }),
+        btn('Next ›', { cls: 'btn-sm', kind: 'ghost', onClick: () => { closeMenu(); goNext(c); } })));
+    popover(rect, pop);
   }
 
   async function showIssue(issue, rect) {
@@ -574,6 +599,7 @@ export function renderEditor(host) {
     on('format', applyView),
     on('replace-content', () => mount()),
     on('editor-command', (fn) => editor && fn(editor)),
+    on('reviews', () => editor?.storage.annotations?.refresh()),
     on('open-rephrase', (r) => openRephrase(r)),
   ];
   return () => {

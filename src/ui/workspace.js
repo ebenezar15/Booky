@@ -7,6 +7,7 @@ import { renderEditor } from './editor-view.js';
 import { renderInspector } from './inspector.js';
 import { renderPlan } from './plan.js';
 import { renderReview } from './review.js';
+import { renderFeedback } from './feedback.js';
 import { renderFormat } from './format.js';
 import { renderCover } from './cover.js';
 import { renderPublish } from './publish.js';
@@ -20,6 +21,7 @@ const MODES = [
   { id: 'write', label: 'Write', icon: 'pen-line' },
   { id: 'plan', label: 'Plan', icon: 'layout-grid' },
   { id: 'review', label: 'Review', icon: 'spell-check' },
+  { id: 'feedback', label: 'Feedback', icon: 'messages-square' },
   { id: 'format', label: 'Format', icon: 'swatch-book' },
   { id: 'cover', label: 'Cover', icon: 'image' },
   { id: 'publish', label: 'Publish', icon: 'package' },
@@ -87,6 +89,8 @@ export function renderWorkspace(root) {
     } else if (m === 'review') {
       viewCleanup.push(renderBinder(body));
       viewCleanup.push(renderReview(body));
+    } else if (m === 'feedback') {
+      viewCleanup.push(renderFeedback(body));
     } else if (m === 'format') viewCleanup.push(renderFormat(body));
     else if (m === 'cover') viewCleanup.push(renderCover(body));
     else if (m === 'publish') viewCleanup.push(renderPublish(body));

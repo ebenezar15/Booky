@@ -17,6 +17,7 @@ export const state = {
     sidebar: 'deep',
     customTemplates: [],
     references: [],
+    authorEmail: '',
     dictionary: [],
     ignored: [],
     customFonts: [], // {name, data(dataURL), format}

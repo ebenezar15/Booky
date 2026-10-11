@@ -1,16 +1,20 @@
 // Right-hand inspector: page settings, writing check, notes, snapshots and stats.
 import { h, icon, btn, clear, field, input, textarea, select, toggle, segmented, toast, confirmDialog, pickFile, compressImage, iconBtn, timeAgo, add } from './dom.js';
-import { state, on, emit, touch, currentElement, sessionWords } from '../core/store.js';
+import { state, on, emit, touch, currentElement, sessionWords, setMode } from '../core/store.js';
 import { ELEMENT_TYPES, STATUSES, SECTIONS, htmlToText, countWords, bookWords, elementWords } from '../core/model.js';
 import { takeSnapshot } from '../core/actions.js';
 import { getEditor } from './editor-view.js';
 import { allIssues } from '../editor/proofing.js';
 import { readability, easeLabel, overusedWords } from '../lang/grammar.js';
 import { textMetrics, readabilityAdvice } from '../lang/analysis.js';
+import { ensureReviews, orderedComments } from '../core/feedback.js';
+import { goNext } from './feedback-actions.js';
+import { commentCard } from './feedback.js';
 
 const TABS = [
   { id: 'page', label: 'Page', icon: 'sliders-horizontal' },
   { id: 'check', label: 'Check', icon: 'spell-check' },
+  { id: 'comments', label: 'Comments', icon: 'messages-square' },
   { id: 'notes', label: 'Notes', icon: 'notebook-pen' },
   { id: 'history', label: 'History', icon: 'clock-arrow-left' },
   { id: 'stats', label: 'Stats', icon: 'chart-column' },
@@ -25,6 +29,7 @@ export function renderInspector(host) {
   add(pane, tabsEl, body);
   host.appendChild(pane);
   let tab = lastTab;
+  const openHere = () => { const el = currentElement(); return el ? ensureReviews(state.book).comments.filter((c) => c.elId === el.id && c.status === 'open').length : 0; };
   let filter = 'all';
 
   const drawTabs = () => {
@@ -32,7 +37,8 @@ export function renderInspector(host) {
     const ed = getEditor();
     const n = ed ? allIssues(ed.state).length : 0;
     TABS.forEach((t) => tabsEl.appendChild(h(`button.insp-tab${t.id === tab ? '.on' : ''}`, { type: 'button', role: 'tab', title: t.label, on: { click: () => { tab = lastTab = t.id; draw(); } } },
-      icon(t.icon, 15), h('span.insp-label', t.label), t.id === 'check' && n ? h('span.badge', n) : null)));
+      icon(t.icon, 15), h('span.insp-label', t.label), t.id === 'check' && n ? h('span.badge', n) : null,
+      t.id === 'comments' && openHere() ? h('span.badge.red', openHere()) : null)));
   };
 
   function draw() {
@@ -41,6 +47,7 @@ export function renderInspector(host) {
     const el = currentElement();
     if (tab === 'page') drawPage(el);
     if (tab === 'check') drawCheck(el);
+    if (tab === 'comments') drawComments(el);
     if (tab === 'notes') drawNotes(el);
     if (tab === 'history') drawHistory(el);
     if (tab === 'stats') drawStats(el);
@@ -127,6 +134,23 @@ export function renderInspector(host) {
     add(body, h('p.hint', { style: { marginTop: '16px' } }, 'All checks run on your device. Click an underlined word in the text for suggestions, or right-click for synonyms and rephrasing.'));
   }
 
+  function drawComments(el) {
+    const R = ensureReviews(state.book);
+    const total = R.comments.length, done = R.comments.filter((c) => c.status !== 'open').length;
+    add(body,
+      h('div.card', { style: { padding: '12px', marginBottom: '12px' } },
+        h('div.row', h('b', 'Reviewer comments'), h('span.grow'), h('span.small.muted', `${done} of ${total} done`)),
+        h('div.progress', { style: { margin: '8px 0 10px' } }, h('div', { style: { width: `${total ? (done / total) * 100 : 0}%` } })),
+        h('div.row', { style: { flexWrap: 'wrap' } },
+          btn('Next open comment', { icon: 'chevron-right', kind: 'primary', cls: 'btn-sm', onClick: () => goNext(R.comments.find((c) => c.id === state.activeComment)) }),
+          btn('All comments', { cls: 'btn-sm', kind: 'ghost', onClick: () => setMode('feedback') }))),
+    );
+    if (!el) return;
+    const list = orderedComments(state.book, R.comments.filter((c) => c.elId === el.id));
+    if (!list.length) { add(body, h('p.muted.small', total ? 'No comments on this page.' : 'No reviewer comments yet. Share a review copy from the Feedback tab.')); return; }
+    for (const c of list) add(body, commentCard(c, { compact: true, onChange: draw }));
+  }
+
   function drawNotes(el) {
     if (!el) return;
     add(body, 
@@ -206,6 +230,7 @@ export function renderInspector(host) {
     on('proof', () => { clearTimeout(t); t = setTimeout(() => { if (tab === 'check') draw(); else drawTabs(); }, 300); }),
     on('snapshots', () => { if (tab === 'history') draw(); }),
     on('show-tab', (id) => { tab = lastTab = id; draw(); }),
+    on('reviews', () => { if (tab === 'comments') draw(); else drawTabs(); }),
   ];
   return () => offs.forEach((f) => f());
 }

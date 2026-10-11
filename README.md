@@ -68,6 +68,24 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 - **Repetition**: similar or duplicate sentences anywhere in the book, repeated phrases, runs of sentences that start the same way, and echo words used twice within a few lines.
 - **Originality (plagiarism check)**: compares your manuscript, 7+ words at a time, with famous passages and quotations, your other Booky projects, and any reference texts you add (paste or import .docx/.txt/.md/.html). It reports an originality percentage and every matching passage. This runs offline, so it cannot search the internet; a **Search online** button checks a suspicious passage on the web when you are connected.
 
+### 💬 Feedback (private review copies)
+Share your book with editors, beta readers or friends. Only the people you invite can read it, and they can comment but not change it.
+1. **Invite**: Feedback → *Invite reviewer* → enter their name and email. Booky creates a **review copy** (one HTML file) that is **encrypted** and locked to that email address plus a passcode. You can set it to expire after 7, 14, 30 or 90 days.
+2. **Share**: email the file as an attachment, *or* upload it to Google Drive / Dropbox / OneDrive and send the **link**. The invitation email is written for you. Send the passcode separately (text message, WhatsApp or a separate email). If the link is forwarded, nobody else can open it without the email + passcode.
+3. **They review** in any browser, with no account or install:
+   - Highlight in five colours, comment, ask a question, flag an error, suggest an edit ("replace with…") or leave praise, plus an overall star rating and review.
+   - They **can't edit, copy, cut or print** your text, and every page is watermarked with their email.
+   - Their notes are saved in their browser until they click **Send to author**.
+4. **Collect**: they email you the small `.bookyreview` file. Drop it on the Feedback screen. Sending again later updates their notes; withdrawn notes disappear.
+5. **Work through everything without missing a note**:
+   - All reviewers' comments merge into one list **in reading order, grouped by chapter**. Each reviewer has their own colour, which you can change.
+   - Filter by reviewer, type (comments, suggestions, questions, errors…), status (to do / done) or search, with a progress bar (e.g. 37 / 140 done).
+   - **Start correcting** opens the first open comment in the editor with the text selected. The open comments are shown inline in each reviewer's colour.
+   - From the **Comments** side panel: **Apply edit** (applies a suggested change in one click), **Done**, **Won't fix**, a private note to yourself, and **Next open comment**, which takes you straight to the next one anywhere in the book.
+   - **Download checklist** gives a printable list of every comment.
+
+> Copy protection stops copying, cutting, printing and right-click in the review copy. Like any on-screen document, it can't prevent screenshots or someone retyping the text. The watermark discourages that.
+
 ### 🗂️ Plan
 - **Corkboard**: chapter cards with synopsis and status. Drag a card to reorder chapters.
 - **Outline**: a table of chapters with POV/label, synopsis, status, word count and target.
@@ -160,8 +178,11 @@ The app is plain JavaScript (no framework), built with Vite into a single self-c
 | `src/lang` | Spell-check worker (nspell + Hunspell en), grammar and style rules, rephrasing, thesaurus |
 | `src/render` | Book → HTML, print/ebook CSS generator, Paged.js preview, canvas cover renderer |
 | `src/export` | EPUB, DOCX, HTML, Markdown and text exporters |
+| `src/share` | Encrypted review copies (AES-GCM + PBKDF2), the reviewer's reading/commenting page, sharing transports |
 | `src/import` | DOCX (Mammoth), Markdown, text, HTML and RTF import with chapter detection |
 | `src/ui` | All screens: library, binder, editor, inspector, plan, format, cover, publish |
+
+Sharing is built around a small transport interface (`src/share/transport.js`). Today it uses files: an encrypted review copy goes out and a `.bookyreview` comments file comes back. An online backend (e.g. Supabase or Firebase) can be added later to host copies, send invitations and sync comments live, without changing the rest of the app. Because copies are encrypted on your computer, such a server would never see the book text.
 
 When hosted over http(s), Booky also registers a service worker, so it can be installed as an app (PWA).
 
