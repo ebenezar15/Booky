@@ -14,7 +14,8 @@
     "desktop:dev": "electron .",
     "dist:win": "npm run build && electron-builder --win --publish never",
     "dist:mac": "npm run build && electron-builder --mac --publish never",
-    "icons": "node scripts/gen-app-icons.cjs"
+    "icons": "node scripts/gen-app-icons.cjs",
+    "test:epub": "node scripts/epub-fixtures.mjs"
   },
   "repository": {
     "type": "git",
@@ -167,6 +168,7 @@
     "nspell": "^2.1.5",
     "pagedjs": "^0.4.3",
     "pdf-lib": "^1.17.1",
+    "playwright": "^1.56.1",
     "vite": "^8.3.4",
     "vite-plugin-singlefile": "^2.3.3"
   },

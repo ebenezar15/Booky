@@ -130,7 +130,7 @@ export const BookImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
-      width: { default: '100', parseHTML: (el) => el.getAttribute('data-width') || '100', renderHTML: (a) => ({ 'data-width': a.width, style: `width:${a.width}%` }) },
+      width: { default: '100', parseHTML: (el) => el.getAttribute('data-width') || '100', renderHTML: (a) => ({ 'data-width': a.width, style: `width:${a.width === 'page' ? 100 : a.width}%` }) },
       align: { default: 'center', parseHTML: (el) => el.getAttribute('data-align') || 'center', renderHTML: (a) => ({ 'data-align': a.align }) },
     };
   },

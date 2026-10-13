@@ -78,7 +78,7 @@ const BASE = {
   pageNumbers: { position: 'bottom-center', showOnChapterStart: true, frontRoman: true, font: '', size: 9.5, style: 'plain', startAt: 1, color: '' },
   toc: { showNumbers: true, pageNumbers: true, leaders: true, depth: 1, numberStyle: 'smallcaps' },
   layout: { chapterStart: 'right', partStart: 'right', frontStart: 'right', widows: 2, orphans: 2 },
-  ebook: { useBookFonts: true, embedFonts: false, justify: false, indent: true, includeToc: true, dropCaps: false },
+  ebook: { useBookFonts: true, embedFonts: false, justify: false, indent: true, includeToc: true, dropCaps: false, pageList: true },
 };
 
 export const THEMES = {

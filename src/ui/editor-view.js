@@ -191,7 +191,7 @@ export function renderEditor(host) {
 
   const imgTools = h('span.row.hidden', { style: { gap: '2px' } },
     h('span.sep'),
-    select([['25', '25%'], ['33', '33%'], ['50', '50%'], ['66', '66%'], ['75', '75%'], ['100', '100%']], '100', (v) => editor.chain().focus().updateAttributes('image', { width: v }).run(), { title: 'Image width' }),
+    select([['25', '25%'], ['33', '33%'], ['50', '50%'], ['66', '66%'], ['75', '75%'], ['100', '100%'], ['page', 'Full page']], '100', (v) => editor.chain().focus().updateAttributes('image', { width: v }).run(), { title: 'Image width' }),
     iconBtn('align-left', 'Image left', () => editor.chain().focus().updateAttributes('image', { align: 'left' }).run()),
     iconBtn('align-center', 'Image centre', () => editor.chain().focus().updateAttributes('image', { align: 'center' }).run()),
     iconBtn('align-right', 'Image right', () => editor.chain().focus().updateAttributes('image', { align: 'right' }).run()),

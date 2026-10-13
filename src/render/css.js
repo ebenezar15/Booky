@@ -168,6 +168,10 @@ body { margin: 0; }
 .bk-toc-item > a::after { content: ${f.toc?.pageNumbers === false ? 'none' : 'target-counter(attr(href), page)'}; flex: none; }
 .bk-toc-item.is-front > a::after { content: ${f.toc?.pageNumbers === false ? 'none' : `target-counter(attr(href), page${pn.frontRoman ? ', lower-roman' : ''})`}; }
 ${f.toc?.pageNumbers === false ? '.bk-toc-dots { border: none !important; }' : ''}
+/* full-page images: a page of their own with no margins, running into the bleed when bleed is on */
+@page bkfull { margin: 0; ${boxRules({})} }
+.bk-fullpage { page: bkfull; break-before: page; break-after: page; margin: 0 !important; width: ${w}in; height: ${h}in; overflow: visible; }
+.bk-fullpage img { display: block; max-width: none; object-fit: cover; width: ${(w + (f.bleed ? 2 * f.bleedSize : 0)).toFixed(4)}in; height: ${(h + (f.bleed ? 2 * f.bleedSize : 0)).toFixed(4)}in; ${f.bleed ? `margin: -${f.bleedSize}in;` : ''} }
 `;
 
   const firstBody = sections.find((s) => !s.front);

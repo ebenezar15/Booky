@@ -107,11 +107,11 @@ function processContent(book, el, target, opts = {}) {
     const align = img.getAttribute('data-align') || 'center';
     img.removeAttribute('width');
     img.removeAttribute('height');
-    if (w) img.setAttribute('style', `width:${w}%`);
+    if (w && w !== 'page') img.setAttribute('style', `width:${w}%`);
     if (!img.getAttribute('alt')) img.setAttribute('alt', img.getAttribute('title') || '');
     if (img.parentNode === root || img.parentNode?.tagName === 'DIV') {
       const fig = doc.createElement('figure');
-      fig.className = `bk-figure bk-align-${align}`;
+      fig.className = w === 'page' ? 'bk-figure bk-fullpage' : `bk-figure bk-align-${align}`;
       img.replaceWith(fig);
       fig.appendChild(img);
     }
@@ -150,6 +150,9 @@ function processContent(book, el, target, opts = {}) {
       if (fmt.firstPara.leadIn === 'smallcaps-line') first.classList.add('bk-leadline');
     }
   }
+
+  // Number the top-level blocks so print pages can be mapped to ebook positions (EPUB page-list).
+  [...root.children].forEach((n, i) => n.setAttribute('data-b', String(i)));
 
   let html = '';
   const wrap = doc.createElement('div');

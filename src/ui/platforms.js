@@ -15,6 +15,8 @@ import { PDF_QUALITY } from '../export/pdf.js';
 import { canVectorPdf, isComplexScript, finishAndCheckInterior, vectorInterior, finishCoverPdf } from '../export/print-pdf.js';
 import { langInfo } from '../core/languages.js';
 import { inspectPdf } from '../export/pdf-check.js';
+import { collectImages, imageFindings, measureImages } from '../core/image-check.js';
+import { goToImage } from './feedback-actions.js';
 
 export function platformGrid(book) {
   const card = (p) => h('button.platform', { type: 'button', on: { click: () => platformDialog(book, p) } },
@@ -74,6 +76,16 @@ export async function platformDialog(book, p) {
     book.cover.lastPageCount = pages;
   }
   let quality = 'print';
+  // Image checks for this kind of platform (resolution, colour and bleed for print; alt text for ebooks).
+  let imgChecks = [];
+  (async () => {
+    const images = collectImages(book);
+    if (!images.length) return;
+    const found = imageFindings(book, images, await measureImages(images), { print: p.kind === 'print', ebook: p.kind === 'ebook' });
+    imgChecks = found.map((f) => ({ ok: f.level === 'bad' ? false : 'warn', text: f.text, image: f }));
+    if (!imgChecks.length) imgChecks = [{ ok: true, text: p.kind === 'print' ? `All ${images.length} images are at least 300 ppi at their printed size` : `All ${images.length} images have alt text` }];
+    draw();
+  })();
   // Where the interior PDF comes from: the desktop app makes a vector PDF itself; in the
   // browser the author saves one from the print dialog and drops it in; the image-based
   // PDF stays available as a proof / fallback.
@@ -129,7 +141,7 @@ export async function platformDialog(book, p) {
 
   const draw = () => {
     clear(body);
-    const checks = checkPlatform(p, book, pages);
+    const checks = [...checkPlatform(p, book, pages), ...imgChecks];
     const fixes = {
       gutter: () => { book.format.margins.inside = Math.max(book.format.margins.inside, gutterFor(pages) + 0.125); },
       margins: () => { const mg = book.format.margins; mg.outside = Math.max(mg.outside, 0.5); mg.top = Math.max(mg.top, 0.5); mg.bottom = Math.max(mg.bottom, 0.5); },
@@ -153,6 +165,7 @@ export async function platformDialog(book, p) {
     add(body,
       h('div.pl-checks', checks.map((c) => h(`div.check-item.${c.ok === true ? 'ok' : c.ok === 'warn' ? 'warn' : 'bad'}`,
         icon(c.ok === true ? 'circle-check' : 'triangle-alert', 17), h('div', h('b', c.text)),
+        c.image ? btn(c.image.kind === 'alt' ? 'Add alt text' : 'Show', { cls: 'btn-sm', onClick: () => { m.close(); goToImage(c.image.elId, c.image.index, { editAlt: c.image.kind === 'alt' }); } }) : null,
         c.ok !== true && fixes[c.fix] ? btn('Fix', { cls: 'btn-sm', onClick: () => { fixes[c.fix](); touch('format'); touch('elements'); toast('Fixed', 'success'); if (pv && c.fix !== 'toc') { pv.render(book).then((r) => { pages = r.pages + (r.pages % 2); draw(); }); } else draw(); } }) : null))),
       interiorSection(),
       h('div.section-title', { style: { marginTop: '14px' } }, 'The package contains'),
@@ -175,7 +188,9 @@ async function buildPackage(book, p, { pv, pages, quality, interiorMode = 'raste
   if (p.kind === 'ebook') {
     onProgress(10, 'Building EPUB…');
     const { buildEpub } = await import('../export/epub.js');
-    zip.file(`${base}.epub`, await buildEpub(book));
+    const { pageListIfWanted } = await import('../export/page-map.js');
+    onProgress(5, 'Matching print page numbers…');
+    zip.file(`${base}.epub`, await buildEpub(book, { pageList: await pageListIfWanted(book) }));
     onProgress(55, 'Rendering cover…');
     const cv = document.createElement('canvas');
     cv.width = p.cover.w; cv.height = p.cover.h;

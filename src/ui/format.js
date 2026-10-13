@@ -335,6 +335,7 @@ export function renderFormat(host) {
         add(b, h('div.col', { style: { gap: '10px' } },
           tog(E, 'useBookFonts', 'Use the book’s fonts (readers may still override)'),
           tog(E, 'embedFonts', 'Embed font files in the EPUB (larger file)'),
+          tog(E, 'pageList', 'Print page numbers in the ebook (page-list) — when there is a print edition'),
           tog(E, 'justify', 'Justify text'),
           tog(E, 'indent', 'First-line indents'),
           tog(E, 'dropCaps', 'Drop caps in ebook'),

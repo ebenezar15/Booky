@@ -1,6 +1,6 @@
 // Paginated print preview: renders the book with Paged.js inside an isolated
 // iframe. The same iframe is printed to produce the print-ready PDF.
-import pagedPolyfill from '@paged/paged.polyfill.min.js?raw';
+import pagedPolyfill from '../../node_modules/pagedjs/dist/paged.polyfill.min.js?raw'; // relative path: the @paged alias loses ?raw in the dev server
 import { renderSections } from './book.js';
 import { typographyCss, printCss, ebookCss, previewChromeCss } from './css.js';
 import { fontFaceCss, fontsUsedBy } from '../core/fonts.js';

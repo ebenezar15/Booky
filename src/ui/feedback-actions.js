@@ -62,3 +62,18 @@ export function goNext(c) {
   if (!n) { toast('All comments are done 🎉', 'success'); return; }
   goToComment(n);
 }
+
+/** Open the editor at the n-th image of a page (and optionally ask for its alt text). */
+export function goToImage(elId, index, { editAlt = false } = {}) {
+  withEditor(elId, (ed) => {
+    let n = -1, at = -1;
+    ed.state.doc.descendants((node, pos) => { if (at < 0 && node.type.name === 'image' && ++n === index) at = pos; });
+    if (at < 0) { toast('That image has moved — check the page.', 'warn'); return; }
+    ed.chain().focus().setNodeSelection(at).run();
+    ed.view.nodeDOM(at)?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    if (editAlt) {
+      import('./dom.js').then(({ promptDialog }) => promptDialog('Image description', 'Alt text — a short description read aloud by screen readers', ed.state.doc.nodeAt(at)?.attrs.alt || '', { placeholder: 'e.g. A lighthouse on a rocky shore at dusk' }))
+        .then((alt) => { if (alt != null) { ed.chain().setNodeSelection(at).updateAttributes('image', { alt: alt.trim() }).run(); toast('Alt text saved', 'success', 1500); emit('images-changed'); } });
+    }
+  });
+}

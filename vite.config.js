@@ -15,6 +15,8 @@ export default defineConfig({
   plugins: [viteSingleFile({ removeViteModuleLoader: true })],
   worker: { format: 'iife' }, // classic workers also run from file://
   server: { open: '/app.html' },
+  // Paged.js is inlined as text (?raw) into the print preview; pre-bundling would turn it into a module.
+  optimizeDeps: { exclude: ['pagedjs'] },
   build: {
     rollupOptions: { input: 'app.html' }, // index.html at the root is the GitHub Pages landing page
     target: 'es2020',

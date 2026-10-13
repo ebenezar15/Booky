@@ -214,6 +214,17 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
       - no page is a single full-page image.
     - Booky makes **standard PDFs** (RGB colour, fonts embedded), not PDF/X-1a. KDP, Lulu and B&N accept them, and IngramSpark's file checker accepts them too.
 - **EPUB 3** with cover, navigation, landmarks, metadata, series information and pop-up footnotes. Validated with EPUBCheck: 0 errors, 0 warnings.
+  - **Accessibility metadata** (asked for by stores and libraries, and by the European Accessibility Act): access modes, features, hazards and a summary.
+    - Booky only states conformance to *EPUB Accessibility 1.1 / WCAG 2.1 AA* when its checks pass: every image has alt text, there's a table of contents, the language is set, and headings are in order.
+    - Headings are re-levelled automatically so they never skip a level.
+  - **Print page numbers** (page-list): when the book has a print edition, the EPUB marks where each printed page starts, so readers and teachers can say "page 112". Switch it off in Format → Ebook.
+    - A page that starts mid-paragraph is marked at the start of that paragraph.
+- **Image checks** (pre-flight and platform dialogs). Click a finding to jump to the image:
+  - **resolution** at the printed size (warns under 300 ppi, error under 150);
+  - **colour images** on black-and-white paper;
+  - **full-page images** without bleed;
+  - **missing alt text**, with a *Fill in alt text* shortcut.
+- **Full-page images**: set an image's width to *Full page* to give it a page of its own that runs to the edges (into the bleed when bleed is on).
 - **DOCX** with real Word styles, mirrored margins, footnotes and images.
 - **HTML** (a single web page), **print-ready HTML**, **Markdown**, **plain text** and **.booky backups**.
 - **Pre-flight check**: missing metadata, ISBNs, copyright page, contents, empty chapters, leftover sample text, page count, and gutter width for your page count.
@@ -309,6 +320,7 @@ npm run desktop    # run the desktop app (Electron)
 npm run dist:win   # Windows installer → release/desktop (run on Windows)
 npm run dist:mac   # macOS .dmg → release/desktop (run on a Mac)
 npm run icons      # re-render app icons from assets/logo.svg
+npm run test:epub  # build EPUBs from tests/fixtures in a headless browser and run EPUBCheck (needs Java)
 ```
 
 The app is plain JavaScript (no framework), built with Vite into a single self-contained HTML file.

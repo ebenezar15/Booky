@@ -1,5 +1,7 @@
 // Publish mode: pre-flight checklist and every export format.
 import { parseIsbn, isbnFindings } from '../core/isbn.js';
+import { collectImages, imageFindings, measureImages } from '../core/image-check.js';
+import { goToImage } from './feedback-actions.js';
 import { h, icon, btn, clear, modal, toast, downloadBlob, slugify, add, celebrate } from './dom.js';
 import { state, setMode, save } from '../core/store.js';
 import { bookWords, elementWords, displayTitle, htmlToText, ELEMENT_TYPES } from '../core/model.js';
@@ -46,7 +48,7 @@ export function renderPublish(host) {
             btn('Preview', { kind: 'ghost', onClick: () => setMode('format') }),
           ]),
           card('tablet', 'linear-gradient(135deg,#e07a5f,#f2a65a)', 'EPUB ebook', 'Reflowable EPUB 3 with cover, navigation and metadata — upload to Kindle (KDP), Apple Books, Kobo, Google Play, Barnes & Noble.', [
-            btn('Download EPUB', { kind: 'primary', icon: 'download', onClick: () => run('Building EPUB', async () => { const { buildEpub } = await import('../export/epub.js'); downloadBlob(await buildEpub(book), `${fileBase}.epub`); save(); toast('EPUB ready', 'success'); celebrate(); }) }),
+            btn('Download EPUB', { kind: 'primary', icon: 'download', onClick: () => run('Building EPUB', async () => { const { buildEpub } = await import('../export/epub.js'); const { pageListIfWanted } = await import('../export/page-map.js'); downloadBlob(await buildEpub(book, { pageList: await pageListIfWanted(book) }), `${fileBase}.epub`); save(); toast('EPUB ready', 'success'); celebrate(); }) }),
           ]),
           card('file-text', 'linear-gradient(135deg,#2b6cb0,#4299e1)', 'Word document (DOCX)', 'A styled manuscript with headings, footnotes and images — for editors, agents, or publishers who ask for Word.', [
             btn('Download DOCX', { icon: 'download', onClick: () => run('Building DOCX', async () => { const { buildDocx } = await import('../export/docx.js'); downloadBlob(await buildDocx(book), `${fileBase}.docx`); toast('DOCX ready', 'success'); celebrate(); }) }),
@@ -118,12 +120,32 @@ function preflight(book) {
     icon(i.level === 'ok' ? 'circle-check' : 'triangle-alert', 17), h('div', h('b', i.title), h('span', i.detail)))));
 
   const proofOut = h('div');
+  const imagesOut = h('div');
+  imageCheck(book, imagesOut);
   return h('div.card',
     h('div.row', h('b', 'Pre-flight check'), h('span.grow'), h('span.badge', `${score}/${items.length}`)),
     h('p.muted.small', 'Click an item to fix it.'),
     list,
+    imagesOut,
     h('div', { style: { borderTop: '1px solid var(--border)', marginTop: '10px', paddingTop: '12px' } },
       btn('Proofread whole book', { icon: 'spell-check', cls: 'btn-block', onClick: () => proofreadAll(book, proofOut) }), proofOut));
+}
+
+/** Image checks (resolution, colour, bleed, alt text), each clickable to the image. */
+export async function imageCheck(book, out, opts = {}) {
+  const images = collectImages(book);
+  if (!images.length) return [];
+  const dims = await measureImages(images);
+  const found = imageFindings(book, images, dims, opts);
+  clear(out);
+  add(out, h('div.section-title', { style: { marginTop: '12px' } }, `Images (${images.length})`));
+  if (!found.length) add(out, h('div.check-item.ok', icon('circle-check', 17), h('div', h('b', 'All images'), h('span', 'Sharp enough for print, with alt text'))));
+  for (const f of found) {
+    add(out, h(`div.check-item.${f.level}`, { style: { cursor: 'pointer' }, title: 'Show this image', on: { click: () => goToImage(f.elId, f.index, { editAlt: f.kind === 'alt' }) } },
+      icon('triangle-alert', 17), h('div', h('b', { ppi: 'Image resolution', color: 'Colour images', bleed: 'Full-page image', alt: 'Alt text missing' }[f.kind]), h('span', f.text),
+        f.kind === 'alt' ? h('span.small', { style: { color: 'var(--primary)' } }, ' Fill in alt text →') : null)));
+  }
+  return found;
 }
 
 async function proofreadAll(book, out) {

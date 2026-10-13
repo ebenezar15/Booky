@@ -1,0 +1,45 @@
+# Unit tests, build, and EPUBCheck on EPUBs built from small fixture books
+# (English novel with print page numbers, Tamil, Urdu right-to-left, images + footnotes).
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      EPUBCHECK_VERSION: 5.1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm test
+      - run: npm run build
+      - name: Install Chromium for the EPUB harness
+        run: npx playwright install --with-deps chromium
+      - name: Download EPUBCheck
+        run: |
+          curl -sSL -o epubcheck.zip "https://github.com/w3c/epubcheck/releases/download/v${EPUBCHECK_VERSION}/epubcheck-${EPUBCHECK_VERSION}.zip"
+          unzip -q epubcheck.zip -d tools
+          mv "tools/epubcheck-${EPUBCHECK_VERSION}" tools/epubcheck
+      - name: Build fixture EPUBs and run EPUBCheck
+        run: npm run test:epub
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fixture-epubs
+          path: tests/out/*.epub

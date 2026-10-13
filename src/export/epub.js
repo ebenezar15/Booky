@@ -6,6 +6,8 @@ import { escapeHtml, uid } from '../core/model.js';
 import { frontCoverDataURL } from '../render/cover.js';
 import { fontFaceCss, ensureFontsLoaded } from '../core/fonts.js';
 import { isRtl } from '../core/languages.js';
+import { fixHeadingLevels, accessibilityMetadata } from './a11y.js';
+import { parseIsbn } from '../core/isbn.js';
 
 const XHTML_NS = ' xmlns="http://www.w3.org/1999/xhtml"';
 
@@ -65,7 +67,10 @@ async function fontFiles(book) {
   return { files: out, css: faceCss };
 }
 
-export async function buildEpub(book) {
+/**
+ * @param opts.pageList optional print page list from computePageList(): adds page-break markers and a page-list nav.
+ */
+export async function buildEpub(book, { pageList = null } = {}) {
   const zip = new JSZip();
   // No directory entries: some validators and readers dislike them.
   const put = (path, data, opts = {}) => zip.file(path, data, { createFolders: false, ...opts });
@@ -101,9 +106,29 @@ export async function buildEpub(book) {
   spine.push('<itemref idref="cover" linear="yes"/>');
 
   // Sections
+  const marks = new Map(); // anchor → page-list entries
+  for (const p of pageList || []) { if (!marks.has(p.anchor)) marks.set(p.anchor, []); marks.get(p.anchor).push(p); }
+  const placed = [];
+  let figures = 0, figuresWithAlt = 0;
+  const headingsOk = true; // headings are re-levelled below so they never skip
   for (const s of sections) {
     const tpl = document.createElement('template');
     tpl.innerHTML = s.html;
+    // Print page numbers: a marker before the block each page starts with (or at the section start).
+    const sec = tpl.content.querySelector('section');
+    for (const p of marks.get(s.anchor) || []) {
+      const mk = document.createElement('span');
+      mk.setAttribute('epub:type', 'pagebreak');
+      mk.setAttribute('role', 'doc-pagebreak');
+      mk.id = p.id;
+      mk.setAttribute('aria-label', p.label);
+      const target = p.block == null ? null : sec?.querySelector(`.bk-content > [data-b="${p.block}"]`);
+      if (target) target.before(mk);
+      else if (sec) sec.prepend(mk);
+      else continue;
+      placed.push({ ...p, file: s.file });
+    }
+    tpl.content.querySelectorAll('.bk-figure img').forEach((img) => { figures++; if ((img.getAttribute('alt') || '').trim()) figuresWithAlt++; });
     tpl.content.querySelectorAll('img').forEach((img) => {
       const src = img.getAttribute('src') || '';
       const href = addImage(src);
@@ -118,6 +143,7 @@ export async function buildEpub(book) {
     d.appendChild(tpl.content);
     const typeAttr = { toc: 'toc', copyright: 'copyright-page', dedication: 'dedication', epigraph: 'epigraph', title: 'titlepage', 'half-title': 'halftitlepage', foreword: 'foreword', preface: 'preface', introduction: 'introduction', prologue: 'prologue', epilogue: 'epilogue', afterword: 'afterword', acknowledgments: 'acknowledgments', appendix: 'appendix', glossary: 'glossary', bibliography: 'bibliography', index: 'index', chapter: 'chapter', part: 'part' }[s.kind];
     let body = toXhtml(d.innerHTML);
+    body = fixHeadingLevels(body); // headings never skip a level
     if (typeAttr) body = body.replace(/^<section /, `<section epub:type="${typeAttr}" `);
     put(`OEBPS/text/${s.file}`, page(book, s.nav || s.title || 'Section', body));
     const id = s.file.replace('.xhtml', '');
@@ -147,7 +173,7 @@ export async function buildEpub(book) {
   const tocSection = sections.find((s) => s.kind === 'toc');
   const nav = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${escapeHtml(book.meta.language || 'en')}">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${escapeHtml(book.meta.language || 'en')}" xml:lang="${escapeHtml(book.meta.language || 'en')}">
 <head><meta charset="UTF-8" /><title>Contents</title><link rel="stylesheet" type="text/css" href="css/book.css" /></head>
 <body>
 <nav epub:type="toc" id="toc"><h1>Contents</h1><ol>
@@ -158,6 +184,7 @@ ${navItems.map((s) => `<li><a href="text/${s.file}">${escapeHtml(s.nav || s.titl
 ${tocSection ? `<li><a epub:type="toc" href="text/${tocSection.file}">Contents</a></li>` : ''}
 ${firstBody ? `<li><a epub:type="bodymatter" href="text/${firstBody.file}">Start</a></li>` : ''}
 </ol></nav>
+${placed.length ? `<nav epub:type="page-list" hidden="hidden"><h2>Pages</h2><ol>\n${placed.map((p) => `<li><a href="text/${p.file}#${p.id}">${escapeHtml(p.label)}</a></li>`).join('\n')}\n</ol></nav>` : ''}
 </body></html>`;
   put('OEBPS/nav.xhtml', nav);
   manifest.push('<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>');
@@ -175,6 +202,8 @@ ${navItems.map((s, i) => `<navPoint id="np${i + 1}" playOrder="${i + 1}"><navLab
   manifest.push('<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>');
 
   const m = book.meta;
+  const printIsbn = parseIsbn(m.isbnPrint);
+  const a11y = accessibilityMetadata({ images: figures, imagesWithAlt: figuresWithAlt, toc: navItems.length > 0, pageList: placed.length > 0, lang: m.language || 'en', headingsOk });
   const modified = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
   const opf = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="${escapeHtml(m.language || 'en')}">
@@ -194,6 +223,8 @@ ${(m.keywords || '').split(',').map((k) => k.trim()).filter(Boolean).map((k) => 
 <dc:rights>Copyright © ${escapeHtml(m.year || '')} ${escapeHtml(m.copyrightHolder || m.author || '')}. All rights reserved.</dc:rights>
 ${m.series ? `<meta property="belongs-to-collection" id="series">${escapeHtml(m.series)}</meta><meta refines="#series" property="collection-type">series</meta>${m.seriesNumber ? `<meta refines="#series" property="group-position">${escapeHtml(m.seriesNumber)}</meta>` : ''}` : ''}
 <meta property="dcterms:modified">${modified}</meta>
+${a11y.meta}
+${printIsbn.ok ? `<dc:source>urn:isbn:${printIsbn.isbn13}</dc:source>` : ''}
 <meta name="cover" content="cover-image"/>
 <meta name="generator" content="Booky"/>
 </metadata>

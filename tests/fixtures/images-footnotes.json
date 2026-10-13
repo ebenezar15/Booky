@@ -1,0 +1,28 @@
+{
+ "meta": {
+  "title": "Pictures and Notes",
+  "author": "Bo Example",
+  "language": "en",
+  "description": "Images, footnotes and headings."
+ },
+ "elements": [
+  {
+   "id": "e1",
+   "type": "toc",
+   "title": "Contents",
+   "content": "<p></p>"
+  },
+  {
+   "id": "e2",
+   "type": "chapter",
+   "title": "Maps",
+   "content": "<p>Here is the coast.</p><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADwAAAAoCAIAAAAt2Q6oAAAAQklEQVR4nO3OAQkAIBAAMZMYzHRGNYb3MFiArX3uOOv7QDpMWlo6QFpaOkBaWjpAWlo6QFpaOkBaWjpAWlo6YGT6AfymQZdga/70AAAAAElFTkSuQmCC\" alt=\"A blue rectangle standing in for a coastal map\" data-width=\"75\" data-align=\"center\"><h3>A scene heading</h3><p>The lighthouse<span data-type=\"footnote\" data-note=\"Built in 1887.\"></span> stood alone.</p><h3>Another scene</h3><p>Night fell.</p>"
+  },
+  {
+   "id": "e3",
+   "type": "chapter",
+   "title": "Plates",
+   "content": "<img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAA8CAIAAACb22+3AAAAOElEQVR4nO3NQQkAAAgEsItjCPtjLGOIMNh/ma4TEYvFYrFYLBaLxWKxWCwWi8VisVgsFovFn+IFePX9F3nrqLwAAAAASUVORK5CYII=\" alt=\"A red plate, full page\" data-width=\"page\"><p>After the plate.</p>"
+  }
+ ]
+}
