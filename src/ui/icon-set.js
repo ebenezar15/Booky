@@ -186,6 +186,7 @@ import I_message_square_dashed from 'lucide/dist/esm/icons/message-square-dashed
 import I_scissors from 'lucide/dist/esm/icons/scissors.mjs';
 import I_merge from 'lucide/dist/esm/icons/merge.mjs';
 import I_command from 'lucide/dist/esm/icons/command.mjs';
+import I_file_diff from 'lucide/dist/esm/icons/file-diff.mjs';
 
 export const ICONS = {
   'type': I_type,
@@ -375,4 +376,5 @@ export const ICONS = {
   'scissors': I_scissors,
   'merge': I_merge,
   'command': I_command,
+  'file-diff': I_file_diff,
 };

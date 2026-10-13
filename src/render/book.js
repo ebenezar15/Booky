@@ -6,6 +6,7 @@ import {
 } from '../core/model.js';
 import { SCENE_BREAKS, ORNAMENTS } from '../core/themes.js';
 import { isRtl } from '../core/languages.js';
+import { finalHtml } from '../core/track.js';
 import { linkForPrint, noteMarker, figureLabel, FORMAT_DEFAULTS } from '../core/formatting.js';
 
 // QR codes for links in print are made by a small library loaded only when that option is used.
@@ -92,7 +93,7 @@ function applyLeadIn(p, doc, words) {
 function processContent(book, el, target, opts = {}) {
   const fmt = book.format;
   const tpl = document.createElement('template');
-  tpl.innerHTML = fillPlaceholders(el.content || '', book);
+  tpl.innerHTML = fillPlaceholders(finalHtml(el.content || ''), book); // pending tracked changes are shown accepted
   const root = tpl.content;
   const doc = document;
 

@@ -54,6 +54,8 @@ export function renderFeedback(host) {
     h('span.grow'),
     R.reviewers.some((r) => r.copies?.some((c) => c.cloudId)) ? btn('Check for new comments', { icon: 'inbox', onClick: () => pullOnline() }) : null,
     btn('Import comments', { icon: 'file-up', onClick: () => importFiles() }),
+    btn('Import Word file…', { icon: 'file-text', title: 'Bring back a Word file from your editor: its comments and tracked changes come into Booky', onClick: async () => { const { importWordReview } = await import('./track-ui.js'); await importWordReview(book); draw(); } }),
+    btn('Tracked changes', { icon: 'file-diff', kind: 'ghost', onClick: async () => (await import('./track-ui.js')).openChangesPanel(book) }),
     btn('Invite reviewer', { icon: 'plus', kind: 'primary', onClick: () => reviewerDialog() }));
   add(wrap, head, body);
 
@@ -70,8 +72,12 @@ export function renderFeedback(host) {
   }
 
   async function importFiles(files) {
-    files = files || (await pickFile('.bookyreview,.json', { multiple: true }));
+    files = files || (await pickFile('.bookyreview,.json,.docx', { multiple: true }));
     if (!files?.length) return;
+    // a Word file from an editor: comments and tracked changes
+    for (const f of files.filter((x) => /\.docx$/i.test(x.name))) { const { importWordFile } = await import('./track-ui.js'); await importWordFile(book, f); }
+    files = files.filter((x) => !/\.docx$/i.test(x.name));
+    if (!files.length) { draw(); return; }
     const msgs = [];
     for (const f of files) {
       try {

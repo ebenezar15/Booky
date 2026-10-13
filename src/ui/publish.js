@@ -9,6 +9,7 @@ import { confirmNoPlaceholders, openMarkersPanel } from './writing-tools.js';
 import { state, setMode, save, selectElement, touch } from '../core/store.js';
 import { bookWords, elementWords, displayTitle, htmlToText, ELEMENT_TYPES, orderedElements } from '../core/model.js';
 import { findPlaceholders } from '../core/writing.js';
+import { countChanges } from '../core/track.js';
 import { trimOf } from '../core/themes.js';
 import { estimatePages } from '../render/cover.js';
 import { PrintPreview } from '../render/preview.js';
@@ -56,7 +57,8 @@ export function renderPublish(host) {
             btn('Download EPUB', { kind: 'primary', icon: 'download', onClick: () => run('Building EPUB', async () => { const { buildEpub } = await import('../export/epub.js'); const { pageListIfWanted } = await import('../export/page-map.js'); downloadBlob(await buildEpub(book, { pageList: await pageListIfWanted(book) }), `${fileBase}.epub`); save(); toast('EPUB ready', 'success'); celebrate(); }) }),
           ]),
           card('file-text', 'linear-gradient(135deg,#2b6cb0,#4299e1)', 'Word document (DOCX)', 'A styled manuscript with headings, footnotes and images — for editors, agents, or publishers who ask for Word.', [
-            btn('Download DOCX', { icon: 'download', onClick: () => run('Building DOCX', async () => { const { buildDocx } = await import('../export/docx.js'); downloadBlob(await buildDocx(book), `${fileBase}.docx`); toast('DOCX ready', 'success'); celebrate(); }) }),
+            btn('Download DOCX', { icon: 'download', title: 'A clean manuscript (tracked changes shown accepted)', onClick: () => run('Building DOCX', async () => { const { buildDocx } = await import('../export/docx.js'); downloadBlob(await buildDocx(book), `${fileBase}.docx`); toast('DOCX ready', 'success'); celebrate(); }) }),
+            btn('DOCX for your editor', { kind: 'ghost', icon: 'messages-square', title: 'With your open review comments as Word comments and tracked changes as Word revisions. When it comes back, use Feedback → Import Word file.', onClick: async () => { const { buildDocx } = await import('../export/docx.js'); downloadBlob(await buildDocx(book, { forEditor: true }), `${fileBase}-for-editor.docx`); toast('Word file ready — when your editor sends it back, import it in Feedback', 'success', 5000); } }),
           ]),
           card('image', 'linear-gradient(135deg,#2f9e77,#6cc6a0)', 'Covers', 'Ebook cover (JPG, 1600 × 2560) and full print wrap with spine and back cover (PDF / PNG at 300 DPI).', [
             btn('Open cover designer', { icon: 'image', onClick: () => setMode('cover') }),
@@ -142,6 +144,8 @@ function preflight(book) {
       ? `${broken.length} point to a page, heading or figure that no longer exists: ${broken.slice(0, 3).map((x) => `“${x.label || x.target}” in ${displayTitle(book, els.find((e) => e.id === x.elId))}`).join(', ')}`
       : `${xrefs.length} — all found`, broken.length ? () => { selectElement(broken[0].elId); setMode('write'); } : null);
   }
+  const tc = countChanges(book.elements);
+  if (tc) check('warn', 'Tracked changes', `${tc} not yet accepted or rejected — exports show them accepted`, () => import('./track-ui.js').then((m) => m.openChangesPanel(book)));
   const todo = findPlaceholders(orderedElements(book).filter((e) => e.include.print || e.include.ebook));
   const ph = todo.filter((f) => f.kind === 'placeholder');
   const notes = todo.length - ph.length;

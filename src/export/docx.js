@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import { includedElements } from '../render/book.js';
 import { computeNumbers, chapterLabel, fillPlaceholders, fillText, ELEMENT_TYPES, escapeHtml } from '../core/model.js';
 import { trimOf, SCENE_BREAKS } from '../core/themes.js';
+import { ensureReviews, locateQuote, COMMENT_TYPES } from '../core/feedback.js';
 
 const x = (s) => escapeHtml(String(s ?? '')).replace(/&#39;/g, '&apos;');
 const TW = (inch) => Math.round(inch * 1440);
@@ -39,7 +40,7 @@ const cssColor = (v) => {
   return m ? '#' + m.slice(1, 4).map((n) => (+n).toString(16).padStart(2, '0')).join('') : null;
 };
 
-export async function buildDocx(book) {
+export async function buildDocx(book, { forEditor = false } = {}) {
   const zip = new JSZip();
   // No directory entries: some validators and readers dislike them.
   const put = (path, data, opts = {}) => zip.file(path, data, { createFolders: false, ...opts });
@@ -50,6 +51,13 @@ export async function buildDocx(book) {
   const footnotes = [];
   const rels = [];
   let relId = 10;
+  // For an editor: tracked changes become Word revisions and open Booky comments become Word comments.
+  let revId = 100;
+  const wordComments = [];
+  let paraState = null; // { pos, inserts: [{ at, xml }] } while writing one paragraph
+  const R = forEditor ? ensureReviews(book) : null;
+  const reviewerName = (id) => R?.reviewers.find((r) => r.id === id)?.name || 'Reviewer';
+  const isoDate = (t) => new Date(+t || Date.now()).toISOString().replace(/\.\d+Z$/, 'Z');
 
   function imageRun(img) {
     const src = img.getAttribute('src') || '';
@@ -73,7 +81,18 @@ export async function buildDocx(book) {
     let out = '';
     for (const c of node.childNodes) {
       if (c.nodeType === 3) {
-        if (c.data) out += `<w:r>${runProps(marks)}<w:t xml:space="preserve">${x(c.data)}</w:t></w:r>`;
+        if (!c.data) continue;
+        if (!paraState?.inserts.length) { out += `<w:r>${runProps(marks)}<w:t xml:space="preserve">${x(c.data)}</w:t></w:r>`; if (paraState) paraState.pos += c.data.length; continue; }
+        // comment ranges start and end inside this text
+        let i = 0;
+        const start = paraState.pos;
+        for (const ins of paraState.inserts.filter((q) => q.at >= start && q.at < start + c.data.length && !q.done)) {
+          const cut = ins.at - start;
+          if (cut > i) out += `<w:r>${runProps(marks)}<w:t xml:space="preserve">${x(c.data.slice(i, cut))}</w:t></w:r>`;
+          out += ins.xml; ins.done = true; i = cut;
+        }
+        if (i < c.data.length) out += `<w:r>${runProps(marks)}<w:t xml:space="preserve">${x(c.data.slice(i))}</w:t></w:r>`;
+        paraState.pos += c.data.length;
         continue;
       }
       if (c.nodeType !== 1) continue;
@@ -112,7 +131,14 @@ export async function buildDocx(book) {
         continue;
       }
       if (c.getAttribute('data-type') === 'authornote') continue; // notes to self stay in Booky
-      if (c.getAttribute('data-type') === 'xref') { out += `<w:r>${runProps(m)}<w:t xml:space="preserve">${x(c.getAttribute('data-label') || '')}</w:t></w:r>`; continue; }
+      if (c.classList?.contains('tc-ins') || c.classList?.contains('tc-del')) {
+        const inner = runs(c, m);
+        if (!forEditor) { if (c.classList.contains('tc-ins')) out += inner; continue; } // a clean manuscript shows the changes accepted
+        const a = `w:id="${++revId}" w:author="${x(c.getAttribute('data-author') || 'Author')}" w:date="${isoDate(c.getAttribute('data-at'))}"`;
+        out += c.classList.contains('tc-ins') ? `<w:ins ${a}>${inner}</w:ins>` : `<w:del ${a}>${inner.replace(/<w:t /g, '<w:delText ').replace(/<\/w:t>/g, '</w:delText>')}</w:del>`;
+        continue;
+      }
+      if (c.getAttribute('data-type') === 'xref') { out += `<w:r>${runProps(m)}<w:t xml:space="preserve">${x(c.getAttribute('data-label') || '')}</w:t></w:r>`; if (paraState) paraState.pos += (c.getAttribute('data-label') || '').length; continue; }
       out += runs(c, m);
     }
     return out;
@@ -122,6 +148,25 @@ export async function buildDocx(book) {
 
   function para(style, inner, extra = '') {
     return `<w:p><w:pPr>${style ? `<w:pStyle w:val="${style}"/>` : ''}${extra}</w:pPr>${inner}</w:p>`;
+  }
+  // Text of a block as the runs write it (for placing comments).
+  const blockText = (n) => { let t = ''; const walk = (e) => { for (const c of e.childNodes) { if (c.nodeType === 3) t += c.data; else if (c.nodeType === 1) { if (c.getAttribute('data-type') === 'xref') t += c.getAttribute('data-label') || ''; else if (c.getAttribute('data-type') !== 'authornote') walk(c); } } }; walk(n); return t; };
+  /** Runs for a paragraph, with comment ranges placed (only when writing for an editor). */
+  function runsWith(n) {
+    const cms = n.__comments;
+    if (!cms?.length) return runs(n);
+    paraState = { pos: 0, inserts: [] };
+    for (const c of cms) {
+      const id = wordComments.length;
+      wordComments.push(c);
+      paraState.inserts.push({ at: c.start, xml: `<w:commentRangeStart w:id="${id}"/>` });
+      paraState.inserts.push({ at: c.end, end: true, xml: `<w:commentRangeEnd w:id="${id}"/><w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:commentReference w:id="${id}"/></w:r>` });
+    }
+    paraState.inserts.sort((a, b) => a.at - b.at || (a.end ? 1 : -1));
+    let out = runs(n);
+    for (const q of paraState.inserts) if (!q.done) out += q.xml; // ranges that end at the end of the paragraph
+    paraState = null;
+    return out;
   }
 
   function blocks(root, opts = {}) {
@@ -133,12 +178,12 @@ export async function buildDocx(book) {
       if (n.getAttribute('data-only') === 'ebook') continue; // a Word file is a print manuscript
       const align = n.style?.textAlign;
       const jc = align ? `<w:jc w:val="${align === 'justify' ? 'both' : align}"/>` : '';
-      if (/^h[1-4]$/.test(tag)) { out += para(`Heading${Math.min(4, +tag[1] + (opts.shift || 0))}`, runs(n), jc); afterBreak = true; continue; }
+      if (/^h[1-4]$/.test(tag)) { out += para(`Heading${Math.min(4, +tag[1] + (opts.shift || 0))}`, runsWith(n), jc); afterBreak = true; continue; }
       if (tag === 'p') {
         const ps = (n.className.match(/ps-([\w-]+)/) || [])[1];
         const custom = ps && (f.customParaStyles || []).some((c) => c.id === ps);
         const style = custom ? `PS_${ps.replace(/[^\w]/g, '_')}` : ps ? STYLE_FOR[ps] : first || afterBreak ? 'FirstParagraph' : null;
-        out += para(style, runs(n), jc);
+        out += para(style, runsWith(n), jc);
         first = false; afterBreak = false;
         continue;
       }
@@ -177,6 +222,19 @@ export async function buildDocx(book) {
     const holder = document.createElement('div');
     holder.appendChild(document.importNode(tpl.content, true));
     const def = ELEMENT_TYPES[el.type] || {};
+    // A bookmark per chapter lets Booky match the paragraphs when the file comes back from an editor.
+    body += `<w:bookmarkStart w:id="${++revId}" w:name="${`bk_${String(el.id).replace(/[^\w]/g, '_')}`.slice(0, 40)}"/><w:bookmarkEnd w:id="${revId}"/>`;
+    if (R) {
+      for (const c of R.comments.filter((x) => x.elId === el.id && x.status === 'open')) {
+        for (const n of holder.children) {
+          if (!/^(P|H[1-4])$/.test(n.tagName)) continue;
+          const hit = locateQuote(blockText(n), c);
+          if (!hit) continue;
+          (n.__comments ||= []).push({ start: hit.start, end: hit.end, author: reviewerName(c.reviewerId), date: isoDate(c.createdAt), text: `${COMMENT_TYPES[c.type]?.label && c.type !== 'comment' ? `${COMMENT_TYPES[c.type].label}: ` : ''}${c.note || ''}${c.suggestion != null ? `\nSuggested: ${c.suggestion}` : ''}`, reply: c.reply ? `${book.meta.author || 'Author'}: ${c.reply}` : '' });
+          break;
+        }
+      }
+    }
     const brk = firstEl ? '' : '<w:pageBreakBefore/>';
     firstEl = false;
     const label = el.type === 'chapter' || el.type === 'part' ? chapterLabel(book, el, nums) : '';
@@ -243,7 +301,7 @@ ${pStyle('SceneBreak', 'Scene Break', '<w:ind w:firstLine="0"/><w:jc w:val="cent
 ${pStyle('ListPara', 'List Paragraph', '<w:ind w:left="720" w:hanging="360"/>', '')}
 ${pStyle('Figure', 'Figure', '<w:ind w:firstLine="0"/><w:jc w:val="center"/><w:spacing w:before="200" w:after="120"/>', '')}
 ${pStyle('FootnoteText', 'footnote text', '<w:ind w:firstLine="0"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/>', `<w:sz w:val="${HP(f.body.size * 0.8)}"/>`)}
-${customStyles}${charStyles}<w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>
+${customStyles}${charStyles}${pStyle('CommentText', 'annotation text', '<w:ind w:firstLine="0"/>', '<w:sz w:val="20"/>')}<w:style w:type="character" w:styleId="CommentReference"><w:name w:val="annotation reference"/><w:rPr><w:sz w:val="16"/></w:rPr></w:style><w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>
 </w:styles>`;
 
   const m = f.margins;
@@ -255,9 +313,13 @@ ${customStyles}${charStyles}<w:style w:type="character" w:styleId="FootnoteRefer
   put('word/settings.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:mirrorMargins/><w:defaultTabStop w:val="720"/><w:footnotePr><w:footnote w:id="-1"/><w:footnote w:id="0"/></w:footnotePr><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>`);
   put('word/footnotes.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:footnotes ${NS}><w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote><w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>${footnotes.map((t, i) => `<w:footnote w:id="${i + 1}"><w:p><w:pPr><w:pStyle w:val="FootnoteText"/></w:pPr><w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteRef/></w:r><w:r><w:t xml:space="preserve"> ${x(t)}</w:t></w:r></w:p></w:footnote>`).join('')}</w:footnotes>`);
   media.forEach((md) => put(`word/media/${md.name}`, md.data, { base64: true }));
+  if (wordComments.length) {
+    put('word/comments.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:comments ${NS}>${wordComments.map((c, i) => `<w:comment w:id="${i}" w:author="${x(c.author)}" w:date="${c.date}" w:initials="${x(c.author.split(/\s+/).map((w) => w[0] || '').join('').slice(0, 3))}">${[c.text, c.reply].filter(Boolean).join('\n').split('\n').map((line, k) => `<w:p><w:pPr><w:pStyle w:val="CommentText"/></w:pPr>${k === 0 ? '<w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:annotationRef/></w:r>' : ''}<w:r><w:t xml:space="preserve">${x(line)}</w:t></w:r></w:p>`).join('')}</w:comment>`).join('')}</w:comments>`);
+    rels.push('<Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/>');
+  }
   put('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>${rels.join('')}</Relationships>`);
   put('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`);
   put('docProps/core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${x(book.meta.title)}</dc:title><dc:creator>${x(book.meta.author)}</dc:creator><dc:language>${x(book.meta.language || 'en')}</dc:language><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created></cp:coreProperties>`);
-  put('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="gif" ContentType="image/gif"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/><Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`);
+  put('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="gif" ContentType="image/gif"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/><Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>${wordComments.length ? '<Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/>' : ''}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`);
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }

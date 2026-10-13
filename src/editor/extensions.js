@@ -1,6 +1,7 @@
 // Custom TipTap extensions for book writing.
 import { Node, Mark, Extension, mergeAttributes } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import { ReplaceStep } from '@tiptap/pm/transform';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import Image from '@tiptap/extension-image';
 
@@ -373,6 +374,149 @@ export const BlockBadges = Extension.create({
     return [new Plugin({
       state: { init: (_, st) => build(st.doc), apply: (tr, set) => (tr.docChanged ? build(tr.doc) : set) },
       props: { decorations(state) { return this.getState(state); } },
+    })];
+  },
+});
+
+// ---------- track changes (suggesting mode) ----------
+const tcAttrs = () => ({
+  id: { default: '', parseHTML: (el) => el.getAttribute('data-tc-id') || '', renderHTML: (a) => ({ 'data-tc-id': a.id }) },
+  author: { default: '', parseHTML: (el) => el.getAttribute('data-author') || '', renderHTML: (a) => ({ 'data-author': a.author }) },
+  at: { default: 0, parseHTML: (el) => +el.getAttribute('data-at') || 0, renderHTML: (a) => ({ 'data-at': String(a.at || 0) }) },
+});
+export const TrackInsert = Mark.create({
+  name: 'trackInsert',
+  inclusive: true,
+  excludes: 'trackInsert trackDelete',
+  addAttributes: tcAttrs,
+  parseHTML() { return [{ tag: 'span.tc-ins' }, { tag: 'ins[data-tc-id]' }]; },
+  renderHTML({ HTMLAttributes, mark }) { return ['span', mergeAttributes(HTMLAttributes, { class: 'tc-ins', title: `Added by ${mark.attrs.author || 'someone'}` }), 0]; },
+});
+export const TrackDelete = Mark.create({
+  name: 'trackDelete',
+  inclusive: false,
+  excludes: 'trackInsert trackDelete',
+  addAttributes: tcAttrs,
+  parseHTML() { return [{ tag: 'span.tc-del' }, { tag: 'del[data-tc-id]' }]; },
+  renderHTML({ HTMLAttributes, mark }) { return ['span', mergeAttributes(HTMLAttributes, { class: 'tc-del', title: `Deleted by ${mark.attrs.author || 'someone'}` }), 0]; },
+});
+
+export const trackKey = new PluginKey('trackChanges');
+const newTcId = () => `tc_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+/** All ranges of a change id: [{ from, to, kind }] */
+export function changeRanges(doc, id) {
+  const out = [];
+  doc.descendants((node, pos) => {
+    if (!node.isText) return true;
+    for (const m of node.marks) if ((m.type.name === 'trackInsert' || m.type.name === 'trackDelete') && (!id || m.attrs.id === id)) out.push({ from: pos, to: pos + node.nodeSize, kind: m.type.name === 'trackInsert' ? 'ins' : 'del', id: m.attrs.id });
+    return false;
+  });
+  return out;
+}
+
+/** The change under a position, if any: { id, kind, author, at } */
+export function changeAt(state, pos) {
+  const $p = state.doc.resolve(pos);
+  const marks = [...($p.nodeAfter?.marks || []), ...($p.nodeBefore?.marks || [])];
+  const m = marks.find((x) => x.type.name === 'trackInsert' || x.type.name === 'trackDelete');
+  return m ? { id: m.attrs.id, kind: m.type.name === 'trackInsert' ? 'ins' : 'del', author: m.attrs.author, at: m.attrs.at } : null;
+}
+
+export const TrackChanges = Extension.create({
+  name: 'trackChanges',
+  addOptions() { return { enabled: () => false, author: () => 'Author' }; },
+  addCommands() {
+    // accept = insertions become plain text, deletions go; reject = the opposite. Never tracked themselves.
+    const resolve = (accept, id) => ({ tr, state, dispatch }) => {
+      const ranges = changeRanges(state.doc, id).sort((a, b) => b.from - a.from);
+      if (!ranges.length) return false;
+      if (!dispatch) return true;
+      for (const r of ranges) {
+        const keepText = accept ? r.kind === 'ins' : r.kind === 'del';
+        if (keepText) tr.removeMark(r.from, r.to, state.schema.marks[r.kind === 'ins' ? 'trackInsert' : 'trackDelete']);
+        else tr.delete(r.from, r.to);
+      }
+      tr.setMeta(trackKey, 'resolve');
+      dispatch(tr);
+      return true;
+    };
+    return {
+      acceptChange: (id) => resolve(true, id),
+      rejectChange: (id) => resolve(false, id),
+      acceptAllChanges: () => resolve(true, null),
+      rejectAllChanges: () => resolve(false, null),
+    };
+  },
+  addProseMirrorPlugins() {
+    const ext = this;
+    return [new Plugin({
+      key: trackKey,
+      appendTransaction(trs, oldState, newState) {
+        if (!ext.options.enabled()) return null;
+        const schema = newState.schema;
+        const insType = schema.marks.trackInsert, delType = schema.marks.trackDelete;
+        // every step of every transaction, with the document before it, and whether it is the author's own editing
+        const entries = [];
+        const maps = [];
+        for (const t of trs) {
+          const tracked = t.docChanged && !t.getMeta(trackKey) && !t.getMeta('history$') && t.getMeta('addToHistory') !== false;
+          t.steps.forEach((step, i) => {
+            const whole = step.from === 0 && step.to === t.docs[i].content.size; // setContent: a programmatic replacement
+            entries.push({ step, docBefore: t.docs[i], tracked: tracked && step instanceof ReplaceStep && !whole, index: maps.length });
+            maps.push(step.getMap());
+          });
+        }
+        const todo = entries.filter((e) => e.tracked);
+        if (!todo.length) return null;
+        const author = ext.options.author() || 'Author';
+        const at = Date.now();
+        const tr = newState.tr;
+        const mapAfter = (e, pos, assoc) => { let p = pos; for (let k = e.index + 1; k < maps.length; k++) p = maps[k].map(p, assoc); return p; };
+        let cursor = null;
+        for (const e of todo.reverse()) {
+          const { step, docBefore } = e;
+          const size = step.slice.size;
+          const insFrom = tr.mapping.map(mapAfter(e, step.from, -1), -1);
+          const insTo = tr.mapping.map(mapAfter(e, step.from + size, 1), 1);
+          // 1. inserted text becomes a suggested insertion (joining the author's insertion right before it)
+          let insMark = null;
+          if (insTo > insFrom) {
+            // continuing the author's insertion just before or after: same change (one span, one id)
+            const near = [tr.doc.resolve(insFrom).nodeBefore, tr.doc.resolve(insTo).nodeAfter];
+            const prev = near.flatMap((n) => n?.marks || []).find((m) => m.type === insType && m.attrs.author === author);
+            tr.removeMark(insFrom, insTo, delType);
+            insMark = prev || insType.create({ id: newTcId(), author, at });
+            tr.addMark(insFrom, insTo, insMark);
+          }
+          // 2. deleted text comes back marked as a suggested deletion (the author's own suggested insertions really go)
+          if (step.to > step.from) {
+            const slice = docBefore.slice(step.from, step.to);
+            let hasOther = false;
+            slice.content.descendants((n) => { if (n.isText && !n.marks.some((m) => m.type === insType && m.attrs.author === author)) hasOther = true; });
+            if (hasOther) {
+              const len0 = tr.doc.content.size;
+              tr.replace(insFrom, insFrom, slice);
+              const end = insFrom + (tr.doc.content.size - len0);
+              const own = [];
+              tr.doc.nodesBetween(insFrom, end, (n, pos) => { if (n.isText && n.marks.some((m) => m.type === insType && m.attrs.author === author)) own.push([Math.max(pos, insFrom), Math.min(pos + n.nodeSize, end)]); });
+              // continuing a deletion right next to this one (Backspace, Backspace…): same change
+              const adj = [tr.doc.resolve(insFrom).nodeBefore, tr.doc.resolve(end).nodeAfter].flatMap((n) => n?.marks || []).find((mk) => mk.type === delType && mk.attrs.author === author);
+              // a replacement (typing over a selection) is one change: the deletion shares the insertion's id
+              const delMark = adj || delType.create({ id: insMark?.attrs.id || newTcId(), author, at });
+              tr.doc.nodesBetween(insFrom, end, (n, pos) => { if (n.isText && !n.marks.some((m) => m.type === delType)) tr.addMark(Math.max(pos, insFrom), Math.min(pos + n.nodeSize, end), delMark); });
+              for (const [a, b] of own.reverse()) tr.delete(a, b);
+              // Backspace: keep the cursor in front of the text it just "deleted", so the next Backspace moves on
+              const sel = oldState.selection;
+              if (sel.empty && sel.from === step.to && size === 0) cursor = insFrom;
+            }
+          }
+        }
+        if (!tr.docChanged) return null;
+        tr.setMeta(trackKey, 'track');
+        if (cursor != null) tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(cursor, tr.doc.content.size))));
+        return tr;
+      },
     })];
   },
 });

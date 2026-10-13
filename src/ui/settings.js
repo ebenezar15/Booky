@@ -1,5 +1,5 @@
 // App-wide settings: appearance, proofing, personal dictionary, custom fonts, shortcuts.
-import { h, btn, icon, iconBtn, modal, toggle, field, pickFile, toast, segmented, clear, add } from './dom.js';
+import { h, btn, icon, iconBtn, modal, toggle, field, pickFile, toast, segmented, clear, add, input } from './dom.js';
 import { state, setApp } from '../core/store.js';
 import { addCustomFont, removeCustomFont, BUNDLED_FONTS, fontStack } from '../core/fonts.js';
 import { removeFromDictionary } from '../lang/spell.js';
@@ -43,6 +43,7 @@ export function openSettings(tab = 'general') {
           toggle(state.app.smartQuotes !== false, (v) => setApp({ smartQuotes: v }), 'Smart quotes & dashes while typing (“ ” ‘ ’ —)'),
           toggle(state.app.animations !== false, (v) => setApp({ animations: v }), 'Animations (page turns, transitions, celebrations)'),
         ),
+        field('Your name (signs tracked changes and comments)', input(state.app.authorName || '', (v) => setApp({ authorName: v.trim() }), { placeholder: state.book?.meta.author || 'e.g. Ann Example' })),
         h('p.hint', { style: { marginTop: '16px' } }, 'Your books are saved automatically in this browser’s private storage. Set up automatic folder backups in the Backups tab, or use “Download backup” to keep a copy elsewhere.'),
       );
     }

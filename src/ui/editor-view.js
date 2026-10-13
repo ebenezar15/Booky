@@ -9,7 +9,8 @@ import { SCENE_BREAKS } from '../core/themes.js';
 import { allFonts, fontStack, fontOptions } from '../core/fonts.js';
 import { charStylesCss, paraStylesCss } from '../core/formatting.js';
 import { baseExtensions } from '../editor/schema.js';
-import { PARAGRAPH_STYLES, Typewriter, PhoneticTyping, ReadAloudHighlight, BlockBadges } from '../editor/extensions.js';
+import { PARAGRAPH_STYLES, Typewriter, PhoneticTyping, ReadAloudHighlight, BlockBadges, TrackChanges, changeAt } from '../editor/extensions.js';
+import { openChangesPanel, trackAuthor } from './track-ui.js';
 import { splitChapterHere, mergeWithNext, nextInSection, moveSelectionTo, addAuthorNote, openMarkersPanel, readAloud, stopReading, specialCharPicker, sidePane, rememberPlace } from './writing-tools.js';
 import { transliterateWord, PHONETIC_SCRIPTS, PHONETIC_HELP } from '../lang/translit.js';
 import { Proofing, issuesAt, proofKey, sentenceAround, dismissed } from '../editor/proofing.js';
@@ -275,6 +276,7 @@ export function renderEditor(host) {
     iconBtn('languages', 'Translate / suggest wording for the selection (Ctrl Alt T)', () => suggestForSelection(editor, book)),
     iconBtn('wand-sparkles', 'Rephrase sentence (Ctrl Alt R)', () => openRephrase()),
     iconBtn('search', 'Find & replace (Ctrl F)', () => openFind()),
+    tb.trackBtn = iconBtn('file-diff', 'Track changes: suggest edits that can be accepted or rejected (Ctrl Shift E)', () => toggleTrack()),
     iconBtn('audio-lines', 'Read aloud from the cursor (Ctrl Alt A)', () => editor && readAloud(editor, book)),
     tb.sideBtn = iconBtn('columns-2', 'Show another chapter side by side', () => { setApp({ sideBySide: !state.app.sideBySide }); mount(); }),
     tb.focusBtn = iconBtn('focus', 'Focus mode (Ctrl Shift F)', () => toggleFocus()),
@@ -305,6 +307,17 @@ export function renderEditor(host) {
           toggle(state.app.grammar !== false, (v) => { setApp({ grammar: v }); editor?.storage.proofing.schedule(10); }, 'Check grammar'),
         )) },
     ], { align: 'right' });
+  }
+
+  function toggleTrack() {
+    book.settings.trackChanges = !book.settings.trackChanges;
+    touch('settings');
+    drawTrack();
+    toast(book.settings.trackChanges ? `Track changes on — your edits are suggestions by ${trackAuthor(book)}` : 'Track changes off', 'info', 2200);
+  }
+  function drawTrack() {
+    tb.trackBtn?.classList.toggle('active', !!book.settings.trackChanges);
+    center.classList.toggle('tracking', !!book.settings.trackChanges);
   }
 
   function toggleFocus() {
@@ -416,6 +429,7 @@ export function renderEditor(host) {
         FindHighlight,
         ReadAloudHighlight,
         BlockBadges,
+        TrackChanges.configure({ enabled: () => !!book.settings.trackChanges, author: () => trackAuthor(book) }),
         Typewriter.configure({ enabled: () => state.app.typewriter, scroller: () => scroller }),
         PhoneticTyping.configure({
           enabled: () => phoneticOn(),
@@ -573,6 +587,14 @@ export function renderEditor(host) {
     items.push({ divider: true });
     items.push({ label: 'Insert footnote', icon: 'sticky-note', onClick: () => insertFootnote() });
     items.push({ label: 'Insert scene break', icon: 'asterisk', onClick: () => editor.chain().focus().insertSceneBreak().run() });
+    const tcHere = posInfo ? changeAt(editor.state, posInfo.pos) : null;
+    if (tcHere) {
+      items.unshift({ divider: true });
+      items.unshift({ label: 'Reject this change', icon: 'x', onClick: () => editor.commands.rejectChange(tcHere.id) });
+      items.unshift({ label: 'Accept this change', icon: 'check', onClick: () => editor.commands.acceptChange(tcHere.id) });
+      items.unshift({ header: `${tcHere.kind === 'ins' ? 'Added' : 'Deleted'} by ${tcHere.author || 'someone'}` });
+    }
+    items.push({ label: 'Tracked changes…', icon: 'file-diff', onClick: () => openChangesPanel(book) });
     items.push({ label: 'Insert cross-reference…', icon: 'link', onClick: () => crossRefDialog(editor, book) });
     const blk = (() => { const $f = editor.state.selection.$from; return $f.depth ? $f.node(1) : null; })();
     const a = blk?.attrs || {};
@@ -788,6 +810,7 @@ export function renderEditor(host) {
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyV') { e.preventDefault(); toggleVoice(); }
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyT') { e.preventDefault(); suggestForSelection(editor, book); }
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyA') { e.preventDefault(); if (editor) readAloud(editor, book); }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyE') { e.preventDefault(); toggleTrack(); }
     if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && /^Digit[0-9]$/.test(e.code) && editor) {
       const n = +e.code.slice(5);
       const cs = (book.format.charStyles || [])[n - 1];
@@ -796,6 +819,7 @@ export function renderEditor(host) {
   };
   document.addEventListener('keydown', onKey);
 
+  drawTrack();
   mount();
   initSpell().then(() => applyBookSpelling(book)).then(() => editor?.storage.proofing.schedule(10));
 

@@ -199,6 +199,19 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
 
 > Copy protection stops copying, cutting, printing and right-click in the review copy. Like any on-screen document, it can't prevent screenshots or someone retyping the text. The watermark discourages that.
 
+### ✏️ Track changes and Word round-trip
+- **Track changes** (editor toolbar or Ctrl+Shift+E): while it's on, your edits become suggestions. Insertions show green and underlined, deletions red and struck through. Each one records who made it (Settings → General → *Your name*) and when.
+  - Typing over a selection is one change.
+  - Deleting your own suggestion really deletes it.
+  - Undo works as usual.
+- **Accept or reject** a change from the right-click menu, or in *Tracked changes* (right-click menu or Feedback): one change, a chapter, or the whole book (a snapshot is taken first).
+  - Until they're resolved, print, PDF, EPUB and plain-text exports show the text with the changes accepted, and pre-flight reminds you.
+- **Word round-trip**:
+  - Publish → *DOCX for your editor* writes your open review comments as real Word comments (with your replies) and your tracked changes as real Word revisions.
+  - When your editor sends the file back, use Feedback → *Import Word file*: their tracked changes arrive as Booky tracked changes, and their comments arrive in Feedback under their name. Comments you already had are skipped.
+  - Paragraphs the editor changed *without* tracking can't be matched, and Booky tells you how many.
+  - The ordinary *Download DOCX* stays a clean manuscript.
+
 ### 🗂️ Plan
 - **Corkboard**: chapter cards with synopsis and status. Drag a card to reorder chapters.
 - **Outline**: a table of chapters with POV/label, synopsis, status, word count and target.
