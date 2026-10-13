@@ -78,6 +78,12 @@ The app is that one file. Fonts, the English dictionary and every library are bu
   - Word count, reading time and session progress.
 - **Find & replace** in the current chapter or the whole book, with match case, whole word and regular-expression options.
 - **Snapshots**: save versions of a chapter and restore them at any time.
+- **Split, merge and move**: right-click → *Split chapter here* (a heading at the cursor becomes the new chapter's title), *Merge with next chapter* (also in the binder menu), and *Move selection to…* another chapter. A snapshot is taken first, so each can be undone from the History tab.
+- **Quick jump** (Ctrl/⌘ P): type part of a chapter title, a heading, a story-bible name, or a print page number (“p 142”) and press Enter.
+- **Notes to self and placeholders**: add a note to self (toolbar or right-click) — a small marker with a tooltip that is never printed or exported. Booky also spots the placeholders `TK`, `XX`, `[[…]]` and `???`. *Notes to self & placeholders* (top-bar ⋮ menu) lists them all, and exports ask before going ahead while any placeholders remain (with *Export anyway*).
+- **Read aloud** (Ctrl Alt A, or right-click → *Read aloud from here*): uses your computer's own voices, highlights the sentence being read, with pause, speed and voice choice. It stops as soon as you start typing, and tells you plainly when no voice for the book's language is installed.
+- **Special characters** (Ω): dashes and special spaces, curly quotes and primes, fractions, ©, ™, §, arrows and currencies (including ₹), every letter and sign of the book's script, and the ones you used recently.
+- **Two chapters side by side**: show another chapter next to the one you're writing, read-only or editable, for continuity checks.
 
 ### 🌏 Languages & fonts
 - Write in **Tamil, Hindi, Malayalam, Telugu, Kannada, Bengali, Marathi, Gujarati, Punjabi, Odia, Assamese, Sanskrit, Nepali, Urdu, Sinhala, Arabic** and 12 European and world languages (Spanish, French, German, Indonesian, Swahili, Vietnamese…), as well as English.

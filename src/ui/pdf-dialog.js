@@ -9,6 +9,7 @@ import { langInfo } from '../core/languages.js';
 import { icon } from './dom.js';
 
 export async function exportPdfDialog(book, { onlyId = null, quality = 'print' } = {}) {
+  if (!onlyId && !(await (await import('./writing-tools.js')).confirmNoPlaceholders(book))) return;
   const hostEl = h('div', { style: { position: 'fixed', left: '-10000px', top: 0, width: '1200px', height: '900px', overflow: 'hidden' } });
   document.body.appendChild(hostEl);
   const body = h('div', { style: { textAlign: 'center', padding: '10px 0' } }, h('div.spinner-lg'), h('p', 'Typesetting your book… long books can take a minute.'));

@@ -1,6 +1,7 @@
 // Custom TipTap extensions for book writing.
 import { Node, Mark, Extension, mergeAttributes } from '@tiptap/core';
-import { Plugin } from '@tiptap/pm/state';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import Image from '@tiptap/extension-image';
 
 // Paragraph styles (verse, epigraph, caption, …) stored as a class on blocks.
@@ -244,5 +245,48 @@ export const CrossRef = Node.create({
   renderHTML({ HTMLAttributes }) { return ['span', mergeAttributes(HTMLAttributes, { 'data-type': 'xref', class: 'xref-chip' })]; },
   addCommands() {
     return { insertCrossRef: (attrs) => ({ commands }) => commands.insertContent({ type: this.name, attrs }) };
+  },
+});
+
+// A note to self: a small marker with a tooltip. Never printed or exported.
+export const AuthorNote = Node.create({
+  name: 'authorNote',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return { text: { default: '', parseHTML: (el) => el.getAttribute('data-text') || '', renderHTML: (v) => ({ 'data-text': v.text }) } };
+  },
+  parseHTML() { return [{ tag: 'span[data-type="authornote"]' }]; },
+  renderHTML({ HTMLAttributes, node }) { return ['span', mergeAttributes(HTMLAttributes, { 'data-type': 'authornote', class: 'author-note', title: `Note to self: ${node.attrs.text}` })]; },
+  addCommands() {
+    return { insertAuthorNote: (text) => ({ commands }) => commands.insertContent({ type: this.name, attrs: { text } }) };
+  },
+});
+
+// Highlights the sentence being read aloud.
+export const readAloudKey = new PluginKey('readAloud');
+export const ReadAloudHighlight = Extension.create({
+  name: 'readAloudHighlight',
+  addProseMirrorPlugins() {
+    const key = readAloudKey;
+    return [new Plugin({
+      key,
+      state: {
+        init: () => DecorationSet.empty,
+        apply(tr, set) {
+          const r = tr.getMeta(key);
+          if (r === null) return DecorationSet.empty;
+          if (r) return DecorationSet.create(tr.doc, [Decoration.inline(r.from, r.to, { class: 'read-aloud-now' })]);
+          return set.map(tr.mapping, tr.doc);
+        },
+      },
+      props: { decorations(state) { return key.getState(state); } },
+    })];
+  },
+  addCommands() {
+    // range { from, to } highlights; null clears
+    return { setReadAloudRange: (range) => ({ tr, dispatch }) => { if (dispatch) tr.setMeta(readAloudKey, range).setMeta('addToHistory', false); return true; } };
   },
 });

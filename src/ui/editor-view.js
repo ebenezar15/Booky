@@ -8,7 +8,8 @@ import { ELEMENT_TYPES, computeNumbers, chapterLabel, countWords, orderedElement
 import { SCENE_BREAKS } from '../core/themes.js';
 import { allFonts, fontStack, fontOptions } from '../core/fonts.js';
 import { baseExtensions } from '../editor/schema.js';
-import { PARAGRAPH_STYLES, Typewriter, PhoneticTyping } from '../editor/extensions.js';
+import { PARAGRAPH_STYLES, Typewriter, PhoneticTyping, ReadAloudHighlight } from '../editor/extensions.js';
+import { splitChapterHere, mergeWithNext, nextInSection, moveSelectionTo, addAuthorNote, openMarkersPanel, readAloud, stopReading, specialCharPicker, sidePane, rememberPlace } from './writing-tools.js';
 import { transliterateWord, PHONETIC_SCRIPTS, PHONETIC_HELP } from '../lang/translit.js';
 import { Proofing, issuesAt, proofKey, sentenceAround, dismissed } from '../editor/proofing.js';
 import { FindHighlight, findMatches, setFindState } from '../editor/find.js';
@@ -233,6 +234,8 @@ export function renderEditor(host) {
     iconBtn('separator-horizontal', 'Page break (Ctrl Enter)', () => editor.chain().focus().insertPageBreak().run()),
     iconBtn('image-plus', 'Insert image', () => insertImage()),
     iconBtn('sticky-note', 'Insert footnote / endnote', () => insertFootnote()),
+    iconBtn('omega', 'Special characters', (e) => editor && specialCharPicker(e.currentTarget, editor, book)),
+    iconBtn('message-square-dashed', 'Note to self (never printed)', () => editor && addAuthorNote(editor)),
     tbtn('link', 'link', 'Link', () => setLink()),
     iconBtn('remove-formatting', 'Clear formatting', () => editor.chain().focus().unsetAllMarks().setParagraph().updateAttributes('paragraph', { pstyle: '' }).unsetTextAlign().run()),
     imgTools,
@@ -242,6 +245,8 @@ export function renderEditor(host) {
     iconBtn('languages', 'Translate / suggest wording for the selection (Ctrl Alt T)', () => suggestForSelection(editor, book)),
     iconBtn('wand-sparkles', 'Rephrase sentence (Ctrl Alt R)', () => openRephrase()),
     iconBtn('search', 'Find & replace (Ctrl F)', () => openFind()),
+    iconBtn('audio-lines', 'Read aloud from the cursor (Ctrl Alt A)', () => editor && readAloud(editor, book)),
+    tb.sideBtn = iconBtn('columns-2', 'Show another chapter side by side', () => { setApp({ sideBySide: !state.app.sideBySide }); mount(); }),
     tb.focusBtn = iconBtn('focus', 'Focus mode (Ctrl Shift F)', () => toggleFocus()),
     iconBtn('a-large-small', 'Writing view settings', (e) => viewMenu(e.currentTarget)),
     iconBtn('panel-right', 'Toggle side panel', () => toggleInspector()),
@@ -303,12 +308,15 @@ export function renderEditor(host) {
 
   // ---------- page (header + editor) ----------
   let saveContent = null;
+  let side = null;
   function mount() {
     if (editor) { saveContent?.flush(); editor.destroy(); editor = null; }
     clear(page);
     page.classList.remove('turn'); void page.offsetWidth; page.classList.add('turn');
     scroller.querySelector('.original-pane')?.remove();
     scroller.classList.remove('with-original');
+    side?.destroy(); side = null;
+    stopReading();
     const el = currentElement();
     if (!el) {
       page.appendChild(h('div.empty-state', { style: { marginTop: '60px' } }, icon('feather', 30), h('h3', 'Nothing selected'), h('p', 'Pick a chapter on the left or add a new one.')));
@@ -352,6 +360,13 @@ export function renderEditor(host) {
     const sideBySide = !!(state.app.showOriginal && el.source && book.translation);
     scroller.classList.toggle('with-original', sideBySide);
     if (sideBySide) scroller.insertBefore(originalPane(el, { insert: (text) => editor?.chain().focus().command(({ tr }) => { tr.insertText(text); return true; }).run() }), page);
+    else if (state.app.sideBySide && book.elements.length > 1) {
+      side = sidePane(book, el.id, { onClose: () => { setApp({ sideBySide: false }); mount(); } });
+      scroller.classList.add('with-original');
+      scroller.appendChild(side.el);
+    }
+    tb.sideBtn?.classList.toggle('active', !!state.app.sideBySide);
+    rememberPlace(el.id);
     saveContent = debounce(() => {
       if (!editor || editor.isDestroyed) return;
       el.content = editor.getHTML();
@@ -369,6 +384,7 @@ export function renderEditor(host) {
         CharacterCount,
         Proofing.configure({ getSettings: proofSettings, onUpdate: () => { emit('proof', editor); updateStatus(); } }),
         FindHighlight,
+        ReadAloudHighlight,
         Typewriter.configure({ enabled: () => state.app.typewriter, scroller: () => scroller }),
         PhoneticTyping.configure({
           enabled: () => phoneticOn(),
@@ -522,6 +538,13 @@ export function renderEditor(host) {
     items.push({ label: 'Insert footnote', icon: 'sticky-note', onClick: () => insertFootnote() });
     items.push({ label: 'Insert scene break', icon: 'asterisk', onClick: () => editor.chain().focus().insertSceneBreak().run() });
     items.push({ label: 'Insert cross-reference…', icon: 'link', onClick: () => crossRefDialog(editor, book) });
+    items.push({ label: 'Note to self…', icon: 'message-square-dashed', onClick: () => addAuthorNote(editor) });
+    items.push({ label: 'Read aloud from here', icon: 'audio-lines', onClick: () => { if (posInfo && sel.empty) editor.commands.setTextSelection(posInfo.pos); readAloud(editor, book); } });
+    items.push({ divider: true });
+    const cur = currentElement();
+    items.push({ label: 'Split chapter here', icon: 'scissors', onClick: () => { if (posInfo && sel.empty) editor.commands.setTextSelection(posInfo.pos); splitChapterHere(editor, book, cur); } });
+    items.push({ label: 'Merge with next chapter', icon: 'merge', disabled: !nextInSection(book, cur), onClick: () => mergeWithNext(editor, book, cur) });
+    items.push({ label: 'Move selection to…', icon: 'move', disabled: sel.empty, onClick: () => moveSelectionTo(editor, book, cur) });
     items.push({ divider: true });
     items.push({ label: 'Add to index…', icon: 'list-ordered', onClick: () => addToIndexDialog(editor, book) });
     items.push({ label: 'Index terms…', icon: 'list-ordered', onClick: () => openIndexPanel(book, editor) });
@@ -713,6 +736,7 @@ export function renderEditor(host) {
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyR') { e.preventDefault(); openRephrase(); }
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyV') { e.preventDefault(); toggleVoice(); }
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyT') { e.preventDefault(); suggestForSelection(editor, book); }
+    if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyA') { e.preventDefault(); if (editor) readAloud(editor, book); }
   };
   document.addEventListener('keydown', onKey);
 
@@ -736,6 +760,8 @@ export function renderEditor(host) {
   return () => {
     voice?.stop();
     saveContent?.flush();
+    stopReading();
+    side?.destroy();
     offs.forEach((f) => f());
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('booky:focus-mode', onFocusEvt);

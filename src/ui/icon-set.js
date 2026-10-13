@@ -181,6 +181,11 @@ import I_folder_sync from 'lucide/dist/esm/icons/folder-sync.mjs';
 import I_milestone from 'lucide/dist/esm/icons/milestone.mjs';
 import I_git_compare from 'lucide/dist/esm/icons/git-compare.mjs';
 import I_hard_drive from 'lucide/dist/esm/icons/hard-drive.mjs';
+import I_omega from 'lucide/dist/esm/icons/omega.mjs';
+import I_message_square_dashed from 'lucide/dist/esm/icons/message-square-dashed.mjs';
+import I_scissors from 'lucide/dist/esm/icons/scissors.mjs';
+import I_merge from 'lucide/dist/esm/icons/merge.mjs';
+import I_command from 'lucide/dist/esm/icons/command.mjs';
 
 export const ICONS = {
   'type': I_type,
@@ -365,4 +370,9 @@ export const ICONS = {
   'milestone': I_milestone,
   'git-compare': I_git_compare,
   'hard-drive': I_hard_drive,
+  'omega': I_omega,
+  'message-square-dashed': I_message_square_dashed,
+  'scissors': I_scissors,
+  'merge': I_merge,
+  'command': I_command,
 };

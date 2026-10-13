@@ -16,6 +16,8 @@ export const SHORTCUTS = [
   ['Scene break', 'Ctrl Alt 8'],
   ['Page break', 'Ctrl Enter'],
   ['Find & replace', 'Ctrl F'],
+  ['Quick jump (chapters, headings, story bible, “p 142”)', 'Ctrl P'],
+  ['Read aloud from the cursor', 'Ctrl Alt A'],
   ['Save now', 'Ctrl S'],
   ['Focus mode', 'Ctrl Shift F'],
   ['Next / previous chapter', 'Alt ↓ / Alt ↑'],

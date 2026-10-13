@@ -5,8 +5,10 @@ import { goToImage } from './feedback-actions.js';
 import { collectXrefs, xrefResolves, collectIndexMarks } from '../core/index-gen.js';
 import { h, icon, btn, clear, modal, toast, downloadBlob, slugify, add, celebrate, input, textarea } from './dom.js';
 import { exportPdfDialog } from './pdf-dialog.js';
+import { confirmNoPlaceholders, openMarkersPanel } from './writing-tools.js';
 import { state, setMode, save, selectElement, touch } from '../core/store.js';
-import { bookWords, elementWords, displayTitle, htmlToText, ELEMENT_TYPES } from '../core/model.js';
+import { bookWords, elementWords, displayTitle, htmlToText, ELEMENT_TYPES, orderedElements } from '../core/model.js';
+import { findPlaceholders } from '../core/writing.js';
 import { trimOf } from '../core/themes.js';
 import { estimatePages } from '../render/cover.js';
 import { PrintPreview } from '../render/preview.js';
@@ -29,6 +31,7 @@ export function renderPublish(host) {
     h('h3', title), h('p', desc), h('div.row', { style: { flexWrap: 'wrap' } }, actions));
 
   const run = async (label, fn) => {
+    if (!(await confirmNoPlaceholders(book))) return;
     toast(`${label}…`);
     try { await fn(); } catch (e) { console.error(e); toast(`${label} failed: ${e.message}`, 'error', 5000); }
   };
@@ -139,6 +142,10 @@ function preflight(book) {
       ? `${broken.length} point to a page, heading or figure that no longer exists: ${broken.slice(0, 3).map((x) => `“${x.label || x.target}” in ${displayTitle(book, els.find((e) => e.id === x.elId))}`).join(', ')}`
       : `${xrefs.length} — all found`, broken.length ? () => { selectElement(broken[0].elId); setMode('write'); } : null);
   }
+  const todo = findPlaceholders(orderedElements(book).filter((e) => e.include.print || e.include.ebook));
+  const ph = todo.filter((f) => f.kind === 'placeholder');
+  const notes = todo.length - ph.length;
+  check(ph.length ? 'bad' : 'ok', 'Placeholders (TK, XX, [[…]], ???)', ph.length ? `${ph.length} left to fill in — exports ask before going ahead` : `None${notes ? ` · ${notes} note${notes === 1 ? '' : 's'} to self (never exported)` : ''}`, ph.length || notes ? () => openMarkersPanel(book) : null);
   const marks = collectIndexMarks(els);
   if (marks.length && !has('index')) check('warn', 'Index', `${marks.length} index entries but no Index page — add one from the left-hand panel`, null);
   check(book.cover.background.type === 'image' && book.cover.background.image ? 'ok' : 'warn', 'Cover artwork', book.cover.background.type === 'image' ? 'Custom artwork' : 'Using a typographic cover — fine, or add artwork', () => setMode('cover'));

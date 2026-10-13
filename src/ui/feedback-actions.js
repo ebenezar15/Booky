@@ -10,7 +10,7 @@ export function openComments() {
   return orderedComments(state.book, ensureReviews(state.book).comments.filter((c) => c.status === 'open'));
 }
 
-function withEditor(elId, fn) {
+export function withEditor(elId, fn) {
   const needsSwitch = state.currentId !== elId || state.mode !== 'write';
   if (state.currentId !== elId) selectElement(elId);
   if (state.mode !== 'write') setMode('write');

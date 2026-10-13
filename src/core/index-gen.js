@@ -113,10 +113,10 @@ export function collectXrefs(elements) {
   return out;
 }
 
-/** For plain-text exports: cross-references become their label, index marks disappear. */
+/** For plain-text exports: cross-references become their label, index marks and notes to self disappear. */
 export const xrefsToText = (html) => String(html)
   .replace(/<span\b[^>]*data-type="xref"[^>]*>(?:<\/span>)?/gi, (tag) => escAttr(attr(tag, 'data-label')))
-  .replace(/<span\b[^>]*data-type="index"[^>]*>(?:<\/span>)?/gi, '');
+  .replace(/<span\b[^>]*data-type="(index|authornote)"[^>]*>(?:<\/span>)?/gi, '');
 
 const plain = (html) => decode(String(html).replace(/<[^>]+>/g, '')).trim();
 

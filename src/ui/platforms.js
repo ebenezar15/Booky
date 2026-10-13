@@ -152,6 +152,7 @@ export async function platformDialog(book, p) {
     const results = h('div');
     const blocking = checks.some((c) => c.ok === false);
     const build = btn(p.kind === 'print' ? 'Build print package (.zip)' : 'Build ebook package (.zip)', { kind: 'primary', icon: 'package', onClick: async () => {
+      if (!(await (await import('./writing-tools.js')).confirmNoPlaceholders(book))) return;
       build.disabled = true;
       progress.classList.remove('hidden');
       clear(results);

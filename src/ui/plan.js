@@ -20,10 +20,16 @@ export function renderPlan(host) {
   const book = state.book;
   const wrap = h('section.plan');
   host.appendChild(wrap);
-  let view = lastView;
+  let view = state.app.planView === 'bible' ? 'bible' : lastView;
+  if (state.app.planView) state.app.planView = '';
   let showAll = false;
   let bibleFilter = 'all';
 
+  const offFocus = on('bible-focus', (id) => {
+    if (view !== 'bible') { view = lastView = 'bible'; bibleFilter = 'all'; draw(); }
+    const card = wrap.querySelector(`.bible-card[data-id="${id}"]`);
+    if (card) { card.scrollIntoView({ block: 'center', behavior: 'smooth' }); card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 1400); card.querySelector('textarea')?.focus(); }
+  });
   function draw() {
     clear(wrap);
     wrap.appendChild(h('div.plan-head',
@@ -117,7 +123,7 @@ export function renderPlan(host) {
       const kind = BIBLE_KINDS.find((k) => k.id === it.kind) || BIBLE_KINDS[0];
       const avatar = h('div.bc-avatar', { title: 'Set picture', on: { click: async () => { const f = await pickFile('image/*'); if (f) { it.image = await compressImage(f, 400); touch('bible'); draw(); } } } },
         it.image ? h('img', { src: it.image, alt: '' }) : icon(kind.icon, 22));
-      grid.appendChild(h('div.bible-card',
+      grid.appendChild(h('div.bible-card', { dataset: { id: it.id } },
         h('div.bc-head', avatar,
           h('div.grow', h('input.bc-name', { value: it.name, placeholder: `${kind.label} name`, on: { input: (e) => { it.name = e.target.value; touch('bible'); } } }), h('span.kind-tag', kind.label)),
           iconBtn('trash', 'Delete', async () => { if (await confirmDialog('Delete entry?', `Delete “${it.name || kind.label}”?`, { okLabel: 'Delete', danger: true })) { book.bible = book.bible.filter((x) => x !== it); touch('bible'); draw(); } })),
@@ -164,5 +170,5 @@ export function renderPlan(host) {
 
   draw();
   const offs = [on('elements', () => { if (view !== 'bible' && view !== 'goals') draw(); })];
-  return () => offs.forEach((f) => f());
+  return () => { offs.forEach((f) => f()); offFocus(); };
 }

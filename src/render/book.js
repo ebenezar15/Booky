@@ -102,6 +102,9 @@ function processContent(book, el, target, opts = {}) {
     n.replaceWith(d);
   });
 
+  // Notes to self are never printed or exported
+  root.querySelectorAll('[data-type="authornote"]').forEach((n) => n.remove());
+
   // Index marks → anchors; cross-references → placeholders resolved in renderSections
   root.querySelectorAll('[data-type="index"]').forEach((n, k) => {
     const a = doc.createElement('span');

@@ -4,6 +4,8 @@ import { state, on, selectElement, setMode, touch } from '../core/store.js';
 import { SECTIONS, ELEMENT_TYPES, STATUSES, computeNumbers, displayTitle, elementWords, bookWords, fillText } from '../core/model.js';
 import { addElement, deleteElement, duplicateElement, moveElement, updateElement } from '../core/actions.js';
 import { importFlow } from './library.js';
+import { mergeWithNext, nextInSection } from './writing-tools.js';
+import { getEditor } from './editor-view.js';
 
 export function addMenuItems(section, afterId) {
   const groups = { front: 'Front matter', body: 'Body', back: 'Back matter' };
@@ -26,6 +28,7 @@ export function elementMenu(el) {
   return [
     { label: 'Rename…', icon: 'pencil', onClick: async () => { const t = await promptDialog('Rename', 'Title', el.title); if (t != null) updateElement(el.id, { title: t }, 'elements'); } },
     { label: 'Duplicate', icon: 'copy', onClick: () => duplicateElement(el.id) },
+    { label: 'Merge with next chapter', icon: 'merge', disabled: !nextInSection(b, el), onClick: async () => mergeWithNext(getEditor(), b, el) },
     { label: 'Insert after', icon: 'plus', sub: addMenuItems(el.section, el.id) },
     { divider: true },
     { label: 'Include in print', checked: el.include.print, onClick: () => { el.include.print = !el.include.print; touch('elements'); } },

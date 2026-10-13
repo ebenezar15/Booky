@@ -109,6 +109,7 @@ export async function buildDocx(book) {
         out += `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve">${x(instr)}</w:instrText></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>`;
         continue;
       }
+      if (c.getAttribute('data-type') === 'authornote') continue; // notes to self stay in Booky
       if (c.getAttribute('data-type') === 'xref') { out += `<w:r>${runProps(m)}<w:t xml:space="preserve">${x(c.getAttribute('data-label') || '')}</w:t></w:r>`; continue; }
       out += runs(c, m);
     }

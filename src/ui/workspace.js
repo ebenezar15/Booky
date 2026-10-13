@@ -18,6 +18,7 @@ import { exportPdfDialog } from './pdf-dialog.js';
 import { bookWords } from '../core/model.js';
 import { openTranslateDialog } from './translate.js';
 import { backupChip, backupBanner, saveMilestone } from './backup-ui.js';
+import { openQuickJump, openMarkersPanel } from './writing-tools.js';
 
 const MODES = [
   { id: 'write', label: 'Write', icon: 'pen-line' },
@@ -63,6 +64,9 @@ export function renderWorkspace(root) {
       appearanceButton(),
       themeButton(),
       iconBtn('ellipsis-vertical', 'More', (e) => menu(e.currentTarget, [
+        { label: 'Quick jump…', icon: 'command', hint: 'Ctrl P', onClick: () => openQuickJump(book) },
+        { label: 'Notes to self & placeholders…', icon: 'message-square-dashed', onClick: () => openMarkersPanel(book) },
+        { divider: true },
         { label: 'Book details…', icon: 'book-open-text', onClick: () => openDetails() },
         { label: 'Translate into another language…', icon: 'languages', onClick: () => { save(); openTranslateDialog(book); } },
         { label: 'Download backup (.booky)', icon: 'download', onClick: () => downloadBackup(book) },
@@ -119,6 +123,7 @@ export function renderWorkspace(root) {
 
   const onKey = (e) => {
     const mod = e.ctrlKey || e.metaKey;
+    if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'p') { e.preventDefault(); openQuickJump(book); }
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save().then(() => toast('Saved', 'success', 1200)); }
     if (mod && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); if (state.mode !== 'write') setMode('write'); setTimeout(() => document.dispatchEvent(new CustomEvent('booky:focus-mode')), 30); }
     if (mod && e.key === '\\') { e.preventDefault(); toggleBinder(); }
