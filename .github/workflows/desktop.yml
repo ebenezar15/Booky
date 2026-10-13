@@ -23,7 +23,7 @@ jobs:
             files: |
               release/desktop/*.exe
               release/Booky.html
-          - os: macos-15
+          - os: macos-15-intel
             target: --mac
             files: |
               release/desktop/*.dmg
