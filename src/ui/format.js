@@ -23,7 +23,9 @@ export function renderFormat(host) {
 
   // ---------- preview ----------
   let target = 'print';
-  let scope = bookWords(book) > 45000 ? 'chapter' : 'book';
+  let scope = 'book';
+  const LONG_BOOK = 30000; // words: show the current chapter first, then typeset the whole book in the background
+  let fullShown = false;
   let device = 'kindle';
   let readerTheme = 'light';
   let fontScale = 1;
@@ -81,8 +83,18 @@ export function renderFormat(host) {
       loading.classList.remove('hidden');
       const onlyId = scope === 'chapter' ? state.currentId : scope.startsWith('el:') ? scope.slice(3) : null;
       try {
+        // Long book, nothing typeset yet: show the current chapter in a moment, then the whole book when it's ready.
+        const progressive = !onlyId && !fullShown && bookWords(book) > LONG_BOOK && state.currentId;
+        if (progressive) {
+          await preview.render(book, { onlyId: state.currentId });
+          if (my !== renderToken) return;
+          loading.classList.add('hidden');
+          pages.textContent = 'Showing this chapter — typesetting the whole book…';
+        }
         const r = await preview.render(book, { onlyId });
         if (my !== renderToken) return;
+        fullShown = !onlyId;
+        if (progressive) preview.goToElement(state.currentId);
         pages.textContent = `${r.pages} page${r.pages === 1 ? '' : 's'}${onlyId ? '' : ` · ${trimLabel()}`}`;
         if (!onlyId) pages.textContent += ` · ${bookWords(book).toLocaleString()} words`;
         const sb = pane.querySelector('.acc[data-id="stats"].open .acc-body');

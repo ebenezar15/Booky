@@ -209,7 +209,7 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
 - **Running heads and page numbers**: author / title / chapter on verso and recto pages, positioned centred or on the outside edge. Page numbers have a style (12, — 12 —, Page 12, [ 12 ], · 12 ·), a starting number, font, size and colour. Front matter uses roman numerals and body numbering restarts. No running heads appear on opening or display pages.
 - **Page flow**: chapters, parts and front matter can start on right-hand pages, and individual pages can be overridden.
 - **Table of contents**: page numbers, dot leaders and depth.
-- **Live paginated preview** (Paged.js) shown as spreads or single pages, with zoom and margin guides. There is also an **ebook preview** on e-reader, phone and tablet frames with light, sepia and dark reading modes.
+- **Live paginated preview** (Paged.js) shown as spreads or single pages, with zoom and margin guides. For long books, the chapter you're working on appears in under a second while the whole book is typeset in the background. There is also an **ebook preview** on e-reader, phone and tablet frames with light, sepia and dark reading modes.
 
 ### 🖼️ Cover
 - **9 cover templates**, gradient, colour or image backgrounds with overlay, and text layers you drag into place. Each layer has its own font, size, colour, alignment, caps, shadow, outline and spacing, and you can add logo or image layers.
@@ -251,7 +251,8 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
 - **Cross-references**: right-click → *Insert cross-reference…* to point to a chapter, heading or figure.
   - Print shows "see page 42"; the ebook shows a link.
   - Pre-flight lists any cross-reference whose target was deleted or renamed.
-- **DOCX** with real Word styles, mirrored margins, footnotes and images.
+- **Sample / reader magnet**: an EPUB or PDF of the first chapters (you choose how many) with a closing page linking to where readers can buy the full book and join your newsletter. The sample has no ISBN, so you can give it away on your website, in your newsletter or on BookFunnel.
+- **DOCX** with real Word styles, mirrored margins, footnotes and images, and Word index entries (use *Insert → Index* in Word).
 - **HTML** (a single web page), **print-ready HTML**, **Markdown**, **plain text** and **.booky backups**.
 - **Pre-flight check**: missing metadata, ISBNs, copyright page, contents, empty chapters, leftover sample text, page count, and gutter width for your page count.
 - **ISBNs**: Book details checks every ISBN as you type.
@@ -339,14 +340,15 @@ How it stays private:
 ```bash
 npm install
 npm run dev        # development server
-npm test           # unit tests (grammar, rephrasing, readability, feedback, phonetic typing, translation)
+npm test           # unit tests (grammar, rephrasing, feedback, ISBN/barcode, PDF boxes, index, layout check, backups…)
 npm run build      # → dist/Booky.html (single offline file)
 npm run release    # build and copy to release/Booky.html
 npm run desktop    # run the desktop app (Electron)
 npm run dist:win   # Windows installer → release/desktop (run on Windows)
 npm run dist:mac   # macOS .dmg → release/desktop (run on a Mac)
 npm run icons      # re-render app icons from assets/logo.svg
-npm run test:epub  # build EPUBs from tests/fixtures in a headless browser and run EPUBCheck (needs Java)
+npm run test:epub  # build EPUBs from tests/fixtures (and a sample edition) in a headless browser and run EPUBCheck (needs Java)
+node scripts/perf-preview.mjs [words]   # time the Paged.js print preview on a generated 120,000-word novel
 ```
 
 The app is plain JavaScript (no framework), built with Vite into a single self-contained HTML file.
@@ -360,11 +362,11 @@ The app's source entry is `app.html`. The repository root is published as is by 
 
 | Folder | What it does |
 | --- | --- |
-| `src/core` | Book model, page templates, themes, storage (IndexedDB), fonts |
+| `src/core` | Book model, page templates, themes, storage (IndexedDB), fonts, ISBN/barcodes, index, layout-check rules, backups, sample editions |
 | `src/editor` | TipTap/ProseMirror extensions: paragraph styles, scene and page breaks, footnotes, live proofing, find |
 | `src/lang` | Spell-check worker (nspell + Hunspell en), grammar and style rules, rephrasing, thesaurus, phonetic typing (`translit.js`), translation providers (`translate.js`) |
 | `src/render` | Book → HTML, print/ebook CSS generator, Paged.js preview, canvas cover renderer |
-| `src/export` | EPUB, DOCX, HTML, Markdown and text exporters |
+| `src/export` | EPUB (with accessibility metadata and print page-list), DOCX, HTML, Markdown and text exporters; PDF finishing (`pdf-post.js`: page boxes, XMP) and checking (`pdf-check.js`) |
 | `src/share` | Encrypted review copies (AES-GCM + PBKDF2), the reviewer's reading/commenting page, sharing transports |
 | `src/import` | DOCX (Mammoth), Markdown, text, HTML and RTF import with chapter detection |
 | `src/ui` | All screens: library, binder, editor, inspector, plan, format, cover, publish |

@@ -31,6 +31,13 @@ try {
     built.push(file);
     console.log(`built ${path.basename(file)} (${Math.round(fs.statSync(file).size / 1024)} KB, ${pages} print page markers, ${Date.now() - t0} ms)`);
   }
+  // the sample / reader-magnet edition of the novel
+  const novel = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/novel-en.json'), 'utf8'));
+  const { b64 } = await page.evaluate((r) => window.makeSampleEpub(r, { chapters: 2, buyUrl: 'https://example.com/buy', newsletterUrl: 'https://example.com/news' }), novel);
+  const sampleFile = path.join(outDir, 'novel-en-sample.epub');
+  fs.writeFileSync(sampleFile, Buffer.from(b64, 'base64'));
+  built.push(sampleFile);
+  console.log(`built novel-en-sample.epub (${Math.round(fs.statSync(sampleFile).size / 1024)} KB)`);
 } finally {
   await browser.close();
   await server.close();

@@ -17,6 +17,15 @@ window.makeEpub = async (raw) => {
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return { b64: btoa(bin), pages: pageList?.length || 0 };
 };
+window.makeSampleEpub = async (raw, opts) => {
+  const { sampleBook } = await import('../../src/core/sample.js');
+  const book = sampleBook(normalizeBook(raw), opts);
+  const blob = await buildEpub(book, {});
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return { b64: btoa(bin) };
+};
 window.harnessReady = true;
 
 // Lays the book out with Paged.js and reports the index lines, cross-references and where marks landed.

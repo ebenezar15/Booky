@@ -3,8 +3,9 @@ import { parseIsbn, isbnFindings } from '../core/isbn.js';
 import { collectImages, imageFindings, measureImages } from '../core/image-check.js';
 import { goToImage } from './feedback-actions.js';
 import { collectXrefs, xrefResolves, collectIndexMarks } from '../core/index-gen.js';
-import { h, icon, btn, clear, modal, toast, downloadBlob, slugify, add, celebrate } from './dom.js';
-import { state, setMode, save, selectElement } from '../core/store.js';
+import { h, icon, btn, clear, modal, toast, downloadBlob, slugify, add, celebrate, input, textarea } from './dom.js';
+import { exportPdfDialog } from './pdf-dialog.js';
+import { state, setMode, save, selectElement, touch } from '../core/store.js';
 import { bookWords, elementWords, displayTitle, htmlToText, ELEMENT_TYPES } from '../core/model.js';
 import { trimOf } from '../core/themes.js';
 import { estimatePages } from '../render/cover.js';
@@ -65,6 +66,7 @@ export function renderPublish(host) {
             btn('Markdown', { icon: 'download', onClick: () => run('Building Markdown', async () => { const { buildMarkdown } = await import('../export/simple.js'); downloadBlob(new Blob([buildMarkdown(book)], { type: 'text/markdown' }), `${fileBase}.md`); }) }),
             btn('Text', { icon: 'download', onClick: () => run('Building text', async () => { const { buildText } = await import('../export/simple.js'); downloadBlob(new Blob([buildText(book)], { type: 'text/plain' }), `${fileBase}.txt`); }) }),
           ]),
+          sampleCard(book, card, run, fileBase),
           card('file-archive', 'linear-gradient(135deg,#a16207,#d99a1e)', 'Project backup', 'Everything — text, notes, snapshots, design and cover — in one .booky file. Open it on any computer with Booky.', [
             btn('Download backup', { icon: 'download', onClick: () => downloadBackup(book) }),
           ]),
@@ -74,6 +76,23 @@ export function renderPublish(host) {
     ),
   );
   return () => {};
+}
+
+// Sample / "reader magnet": the first chapters and a call-to-action page, as EPUB or PDF.
+function sampleCard(book, card, run, fileBase) {
+  const o = book.settings.sample = { chapters: 3, buyUrl: '', newsletterUrl: '', message: '', ...(book.settings.sample || {}) };
+  const set = (k) => (v) => { o[k] = k === 'chapters' ? Math.max(1, Math.round(+v) || 1) : v; touch('settings'); };
+  const make = async () => (await import('../core/sample.js')).sampleBook(book, o);
+  const opts = h('div.sample-opts', { style: { display: 'grid', gap: '8px', width: '100%', marginBottom: '6px' } },
+    h('label.field', h('span', 'Chapters to include'), input(String(o.chapters), set('chapters'), { type: 'number', min: 1, max: 50, style: { width: '90px' } })),
+    h('label.field', h('span', 'Link to buy the full book'), input(o.buyUrl, set('buyUrl'), { type: 'url', placeholder: 'https://…' })),
+    h('label.field', h('span', 'Newsletter sign-up link (optional)'), input(o.newsletterUrl, set('newsletterUrl'), { type: 'url', placeholder: 'https://…' })),
+    h('label.field', h('span', 'Message on the last page (optional)'), textarea(o.message, set('message'), { rows: 2, placeholder: 'Thank you for reading this sample…' })));
+  return card('bookmark', 'linear-gradient(135deg,#7c3aed,#c084fc)', 'Sample / reader magnet', 'The first chapters and a call-to-action page with your buy and newsletter links — give it away on your website, newsletter or BookFunnel. It has no ISBN.', [
+    opts,
+    btn('Sample EPUB', { icon: 'download', onClick: () => run('Building sample EPUB', async () => { const { buildEpub } = await import('../export/epub.js'); downloadBlob(await buildEpub(await make()), `${fileBase}-sample.epub`); toast('Sample EPUB ready', 'success'); }) }),
+    btn('Sample PDF', { icon: 'file-down', onClick: async () => exportPdfDialog(await make()) }),
+  ]);
 }
 
 function kdpGutter(pages) {
