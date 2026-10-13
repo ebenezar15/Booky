@@ -1,3 +1,5 @@
+import { parseIsbn, isbnFindings } from './isbn.js';
+
 // Upload requirements for the main self-publishing platforms (checked against the book
 // before exporting a ready-to-upload package). Values reflect each platform's published
 // specs; always double-check the platform's own guide before ordering proofs.
@@ -70,6 +72,13 @@ export const PLATFORMS = [
   },
 ];
 
+/** Which ISBN field a platform uses. */
+export function isbnKey(p, meta = {}) {
+  if (p.kind === 'ebook') return 'isbnEbook';
+  if (p.id === 'kdp-hard') return meta.isbnHardcover ? 'isbnHardcover' : 'isbnPrint';
+  return 'isbnPrint';
+}
+
 export function gutterFor(pages) {
   if (pages <= 150) return 0.375;
   if (pages <= 300) return 0.5;
@@ -86,7 +95,13 @@ export function checkPlatform(p, book, pages) {
   c(!!(m.title && m.title !== 'Untitled Book'), 'Book title set');
   c(!!m.author, 'Author name set');
   c(m.description ? true : 'warn', m.description ? 'Description ready for the store page' : 'Add a description (needed on the store page)');
-  if (p.needsIsbn) c(!!(p.kind === 'print' ? m.isbnPrint : m.isbnEbook), 'ISBN entered in Book details');
+  const key = isbnKey(p, m);
+  const isbn = parseIsbn(m[key]);
+  if (!isbn.empty && !isbn.ok) c(false, `ISBN: ${isbn.message}`);
+  else if (isbn.ok) c(true, `ISBN ${isbn.formatted}`);
+  else if (p.needsIsbn) c(false, 'ISBN entered in Book details (this platform needs one you own)');
+  if (p.id === 'kdp-hard' && !m.isbnHardcover && m.isbnPrint) c('warn', 'Using the paperback ISBN for the hardcover — each edition needs its own ISBN (KDP can assign one)');
+  for (const f of isbnFindings(m).filter((x) => x.ok === 'warn')) c('warn', f.text);
   if (p.kind === 'ebook') {
     c(book.elements.some((e) => e.type === 'toc' && e.include.ebook), 'Table of contents included', 'toc');
   } else {

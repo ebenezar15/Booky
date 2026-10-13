@@ -26,6 +26,8 @@ export function defaultCover() {
       font: 'Lora',
       size: 11,
       showBarcodeBox: true,
+      barcodeMode: 'barcode', // barcode = print the ISBN barcode · reserve = leave a white area for the printer
+      addon: true, // EAN-5 price add-on (90000 when no price)
       price: '',
     },
     spine: { show: true, font: 'Montserrat', color: '#ffffff', textOverride: '' },

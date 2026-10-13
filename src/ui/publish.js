@@ -1,4 +1,5 @@
 // Publish mode: pre-flight checklist and every export format.
+import { parseIsbn, isbnFindings } from '../core/isbn.js';
 import { h, icon, btn, clear, modal, toast, downloadBlob, slugify, add, celebrate } from './dom.js';
 import { state, setMode, save } from '../core/store.js';
 import { bookWords, elementWords, displayTitle, htmlToText, ELEMENT_TYPES } from '../core/model.js';
@@ -90,8 +91,14 @@ function preflight(book) {
 
   check(m.title && m.title !== 'Untitled Book' ? 'ok' : 'bad', 'Title', m.title || 'Missing', () => openDetails());
   check(m.author ? 'ok' : 'bad', 'Author name', m.author || 'Missing — shown on title page and cover', () => openDetails());
-  check(m.isbnPrint ? 'ok' : 'warn', 'Print ISBN', m.isbnPrint || 'Not set (some platforms assign a free one)', () => openDetails('publishing'));
-  check(m.isbnEbook ? 'ok' : 'warn', 'Ebook ISBN', m.isbnEbook || 'Optional for most ebook stores', () => openDetails('publishing'));
+  const isbnRow = (key, title, emptyText, emptyLevel) => {
+    const p = parseIsbn(m[key]);
+    check(p.empty ? emptyLevel : p.ok ? 'ok' : 'bad', title, p.empty ? emptyText : p.ok ? p.formatted : p.message, () => openDetails('publishing'));
+  };
+  isbnRow('isbnPrint', 'Paperback ISBN', 'Not set (KDP can assign a free one; IngramSpark needs your own)', 'warn');
+  if (m.isbnHardcover) isbnRow('isbnHardcover', 'Hardcover ISBN', '', 'ok');
+  isbnRow('isbnEbook', 'Ebook ISBN', 'Optional for most ebook stores', 'warn');
+  for (const f of isbnFindings(m).filter((x) => x.ok === 'warn')) check('warn', 'ISBNs', f.text, () => openDetails('publishing'));
   check(m.description ? 'ok' : 'warn', 'Book description', m.description ? `${m.description.split(/\s+/).length} words` : 'Add a blurb for the EPUB metadata and back cover', () => openDetails('marketing'));
   check(has('title') ? 'ok' : 'warn', 'Title page', has('title') ? 'Included' : 'Recommended for print books');
   check(has('copyright') ? 'ok' : 'warn', 'Copyright page', has('copyright') ? 'Included' : 'Strongly recommended');

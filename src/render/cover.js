@@ -1,6 +1,7 @@
 // Canvas cover renderer: ebook front cover and full print wrap (back + spine + front).
 import { fillText, bookWords } from '../core/model.js';
 import { trimOf } from '../core/themes.js';
+import { parseIsbn, ean13Modules, ean5Modules, priceAddon } from '../core/isbn.js';
 
 const imgCache = new Map();
 export function loadImage(src, onReady) {
@@ -214,18 +215,70 @@ export function drawWrap(ctx, book, dpi, onReady, opts) {
   for (const line of wrapLines(ctx, blurb, bw)) { ctx.fillText(line, bx, yy); yy += bfs * 1.45; }
   ctx.restore();
   if (c.back.showBarcodeBox) {
-    const bw2 = px(2), bh2 = px(1.2);
+    const isbn = parseIsbn(opts?.isbn ?? book.meta.isbnPrint);
+    const real = c.back.barcodeMode !== 'reserve' && isbn.ok;
+    const addon = real && c.back.addon !== false ? priceAddon(c.back.price) : '';
+    const bw2 = px(addon ? 2.3 : 1.6), bh2 = px(1.2);
     const x2 = px(d.bleed + d.trimW - 0.35) - bw2, y2 = H - px(d.bleed + 0.35) - bh2;
     ctx.fillStyle = '#fff';
-    ctx.fillRect(x2, y2, bw2, bh2);
-    ctx.fillStyle = '#999';
-    ctx.font = `${px(0.1)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(book.meta.isbnPrint ? `ISBN ${book.meta.isbnPrint}` : 'ISBN barcode area', x2 + bw2 / 2, y2 + bh2 / 2);
-    if (c.back.price) ctx.fillText(c.back.price, x2 + bw2 / 2, y2 + bh2 - px(0.12));
+    ctx.fillRect(Math.round(x2), Math.round(y2), Math.round(bw2), Math.round(bh2));
+    if (real) drawIsbnBarcode(ctx, Math.round(x2), Math.round(y2), Math.round(bw2), Math.round(bh2), isbn, addon, dpi);
+    else {
+      ctx.fillStyle = '#999';
+      ctx.font = `${px(0.1)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(c.back.barcodeMode === 'reserve' ? 'Barcode area (added by the printer)' : book.meta.isbnPrint ? 'Check the ISBN in Book details' : 'ISBN barcode area', x2 + bw2 / 2, y2 + bh2 / 2);
+    }
+    if (c.back.price && !real) ctx.fillText(c.back.price, x2 + bw2 / 2, y2 + bh2 - px(0.12));
   }
   return { W, H, d };
+}
+
+/**
+ * A scannable ISBN barcode (EAN-13 + optional EAN-5 add-on) inside a white box.
+ * Bars are snapped to whole device pixels; quiet zones of 11 / 7 / 5 modules are kept clear.
+ */
+export function drawIsbnBarcode(ctx, x, y, w, h, isbn, addon, dpi) {
+  const main = ean13Modules(isbn.isbn13);
+  const add5 = addon ? ean5Modules(addon) : '';
+  const modules = 11 + 95 + (add5 ? 9 + 47 + 5 : 7); // left quiet zone, symbol, gap + add-on, right quiet zone
+  // Nominal module 0.013 in (100 %); shrink to fit the box but never below 80 % (0.0104 in).
+  let m = Math.max(1, Math.floor(Math.min(0.013 * dpi, (w * 0.96) / modules)));
+  if (m < 0.0104 * dpi && dpi >= 150) m = Math.ceil(0.0104 * dpi);
+  const symW = modules * m;
+  let x0 = Math.round(x + (w - symW) / 2) + 11 * m;
+  const pad = Math.round(h * 0.06);
+  const textPx = Math.max(6, Math.round(0.095 * dpi));
+  const top = y + pad + textPx + Math.round(textPx * 0.35);
+  const bottomText = textPx;
+  const barH = Math.round(h - (top - y) - bottomText - pad - Math.round(textPx * 0.2));
+  const guardExtra = Math.round(m * 5);
+  ctx.save();
+  ctx.fillStyle = '#000';
+  // human-readable ISBN above the bars
+  ctx.font = `${textPx}px "Courier Prime", "Courier New", monospace`;
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.fillText(`ISBN ${isbn.formatted}`, x0, y + pad + textPx);
+  const guard = (i) => i < 3 || (i >= 45 && i < 50) || i >= 92;
+  for (let i = 0; i < 95; i++) if (main[i] === '1') ctx.fillRect(x0 + i * m, top, m, barH - (guard(i) ? 0 : guardExtra));
+  // digits under the bars: first digit in the left quiet zone, then two groups of six
+  ctx.textBaseline = 'top';
+  const digitY = top + barH - guardExtra + Math.round(m);
+  ctx.textAlign = 'right';
+  ctx.fillText(isbn.isbn13[0], x0 - m * 2, digitY);
+  ctx.textAlign = 'center';
+  for (let i = 0; i < 6; i++) ctx.fillText(isbn.isbn13[1 + i], x0 + (3 + i * 7 + 3.5) * m, digitY);
+  for (let i = 0; i < 6; i++) ctx.fillText(isbn.isbn13[7 + i], x0 + (50 + i * 7 + 3.5) * m, digitY);
+  if (add5) {
+    const ax = x0 + (95 + 9) * m; // 9-module gap between the symbols
+    const addTop = top + textPx + Math.round(textPx * 0.3);
+    for (let i = 0; i < 47; i++) if (add5[i] === '1') ctx.fillRect(ax + i * m, addTop, m, barH - (addTop - top));
+    ctx.textBaseline = 'alphabetic';
+    for (let i = 0; i < 5; i++) ctx.fillText(addon[i], ax + (4 + i * 9 + 3.5) * m, addTop - Math.round(textPx * 0.25));
+  }
+  ctx.restore();
 }
 
 export function drawGuides(ctx, d, dpi) {

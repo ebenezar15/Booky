@@ -799,3 +799,4 @@ a.btn { text-decoration: none; }
 .pdf-choice input { margin-top: 3px; accent-color: var(--primary); }
 .pdf-drop { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px; min-height: 0; text-align: center; }
 .pdf-drop.over { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.isbn-msg.ok { color: var(--success); } .isbn-msg.bad { color: var(--danger); } .isbn-msg.warn { color: var(--warning, #b45309); }

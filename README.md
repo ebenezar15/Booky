@@ -217,6 +217,17 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
 - **DOCX** with real Word styles, mirrored margins, footnotes and images.
 - **HTML** (a single web page), **print-ready HTML**, **Markdown**, **plain text** and **.booky backups**.
 - **Pre-flight check**: missing metadata, ISBNs, copyright page, contents, empty chapters, leftover sample text, page count, and gutter width for your page count.
+- **ISBNs**: Book details checks every ISBN as you type.
+  - It catches wrong check digits and turns an ISBN-10 into the ISBN-13 printers use.
+  - It warns when two formats share one: each of paperback, hardcover and ebook needs its own.
+- **Real ISBN barcode** on the back cover: a scannable EAN-13 with the ISBN printed above it.
+  - It has an optional price add-on (e.g. 51499 for US$14.99, or 90000 for no price).
+  - Bars are drawn on whole pixels at 300 DPI, with clear margins.
+  - Or choose *Leave a white area* if your printer adds the barcode (KDP can).
+- **Metadata sheet** in every package lists:
+  - BISAC codes, series and edition, and contributors with their roles;
+  - the reading age, and all ISBNs neatly formatted;
+  - your keywords, with warnings when you go over KDP's 7 keywords or 50 characters.
 
 ### 📥 Import
 Word (.docx), Markdown, plain text, HTML, RTF and Booky backups. Chapters are detected automatically from headings, from "Chapter …" lines or from a custom separator. *Prologue*, *Epilogue*, *Acknowledgments* and similar headings become the matching page types.

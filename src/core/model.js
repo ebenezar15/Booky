@@ -102,6 +102,7 @@ export function createBook(opts = {}) {
       publisherCity: '',
       publisherWebsite: '',
       isbnPrint: '',
+      isbnHardcover: '',
       isbnEbook: '',
       edition: 'First Edition',
       year: String(new Date().getFullYear()),
@@ -114,6 +115,11 @@ export function createBook(opts = {}) {
       editor: '',
       illustrator: '',
       coverDesigner: '',
+      translator: '',
+      contributors: '', // more people, one per line: “Name — role”
+      bisac: '', // BISAC subject codes, e.g. FIC009000, FIC002000
+      ageMin: '',
+      ageMax: '',
       website: '',
       authorBio: '',
       ...(opts.meta || {}),

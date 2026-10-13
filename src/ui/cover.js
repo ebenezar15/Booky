@@ -4,6 +4,7 @@ import { state, touch } from '../core/store.js';
 import { allFonts, fontStack, ensureFontsLoaded, fontOptions } from '../core/fonts.js';
 import { uid } from '../core/model.js';
 import { drawFront, drawWrap, drawGuides, wrapDims } from '../render/cover.js';
+import { parseIsbn, priceAddon } from '../core/isbn.js';
 import { COVER_TEMPLATES, coverText as T } from '../core/cover-templates.js';
 
 let selectedLayer = 'title';
@@ -182,8 +183,13 @@ export function renderCover(host) {
         h('div.row', { style: { gap: '12px', marginBottom: '12px', flexWrap: 'wrap' } },
           h('span.row', color(cov.back.color || cov.background.color, (v) => { cov.back.color = v; change(); }), h('span.small', 'Back colour')),
           h('span.row', color(cov.back.textColor, (v) => { cov.back.textColor = v; change(); }), h('span.small', 'Text'))),
-        h('div.col', { style: { gap: '10px', marginBottom: '12px' } }, toggle(cov.back.showBarcodeBox, (v) => { cov.back.showBarcodeBox = v; change(); }, 'Reserve barcode area (2 × 1.2 in)')),
-        field('Price (optional)', input(cov.back.price, (v) => { cov.back.price = v; change(); }, { placeholder: '$16.99' })),
+        h('div.col', { style: { gap: '10px', marginBottom: '12px' } }, toggle(cov.back.showBarcodeBox, (v) => { cov.back.showBarcodeBox = v; change(); }, 'ISBN barcode on the back cover')),
+        cov.back.showBarcodeBox ? [
+          field('Barcode', select([['barcode', 'Print the ISBN barcode (EAN-13)'], ['reserve', 'Leave a white area — my printer adds it (KDP can)']], cov.back.barcodeMode || 'barcode', (v) => { cov.back.barcodeMode = v; change(); }),
+            (() => { const p = parseIsbn(book.meta.isbnPrint); return p.ok ? `Uses the paperback ISBN ${p.formatted}.` : p.empty ? 'Add the paperback ISBN in Book details → Publishing to print the barcode.' : `Paperback ISBN problem: ${p.message}`; })()),
+          (cov.back.barcodeMode || 'barcode') === 'barcode' ? toggle(cov.back.addon !== false, (v) => { cov.back.addon = v; change(); }, `Price add-on (${priceAddon(cov.back.price)}${cov.back.price ? '' : ' = no price'})`) : null,
+        ] : null,
+        field('Price (optional)', input(cov.back.price, (v) => { cov.back.price = v; change(); }, { placeholder: '$16.99' }), 'In US$ for the barcode add-on (e.g. $14.99 → 51499).'),
         h('div.section-title', 'Spine'),
         h('div.col', { style: { gap: '10px', marginBottom: '12px' } }, toggle(cov.spine.show, (v) => { cov.spine.show = v; change(); }, 'Spine text (needs 80+ pages)')),
         h('div.grid-2', field('Spine font', select(fonts(), cov.spine.font, (v) => { cov.spine.font = v; change(); })), h('div.row', { style: { paddingTop: '20px' } }, color(cov.spine.color, (v) => { cov.spine.color = v; change(); }), h('span.small', 'Text'))),

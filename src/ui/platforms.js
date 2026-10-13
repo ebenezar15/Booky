@@ -3,7 +3,9 @@
 import JSZip from 'jszip';
 import { h, icon, btn, clear, add, modal, toast, downloadBlob, slugify, select, field, celebrate, pickFile } from './dom.js';
 import { touch, setMode, state } from '../core/store.js';
-import { PLATFORMS, checkPlatform, gutterFor } from '../core/platforms.js';
+import { PLATFORMS, checkPlatform, gutterFor, isbnKey } from '../core/platforms.js';
+import { parseIsbn } from '../core/isbn.js';
+import { keywordReport, contributorList, KDP_KEYWORD_LIMIT, KEYWORD_MAX_CHARS } from '../core/metadata.js';
 import { trimOf } from '../core/themes.js';
 import { createElement, bookWords } from '../core/model.js';
 import { estimatePages, drawFront, drawWrap, wrapDims } from '../render/cover.js';
@@ -25,19 +27,32 @@ export function platformGrid(book) {
     h('div.platform-grid', PLATFORMS.filter((p) => p.kind === 'print').map(card)));
 }
 
-function metadataSheet(book, p, extra = {}) {
+export function metadataSheet(book, p, extra = {}) {
   const m = book.meta;
   const t = trimOf(book.format);
+  const isbn = (k) => { const r = parseIsbn(m[k]); return r.empty ? '(not set)' : r.ok ? r.formatted : `${m[k]}  ⚠ ${r.message}`; };
+  const kw = keywordReport(m.keywords);
+  const bisac = String(m.bisac || '').split(/[,;\s]+/).map((c) => c.trim().toUpperCase()).filter(Boolean);
+  const age = m.ageMin || m.ageMax ? `${m.ageMin || '?'}–${m.ageMax || '?'} years` : '';
+  const pad = (label) => `${label}:`.padEnd(17);
   const lines = [
     `${p.name} — upload details for “${m.title}”`, ''.padEnd(60, '='), '',
-    `Title:        ${m.title}`, m.subtitle ? `Subtitle:     ${m.subtitle}` : '', m.series ? `Series:       ${m.series}${m.seriesNumber ? ' #' + m.seriesNumber : ''}` : '',
-    `Author:       ${m.author}`, m.editor ? `Editor:       ${m.editor}` : '', m.illustrator ? `Illustrator:  ${m.illustrator}` : '',
-    `Language:     ${m.language}`, `Publisher:    ${m.publisher || '(self-published)'}`, `Edition:      ${m.edition}`,
-    p.kind === 'print' ? `ISBN (print): ${m.isbnPrint || '(not set)'}` : `ISBN (ebook): ${m.isbnEbook || '(not required on most stores)'}`,
-    `Keywords:     ${m.keywords || ''}`, `Categories:   ${m.categories || ''}`, `Word count:   ${bookWords(book).toLocaleString()}`,
-    p.kind === 'print' ? `Trim size:    ${t.w} × ${t.h} in` : '',
-    extra.pages ? `Page count:   ${extra.pages}` : '', extra.interior ? `Interior:     ${extra.interior}` : '', extra.spine ? `Spine width:  ${extra.spine.toFixed(3)} in (${book.cover.paper} paper)` : '',
-    extra.cover ? `Cover size:   ${extra.cover}` : '', '', 'Description:', m.description || '(add a description in Book details → Marketing)', '',
+    `${pad('Title')}${m.title}`, m.subtitle ? `${pad('Subtitle')}${m.subtitle}` : '',
+    m.series ? `${pad('Series')}${m.series}${m.seriesNumber ? `, book ${m.seriesNumber}` : ''}` : '',
+    `${pad('Edition')}${m.edition || ''}`,
+    'Contributors:', ...contributorList(m).map(([role, name]) => `  • ${name} (${role})`),
+    `${pad('Language')}${m.language}`, `${pad('Publisher')}${m.publisher || '(self-published)'}`,
+    `${pad('ISBN paperback')}${isbn('isbnPrint')}`, m.isbnHardcover ? `${pad('ISBN hardcover')}${isbn('isbnHardcover')}` : '', `${pad('ISBN ebook')}${isbn('isbnEbook')}`,
+    `${pad('BISAC codes')}${bisac.length ? bisac.join(', ') : '(add up to 3 in Book details → Marketing)'}${bisac.length > 3 ? '  ⚠ most platforms take 3 at most' : ''}`,
+    `${pad('Categories')}${m.categories || ''}`,
+    age ? `${pad('Reading age')}${age}` : '',
+    `Keywords (${kw.list.length}${p.id.startsWith('kdp') || p.id === 'kindle' ? ` — KDP allows ${KDP_KEYWORD_LIMIT}` : ''}):`,
+    ...kw.list.map((k, i) => `  ${i + 1}. ${k}${k.length > KEYWORD_MAX_CHARS ? `  ⚠ ${k.length} characters (50 max on KDP)` : ''}${(p.id.startsWith('kdp') || p.id === 'kindle') && i >= KDP_KEYWORD_LIMIT ? '  ⚠ over KDP’s limit' : ''}`),
+    `${pad('Word count')}${bookWords(book).toLocaleString()}`,
+    p.kind === 'print' ? `${pad('Trim size')}${t.w} × ${t.h} in` : '',
+    extra.pages ? `${pad('Page count')}${extra.pages}` : '', extra.interior ? `${pad('Interior')}${extra.interior}` : '',
+    extra.spine ? `${pad('Spine width')}${extra.spine.toFixed(3)} in (${book.cover.paper} paper)` : '',
+    extra.cover ? `${pad('Cover size')}${extra.cover}` : '', '', 'Description:', m.description || '(add a description in Book details → Marketing)', '',
     'Files in this package:', ...p.files.map((f) => `  • ${f}`), '', 'Platform notes:', ...p.notes.map((n) => `  • ${n}`), '',
     'Prepared with Booky.',
   ];
@@ -199,7 +214,7 @@ async function buildPackage(book, p, { pv, pages, quality, interiorMode = 'raste
       ].join('\n'));
     }
     onProgress(85, 'Rendering cover…');
-    const opts = { paper: p.paper, wrap: p.wrap || 0 };
+    const opts = { paper: p.paper, wrap: p.wrap || 0, isbn: book.meta[isbnKey(p, book.meta)] };
     const d = wrapDims(book, opts);
     const dpi = 300;
     const cv = document.createElement('canvas');
