@@ -89,6 +89,11 @@ export function typographyCss(book, target) {
 .bk-part-head { text-align: center; hyphens: manual; ${print ? '' : 'margin-top: 30%;'} }
 .bk-part-num { font-family: ${numFont}; font-size: ${u(h.numberSize + 1)}; letter-spacing: .2em; text-transform: uppercase; margin-bottom: .6em; }
 .bk-part-title { font-size: ${u(h.partSize)}; }
+.bk-content .bk-index { font-size: .92em; }
+.bk-content .bk-index h2.bk-ix-letter { font-size: 1.05em; text-align: left; margin: 1.1em 0 .3em; }
+.bk-content .bk-index h2.bk-ix-letter:first-child { margin-top: 0; }
+.bk-content .bk-index p.bk-ix-entry, .bk-content .bk-index p.bk-ix-sub { margin: 0 0 .15em; text-indent: -1.2em; padding-left: 1.2em; text-align: left; hyphens: manual; break-inside: avoid; }
+.bk-content .bk-index p.bk-ix-sub { padding-left: 2.4em; }
 .bk-toc ol { list-style: none; padding: 0; margin: 0; }
 .bk-toc-item { margin: .38em 0; text-indent: 0; text-align: left; hyphens: manual; }
 .bk-toc-item a { display: flex; align-items: baseline; color: inherit; text-decoration: none; }
@@ -168,6 +173,12 @@ body { margin: 0; }
 .bk-toc-item > a::after { content: ${f.toc?.pageNumbers === false ? 'none' : 'target-counter(attr(href), page)'}; flex: none; }
 .bk-toc-item.is-front > a::after { content: ${f.toc?.pageNumbers === false ? 'none' : `target-counter(attr(href), page${pn.frontRoman ? ', lower-roman' : ''})`}; }
 ${f.toc?.pageNumbers === false ? '.bk-toc-dots { border: none !important; }' : ''}
+/* cross-references and the index: page numbers come from the target's page */
+.bk-xref { color: inherit; text-decoration: none; }
+.bk-xref::after { content: target-counter(attr(href), page); }
+.bk-ix-ref::after { content: target-counter(attr(href), page); }
+.bk-xref.is-resolved::after, .bk-ix-refs.is-merged .bk-ix-ref::after { content: none; }
+.bk-ix-ref { color: inherit; text-decoration: none; }
 /* full-page images: a page of their own with no margins, running into the bleed when bleed is on */
 @page bkfull { margin: 0; ${boxRules({})} }
 .bk-fullpage { page: bkfull; break-before: page; break-after: page; margin: 0 !important; width: ${w}in; height: ${h}in; overflow: visible; }

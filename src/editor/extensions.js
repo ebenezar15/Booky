@@ -201,3 +201,48 @@ export const PhoneticTyping = Extension.create({
     })];
   },
 });
+
+// Index entry: an invisible mark in the text (shown as a small ◆ in the editor).
+export const IndexMark = Node.create({
+  name: 'indexMark',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    const a = (name, html) => ({ default: '', parseHTML: (el) => el.getAttribute(html) || '', renderHTML: (v) => (v[name] ? { [html]: v[name] } : {}) });
+    return {
+      id: { default: '', parseHTML: (el) => el.getAttribute('data-id') || '', renderHTML: (v) => ({ 'data-id': v.id || Math.random().toString(36).slice(2, 10) }) },
+      term: a('term', 'data-term'), sub: a('sub', 'data-sub'), see: a('see', 'data-see'), seeAlso: a('seeAlso', 'data-see-also'),
+    };
+  },
+  parseHTML() { return [{ tag: 'span[data-type="index"]' }]; },
+  renderHTML({ HTMLAttributes, node }) {
+    const a = node.attrs;
+    const title = `Index: ${a.term}${a.sub ? ` › ${a.sub}` : ''}${a.see ? ` (see ${a.see})` : ''}${a.seeAlso ? ` (see also ${a.seeAlso})` : ''}`;
+    return ['span', mergeAttributes(HTMLAttributes, { 'data-type': 'index', class: 'ix-mark', title })];
+  },
+  addCommands() {
+    return { insertIndexMark: (attrs) => ({ commands }) => commands.insertContent({ type: this.name, attrs: { id: Math.random().toString(36).slice(2, 10), ...attrs } }) };
+  },
+});
+
+// Cross-reference to a chapter, heading or figure: "see page N" in print, a link in the ebook.
+export const CrossRef = Node.create({
+  name: 'crossRef',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      target: { default: '', parseHTML: (el) => el.getAttribute('data-target') || '', renderHTML: (v) => ({ 'data-target': v.target }) },
+      label: { default: '', parseHTML: (el) => el.getAttribute('data-label') || '', renderHTML: (v) => ({ 'data-label': v.label }) },
+    };
+  },
+  parseHTML() { return [{ tag: 'span[data-type="xref"]' }]; },
+  renderHTML({ HTMLAttributes }) { return ['span', mergeAttributes(HTMLAttributes, { 'data-type': 'xref', class: 'xref-chip' })]; },
+  addCommands() {
+    return { insertCrossRef: (attrs) => ({ commands }) => commands.insertContent({ type: this.name, attrs }) };
+  },
+});

@@ -2,8 +2,9 @@
 import { parseIsbn, isbnFindings } from '../core/isbn.js';
 import { collectImages, imageFindings, measureImages } from '../core/image-check.js';
 import { goToImage } from './feedback-actions.js';
+import { collectXrefs, xrefResolves, collectIndexMarks } from '../core/index-gen.js';
 import { h, icon, btn, clear, modal, toast, downloadBlob, slugify, add, celebrate } from './dom.js';
-import { state, setMode, save } from '../core/store.js';
+import { state, setMode, save, selectElement } from '../core/store.js';
 import { bookWords, elementWords, displayTitle, htmlToText, ELEMENT_TYPES } from '../core/model.js';
 import { trimOf } from '../core/themes.js';
 import { estimatePages } from '../render/cover.js';
@@ -112,6 +113,15 @@ function preflight(book) {
   check(pages >= 24 ? 'ok' : 'warn', 'Page count', `≈ ${pages} pages${pages < 24 ? ' — most printers need at least 24' : ''}${book.cover.lastPageCount ? ' (from last preview)' : ' (estimate — open Format to measure)'}`, () => setMode('format'));
   const need = kdpGutter(pages);
   check(book.format.margins.inside >= need ? 'ok' : 'bad', 'Inside margin (gutter)', `${book.format.margins.inside} in — ${pages} pages need at least ${need} in`, () => setMode('format'));
+  const xrefs = collectXrefs(els);
+  if (xrefs.length) {
+    const broken = xrefs.filter((x) => !xrefResolves(els, x.target));
+    check(broken.length ? 'bad' : 'ok', 'Cross-references', broken.length
+      ? `${broken.length} point to a page, heading or figure that no longer exists: ${broken.slice(0, 3).map((x) => `“${x.label || x.target}” in ${displayTitle(book, els.find((e) => e.id === x.elId))}`).join(', ')}`
+      : `${xrefs.length} — all found`, broken.length ? () => { selectElement(broken[0].elId); setMode('write'); } : null);
+  }
+  const marks = collectIndexMarks(els);
+  if (marks.length && !has('index')) check('warn', 'Index', `${marks.length} index entries but no Index page — add one from the left-hand panel`, null);
   check(book.cover.background.type === 'image' && book.cover.background.image ? 'ok' : 'warn', 'Cover artwork', book.cover.background.type === 'image' ? 'Custom artwork' : 'Using a typographic cover — fine, or add artwork', () => setMode('cover'));
 
   const list = h('div.checklist');

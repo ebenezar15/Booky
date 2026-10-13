@@ -1,4 +1,5 @@
 // Turns a Booky project into publication HTML (shared by print preview, PDF, EPUB, DOCX…).
+import { collectIndexMarks, buildIndex, markId, parseXrefTarget } from '../core/index-gen.js';
 import {
   orderedElements, computeNumbers, chapterLabel, fillPlaceholders, fillText,
   escapeHtml, ELEMENT_TYPES, applyCase,
@@ -100,9 +101,26 @@ function processContent(book, el, target, opts = {}) {
     n.replaceWith(d);
   });
 
+  // Index marks → anchors; cross-references → placeholders resolved in renderSections
+  root.querySelectorAll('[data-type="index"]').forEach((n, k) => {
+    const a = doc.createElement('span');
+    a.className = 'bk-ix';
+    a.id = `ix-${markId(el.id, n.getAttribute('data-id'), k)}`;
+    n.replaceWith(a);
+  });
+  root.querySelectorAll('[data-type="xref"]').forEach((n) => {
+    const a = doc.createElement('a');
+    a.className = 'bk-xref';
+    a.setAttribute('data-xref', n.getAttribute('data-target') || '');
+    a.textContent = n.getAttribute('data-label') || '';
+    n.replaceWith(a);
+  });
+
   // Images → figures
+  let figN = 0;
   root.querySelectorAll('img').forEach((img) => {
     if (img.classList.contains('bk-scene-img')) return;
+    const figId = `${el.id}-f${figN++}`;
     const w = img.getAttribute('data-width');
     const align = img.getAttribute('data-align') || 'center';
     img.removeAttribute('width');
@@ -112,6 +130,7 @@ function processContent(book, el, target, opts = {}) {
     if (img.parentNode === root || img.parentNode?.tagName === 'DIV') {
       const fig = doc.createElement('figure');
       fig.className = w === 'page' ? 'bk-figure bk-fullpage' : `bk-figure bk-align-${align}`;
+      fig.id = figId;
       img.replaceWith(fig);
       fig.appendChild(img);
     }
@@ -133,10 +152,12 @@ function processContent(book, el, target, opts = {}) {
 
   // Subheads get anchors for navigation
   const subheads = [];
-  root.querySelectorAll('h2, h3').forEach((h, i) => {
+  const headings = [];
+  root.querySelectorAll('h1, h2, h3, h4').forEach((h, i) => {
     const id = `${el.id}-h${i}`;
     h.id = id;
-    subheads.push({ id, text: h.textContent, level: +h.tagName[1] });
+    headings.push({ id, text: h.textContent.trim(), level: +h.tagName[1] });
+    if (h.tagName === 'H2' || h.tagName === 'H3') subheads.push({ id, text: h.textContent, level: +h.tagName[1] });
   });
 
   // Opening paragraph treatment
@@ -163,7 +184,7 @@ function processContent(book, el, target, opts = {}) {
       ? `<section class="bk-notes"><h3 class="bk-notes-title">Notes</h3>${notes.map((n, i) => `<aside epub:type="footnote" id="${n.id}" class="bk-note"><p><a href="#ref-${n.id}">${i + 1}.</a> ${escapeHtml(n.text)}</p></aside>`).join('')}</section>`
       : `<section class="bk-notes"><h3 class="bk-notes-title">Notes</h3><ol>${notes.map((n) => `<li id="${n.id}">${escapeHtml(n.text)}</li>`).join('')}</ol></section>`;
   }
-  return { html, subheads };
+  return { html, subheads, headings, figures: figN };
 }
 
 function headingHtml(book, el, nums) {
@@ -194,6 +215,48 @@ export function navTitle(book, el, nums) {
   return title || label || ELEMENT_TYPES[el.type]?.label || '';
 }
 
+const XREF_WORD = { en: 'see page' };
+
+// Cross-references: "see page N" in print (Paged.js target-counter), a titled link in the ebook.
+function resolveXrefs(book, sections, html, target) {
+  const lang = String(book.meta.language || 'en').split('-')[0];
+  return html.replace(/<a class="bk-xref" data-xref="([^"]*)">([\s\S]*?)<\/a>/g, (all, raw, label) => {
+    const t = parseXrefTarget(raw.replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+    const s = sections.find((x) => x.el.id === t.elId);
+    let id = null, title = '';
+    if (s && t.kind === 'section') { id = s.anchor; title = s.nav || s.title; }
+    if (s && t.kind === 'heading') { const hd = s.headings.find((x) => x.text === t.text); if (hd) { id = hd.id; title = hd.text; } }
+    if (s && t.kind === 'figure' && t.index < s.figures) { id = `${s.el.id}-f${t.index}`; title = label || `figure ${t.index + 1}`; }
+    if (!id) return `<span class="bk-xref-broken">${label}</span>`;
+    if (target === 'ebook') return `<a class="bk-xref" href="${s.file}#${id}">${label.trim() ? label : escapeHtml(title)}</a>`;
+    return `<a class="bk-xref" href="#${id}">${XREF_WORD[lang] ? `${XREF_WORD[lang]} ` : '→ '}</a>`;
+  });
+}
+
+// The Index page, generated from the index marks.
+function indexHtml(book, sections, marks, target) {
+  const lang = book.meta.language || 'en';
+  const groups = buildIndex(marks, lang);
+  const secOf = new Map();
+  for (const m of marks) secOf.set(m.id, sections.find((s) => s.el.id === m.elId));
+  const refs = (ids) => {
+    if (!ids.length) return '';
+    if (target === 'ebook') {
+      const seen = new Set();
+      return ids.map((id) => { const s = secOf.get(id); if (!s || seen.has(s.anchor)) return ''; seen.add(s.anchor); return `<a href="${s.file}#ix-${id}">${escapeHtml(s.nav || s.title || 'page')}</a>`; }).filter(Boolean).join(', ');
+    }
+    return `<span class="bk-ix-refs">${ids.map((id) => `<a class="bk-ix-ref" href="#ix-${id}"></a>`).join('<span class="bk-ix-sep">, </span>')}</span>`;
+  };
+  const line = (e, cls) => {
+    const parts = [`<span class="bk-ix-term">${escapeHtml(e.term)}</span>`];
+    if (e.refs.length) parts.push(`, ${refs(e.refs)}`);
+    if (e.see) parts.push(e.refs.length ? `; <em>see</em> ${escapeHtml(e.see)}` : `. <em>See</em> ${escapeHtml(e.see)}`);
+    if (e.seeAlso.length) parts.push(`; <em>see also</em> ${e.seeAlso.map(escapeHtml).join('; ')}`);
+    return `<p class="${cls}">${parts.join('')}</p>`;
+  };
+  return `<div class="bk-index"${target === 'ebook' ? ' epub:type="index"' : ''}>${groups.map((g) => `<h2 class="bk-ix-letter">${escapeHtml(g.letter)}</h2>${g.entries.map((e) => line(e, 'bk-ix-entry') + e.subs.map((sub) => line(sub, 'bk-ix-sub')).join('')).join('')}`).join('')}</div>`;
+}
+
 function tocHtml(book, sections, target) {
   const t = book.format.toc || {};
   const items = sections.filter((s) => s.inToc);
@@ -220,7 +283,7 @@ export function renderSections(book, target = 'print', { onlyId } = {}) {
 
   const sections = els.map((el, i) => {
     const simple = SIMPLE_PAGES.has(el.type);
-    const { html, subheads } = el.type === 'toc' ? { html: '', subheads: [] } : processContent(book, el, target);
+    const { html, subheads, headings = [], figures = 0 } = el.type === 'toc' ? { html: '', subheads: [] } : processContent(book, el, target);
     const head = headingHtml(book, el, nums);
     const label = el.type === 'chapter' || el.type === 'part' ? chapterLabel(book, el, nums) : '';
     return {
@@ -237,13 +300,18 @@ export function renderSections(book, target = 'print', { onlyId } = {}) {
       label,
       nav: navTitle(book, el, nums),
       subheads,
+      headings,
+      figures,
       inToc: el.type !== 'toc' && !simple && el.type !== 'also-by' && i > tocIdx && (el.title || label),
     };
   });
 
   const firstBody = sections.find((s) => !s.front);
+  const marks = collectIndexMarks(els);
   for (const s of sections) {
     if (s.kind === 'toc') s.body = tocHtml(book, sections, target);
+    if (s.kind === 'index' && marks.length) s.body = indexHtml(book, sections, marks, target);
+    if (s.body.includes('data-xref')) s.body = resolveXrefs(book, sections, s.body, target);
     const v = s.el.align && s.el.align !== 'default' ? ` bk-valign-${s.el.align}` : '';
     s.html = `<section class="bk-sec bk-${s.kind}${s.simple ? ' bk-simple' : ''}${s.front ? ' bk-front' : ''}${v}" id="${s.anchor}" data-el="${s.el.id}"${s === firstBody ? ' data-body-start="1"' : ''}>${s.head}<div class="bk-content">${s.body}</div></section>`;
   }

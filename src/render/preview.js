@@ -35,6 +35,34 @@ window.PagedConfig = {
       var folio = ${JSON.stringify({ plain: '#', dashes: '— # —', page: 'Page #', brackets: '[ # ]', dots: '· # ·', pipe: '| #' }[book.format.pageNumbers.style] || '#')}.replace('#', n);
       p.style.setProperty('--bk-folio', JSON.stringify(folio));
       p.setAttribute('data-folio', folio);
+      p.setAttribute('data-page-n', n);
+    });
+    // Index: replace each entry's page links with merged ranges ("12–14, 20").
+    var rv = function (s) { var v = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 }, t = 0; for (var k = 0; k < s.length; k++) { var a = v[s[k]], b = v[s[k + 1]] || 0; t += a < b ? -a : a; } return t; };
+    var merge = function (list) {
+      var seen = {}, items = [];
+      list.forEach(function (p) { if (!p || seen[p]) return; seen[p] = 1; items.push({ p: p, k: /^\\d+$/.test(p) ? 1 : /^[ivxlcdm]+$/.test(p) ? 0 : 2, v: /^\\d+$/.test(p) ? +p : rv(p) }); });
+      items.sort(function (a, b) { return a.k - b.k || a.v - b.v; });
+      var out = [];
+      for (var i = 0; i < items.length;) { var j = i; while (j + 1 < items.length && items[i].k < 2 && items[j + 1].k === items[i].k && items[j + 1].v === items[j].v + 1) j++; out.push(j > i ? items[i].p + '\u2013' + items[j].p : items[i].p); i = j + 1; }
+      return out.join(', ');
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('.bk-ix-refs'), function (span) {
+      var nums = Array.prototype.map.call(span.querySelectorAll('a.bk-ix-ref'), function (a) {
+        var t = document.getElementById(a.getAttribute('href').slice(1)) || document.querySelector('[data-id="' + a.getAttribute('href').slice(1) + '"]');
+        var pg = t && t.closest('.pagedjs_page');
+        return pg ? pg.getAttribute('data-page-n') : '';
+      });
+      span.textContent = merge(nums);
+      span.classList.add('is-merged');
+    });
+    // Cross-references: "see page N" with the same folio numbers as the index.
+    Array.prototype.forEach.call(document.querySelectorAll('a.bk-xref[href^="#"]'), function (a) {
+      var t = document.getElementById(a.getAttribute('href').slice(1)) || document.querySelector('[data-id="' + a.getAttribute('href').slice(1) + '"]');
+      var pg = t && t.closest('.pagedjs_page');
+      if (!pg) return;
+      a.textContent = a.textContent + pg.getAttribute('data-page-n');
+      a.classList.add('is-resolved');
     });
     parent.postMessage({ type: 'booky-paged', token: ${JSON.stringify(token)}, pages: flow.total }, '*');
   }

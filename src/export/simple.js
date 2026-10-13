@@ -1,5 +1,6 @@
 // Web page, Markdown, plain-text and print-ready HTML exports.
 import { renderSections, includedElements } from '../render/book.js';
+import { xrefsToText } from '../core/index-gen.js';
 import { ebookCss } from '../render/css.js';
 import { fontFaceCss, fontsUsedBy } from '../core/fonts.js';
 import { isRtl } from '../core/languages.js';
@@ -48,7 +49,7 @@ export function buildMarkdown(book) {
     const label = el.type === 'chapter' || el.type === 'part' ? chapterLabel(book, el, nums) : '';
     const title = fillText(el.title, book);
     if (def.heading && el.showTitle !== false && (label || title)) out += `${el.type === 'part' ? '#' : '##'} ${[label, title].filter(Boolean).join(': ')}\n\n`;
-    out += htmlToMarkdown(fillPlaceholders(el.content, book).replace(/<h1/g, '<h3').replace(/<\/h1>/g, '</h3>')) + '\n\n';
+    out += htmlToMarkdown(xrefsToText(fillPlaceholders(el.content, book)).replace(/<h1/g, '<h3').replace(/<\/h1>/g, '</h3>')) + '\n\n';
   }
   return out.replace(/\n{3,}/g, '\n\n');
 }
@@ -61,7 +62,7 @@ export function buildText(book) {
     const label = el.type === 'chapter' || el.type === 'part' ? chapterLabel(book, el, nums) : '';
     const title = fillText(el.title, book);
     if (label || title) out += `\n\n${[label, title].filter(Boolean).join(': ').toUpperCase()}\n\n`;
-    out += htmlToText(fillPlaceholders(el.content, book).replace(/<div data-type="scene-break"[^>]*><\/div>/g, '<p>* * *</p>')).replace(/\n{3,}/g, '\n\n');
+    out += htmlToText(xrefsToText(fillPlaceholders(el.content, book)).replace(/<div data-type="scene-break"[^>]*><\/div>/g, '<p>* * *</p>')).replace(/\n{3,}/g, '\n\n');
   }
   return out.trim() + '\n';
 }

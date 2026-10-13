@@ -800,3 +800,11 @@ a.btn { text-decoration: none; }
 .pdf-drop { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px; min-height: 0; text-align: center; }
 .pdf-drop.over { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
 .isbn-msg.ok { color: var(--success); } .isbn-msg.bad { color: var(--danger); } .isbn-msg.warn { color: var(--warning, #b45309); }
+
+/* index marks and cross-references in the editor */
+.book-prose .ix-mark { display: inline-block; width: 0; position: relative; }
+.book-prose .ix-mark::before { content: '◆'; position: absolute; left: -0.28em; top: -0.55em; font-size: .55em; color: var(--accent); opacity: .75; cursor: pointer; }
+.book-prose .ix-mark.ProseMirror-selectednode::before { opacity: 1; outline: 1px solid var(--accent); }
+.book-prose .xref-chip { display: inline-block; padding: 0 .4em; margin: 0 .1em; border-radius: 4px; font-size: .85em; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+.book-prose .xref-chip::before { content: '→ see page · ' attr(data-label); }
+.book-prose .xref-chip.broken { background: color-mix(in srgb, var(--danger, #dc2626) 14%, transparent); color: var(--danger, #dc2626); }

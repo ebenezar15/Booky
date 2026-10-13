@@ -23,6 +23,7 @@ import { renderSections } from '../render/book.js';
 import { toggleBinder, toggleInspector } from './workspace.js';
 import { originalPane } from './translate.js';
 import { suggestForSelection } from './translate-suggest.js';
+import { addToIndexDialog, crossRefDialog, openIndexPanel } from './index-panel.js';
 import { startVoice, pickEngine, localesFor, shapeTranscript } from '../lang/voice.js';
 
 let editor = null;
@@ -388,6 +389,7 @@ export function renderEditor(host) {
           .replace(/<\/?(font|o:p)[^>]*>/gi, ''),
         handleClickOn: (view, pos, node, nodePos, event) => {
           if (node.type.name === 'footnote') { editFootnote(nodePos, node); return true; }
+          if (node.type.name === 'indexMark') { toast(`Index: ${node.attrs.term}${node.attrs.sub ? ` › ${node.attrs.sub}` : ''} — right-click → Index terms… to rename or delete`, 'info', 3200); return false; }
           return false;
         },
         handleDOMEvents: {
@@ -519,6 +521,10 @@ export function renderEditor(host) {
     items.push({ divider: true });
     items.push({ label: 'Insert footnote', icon: 'sticky-note', onClick: () => insertFootnote() });
     items.push({ label: 'Insert scene break', icon: 'asterisk', onClick: () => editor.chain().focus().insertSceneBreak().run() });
+    items.push({ label: 'Insert cross-reference…', icon: 'link', onClick: () => crossRefDialog(editor, book) });
+    items.push({ divider: true });
+    items.push({ label: 'Add to index…', icon: 'list-ordered', onClick: () => addToIndexDialog(editor, book) });
+    items.push({ label: 'Index terms…', icon: 'list-ordered', onClick: () => openIndexPanel(book, editor) });
     menu({ x: e.clientX, y: e.clientY }, items);
   }
 

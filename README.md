@@ -225,6 +225,12 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
   - **full-page images** without bleed;
   - **missing alt text**, with a *Fill in alt text* shortcut.
 - **Full-page images**: set an image's width to *Full page* to give it a page of its own that runs to the edges (into the bleed when bleed is on).
+- **Back-of-book index**: select a word, right-click and choose *Add to index…* (with optional sub-entry, *see* and *see also*).
+  - *Index terms…* (right-click, or the Index page's side panel) lists every term with how often it's marked. From there you can rename or merge terms, delete them, or *Mark all* places a word appears in the book.
+  - The Index page is generated automatically: A–Z letter groups, sub-entries indented, page numbers merged into ranges (e.g. *12–14, 20*). In the ebook, each entry links to the chapters it appears in.
+- **Cross-references**: right-click → *Insert cross-reference…* to point to a chapter, heading or figure.
+  - Print shows "see page 42"; the ebook shows a link.
+  - Pre-flight lists any cross-reference whose target was deleted or renamed.
 - **DOCX** with real Word styles, mirrored margins, footnotes and images.
 - **HTML** (a single web page), **print-ready HTML**, **Markdown**, **plain text** and **.booky backups**.
 - **Pre-flight check**: missing metadata, ISBNs, copyright page, contents, empty chapters, leftover sample text, page count, and gutter width for your page count.

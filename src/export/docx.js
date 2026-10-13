@@ -101,6 +101,15 @@ export async function buildDocx(book) {
         out += `<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="${id}"/></w:r>`;
         continue;
       }
+      if (c.getAttribute('data-type') === 'index') {
+        // Word index entry field: Insert → Index in Word builds the index from these
+        const q = (v) => String(v || '').replace(/"/g, "'").replace(/:/g, ' ');
+        const sub = c.getAttribute('data-sub'), see = c.getAttribute('data-see') || c.getAttribute('data-see-also');
+        const instr = ` XE "${q(c.getAttribute('data-term'))}${sub ? `:${q(sub)}` : ''}"${see ? ` \\t "See ${q(see)}"` : ''} `;
+        out += `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve">${x(instr)}</w:instrText></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>`;
+        continue;
+      }
+      if (c.getAttribute('data-type') === 'xref') { out += `<w:r>${runProps(m)}<w:t xml:space="preserve">${x(c.getAttribute('data-label') || '')}</w:t></w:r>`; continue; }
       out += runs(c, m);
     }
     return out;

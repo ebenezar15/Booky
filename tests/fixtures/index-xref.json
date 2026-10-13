@@ -1,0 +1,57 @@
+{
+ "meta": {
+  "title": "Index and cross-reference test",
+  "author": "Ann Example",
+  "language": "en",
+  "isbnPrint": "978-0-306-40615-7",
+  "description": "A small test novel.",
+  "keywords": "sea, harbour"
+ },
+ "elements": [
+  {
+   "id": "e1",
+   "type": "title",
+   "title": "Title Page",
+   "content": "<p class=\"ps-display\">{{title}}</p><p class=\"ps-author\">{{author}}</p>"
+  },
+  {
+   "id": "e2",
+   "type": "copyright",
+   "title": "Copyright",
+   "content": "<p>Copyright © 2026 Ann Example. All rights reserved.</p>"
+  },
+  {
+   "id": "e3",
+   "type": "toc",
+   "title": "Contents",
+   "content": "<p></p>"
+  },
+  {
+   "id": "e4",
+   "type": "chapter",
+   "title": "Chapter 1",
+   "content": "<p><span data-type=\"index\" data-id=\"a1\" data-term=\"Lighthouse\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p><span data-type=\"index\" data-id=\"a2\" data-term=\"Lighthouse\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p><span data-type=\"index\" data-id=\"a3\" data-term=\"Lighthouse\" data-sub=\"history of\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p><span data-type=\"index\" data-id=\"a5\" data-term=\"Lighthouse\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p><span data-type=\"index\" data-id=\"a4\" data-term=\"Fresnel lens\"></span>See <span data-type=\"xref\" data-target=\"h:e5:The lamp room\" data-label=\"The lamp room\"></span>. The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p>"
+  },
+  {
+   "id": "e5",
+   "type": "chapter",
+   "title": "Chapter 2",
+   "content": "<p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p><span data-type=\"index\" data-id=\"b1\" data-term=\"Lighthouse\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><h2>The lamp room</h2><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p><span data-type=\"index\" data-id=\"b2\" data-term=\"Fresnel lens\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p><span data-type=\"index\" data-id=\"b3\" data-term=\"Lamp\" data-see=\"Fresnel lens\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p><span data-type=\"index\" data-id=\"b4\" data-term=\"1850s\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p>"
+  },
+  {
+   "id": "e6",
+   "type": "chapter",
+   "title": "Chapter 3",
+   "content": "<p><span data-type=\"index\" data-id=\"c1\" data-term=\"Lighthouse\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p><span data-type=\"index\" data-id=\"c2\" data-term=\"Keeper\" data-see-also=\"Lighthouse\"></span>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>Back in <span data-type=\"xref\" data-target=\"s:e4\" data-label=\"Chapter 1\"></span>, and a broken one: <span data-type=\"xref\" data-target=\"s:gone\" data-label=\"Old chapter\"></span>. The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p><p>The keeper climbed the stairs again, counting each step as the wind pushed against the glass and the sea below turned from grey to black.</p>"
+  },
+  {
+   "id": "e7",
+   "type": "index",
+   "title": "Index",
+   "content": "<p></p>",
+   "section": "back",
+   "numbered": false
+  }
+ ],
+ "id": "fixture-index"
+}
