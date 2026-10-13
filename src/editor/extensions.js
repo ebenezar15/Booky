@@ -290,3 +290,89 @@ export const ReadAloudHighlight = Extension.create({
     return { setReadAloudRange: (range) => ({ tr, dispatch }) => { if (dispatch) tr.setMeta(readAloudKey, range).setMeta('addToHistory', false); return true; } };
   },
 });
+
+// Character styles: named inline styles defined once in Format (span.cs-<id>).
+export const CharStyle = Mark.create({
+  name: 'charStyle',
+  excludes: 'charStyle',
+  addAttributes() {
+    return { cs: { default: '', parseHTML: (el) => el.getAttribute('data-cs') || (el.className.match(/\bcs-([\w-]+)/) || [])[1] || '', renderHTML: (a) => ({ 'data-cs': a.cs, class: `cs-${a.cs}` }) } };
+  },
+  parseHTML() { return [{ tag: 'span[data-cs]' }, { tag: 'span', getAttrs: (el) => (/\bcs-[\w-]+/.test(el.className) ? {} : false) }]; },
+  renderHTML({ HTMLAttributes }) { return ['span', HTMLAttributes, 0]; },
+  addCommands() {
+    return {
+      setCharStyle: (cs) => ({ commands }) => (cs ? commands.setMark(this.name, { cs }) : commands.unsetMark(this.name)),
+      unsetCharStyle: () => ({ commands }) => commands.unsetMark(this.name),
+    };
+  },
+});
+
+// Block options: print-only / ebook-only content, and layout overrides for fixing page breaks.
+const dataAttr = (name, attr, parse = (v) => v) => ({ default: null, parseHTML: (el) => (el.hasAttribute(attr) ? parse(el.getAttribute(attr)) : null), renderHTML: (a) => (a[name] == null || a[name] === false || a[name] === '' ? {} : { [attr]: a[name] === true ? 'true' : String(a[name]) }) });
+export const BlockOptions = Extension.create({
+  name: 'blockOptions',
+  addGlobalAttributes() {
+    return [{
+      types: ['paragraph', 'heading', 'blockquote', 'image', 'bulletList', 'orderedList'],
+      attributes: {
+        only: dataAttr('only', 'data-only'),
+        keepNext: dataAttr('keepNext', 'data-keep-next', () => true),
+        keepLines: dataAttr('keepLines', 'data-keep-lines', () => true),
+        breakBefore: dataAttr('breakBefore', 'data-break-before', () => true),
+        tracking: dataAttr('tracking', 'data-tracking', (v) => +v || null),
+      },
+    }];
+  },
+  addCommands() {
+    // set an option on the blocks touched by the selection (top-level blocks)
+    return {
+      setBlockOption: (key, value) => ({ tr, state, dispatch }) => {
+        const { from, to } = state.selection;
+        let changed = false;
+        state.doc.nodesBetween(from, to, (node, pos, parent) => {
+          if (parent !== state.doc) return false;
+          if (!node.type.spec.attrs?.[key] && !(key in node.attrs)) return false;
+          tr.setNodeMarkup(pos, null, { ...node.attrs, [key]: value });
+          changed = true;
+          return false;
+        });
+        if (changed && dispatch) dispatch(tr);
+        return changed;
+      },
+    };
+  },
+});
+
+// Editor-only badges on blocks with options, so print-only text and layout fixes are never forgotten.
+export const BlockBadges = Extension.create({
+  name: 'blockBadges',
+  addProseMirrorPlugins() {
+    const build = (doc) => {
+      const decos = [];
+      doc.forEach((node, offset) => {
+        const a = node.attrs || {};
+        const chips = [];
+        if (a.only) chips.push([a.only === 'print' ? 'Print only' : 'Ebook only', `only-${a.only}`]);
+        if (a.keepNext) chips.push(['Keep with next', 'fix']);
+        if (a.keepLines) chips.push(['Keep lines together', 'fix']);
+        if (a.breakBefore) chips.push(['Page break before', 'fix']);
+        if (a.tracking) chips.push([`Tracking ${a.tracking > 0 ? '+' : ''}${a.tracking}`, 'fix']);
+        if (!chips.length) return;
+        decos.push(Decoration.node(offset, offset + node.nodeSize, { class: `has-block-badge${a.only ? ` block-only-${a.only}` : ''}` }));
+        decos.push(Decoration.widget(offset + (node.isLeaf ? 0 : 1), () => {
+          const box = document.createElement('span');
+          box.className = 'block-badges';
+          box.contentEditable = 'false';
+          for (const [t, c] of chips) { const s = document.createElement('span'); s.className = `block-badge ${c}`; s.textContent = t; box.appendChild(s); }
+          return box;
+        }, { side: -1, ignoreSelection: true, key: chips.map((c) => c[0]).join('|') }));
+      });
+      return DecorationSet.create(doc, decos);
+    };
+    return [new Plugin({
+      state: { init: (_, st) => build(st.doc), apply: (tr, set) => (tr.docChanged ? build(tr.doc) : set) },
+      props: { decorations(state) { return this.getState(state); } },
+    })];
+  },
+});

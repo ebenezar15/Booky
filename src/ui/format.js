@@ -9,6 +9,7 @@ import { PrintPreview, ebookPreviewHtml } from '../render/preview.js';
 import { renderSections } from '../render/book.js';
 import { exportPdfDialog } from './pdf-dialog.js';
 import { checkLayout, drawLayoutReport } from './layout-report.js';
+import { charStylesPanel, paraStylesPanel, linksNotesPanel, captionsPanel, versePanel, openersPanel, overridesPanel, customCssPanel } from './format-styles.js';
 
 const openSections = new Set(['theme']);
 
@@ -353,6 +354,14 @@ export function renderFormat(host) {
           h('p.hint', 'Traditional books start chapters on a right-hand (odd) page, adding a blank page when needed. Override individual pages in the Write → Page panel.'),
         );
       }),
+      acc('charstyles', 'type', 'Character styles', (b) => charStylesPanel(b, book, change)),
+      acc('parastyles', 'pilcrow', 'Paragraph styles', (b) => paraStylesPanel(b, book, change)),
+      acc('openers', 'heading-1', 'Chapter openers', (b) => openersPanel(b, book, change)),
+      acc('verse', 'feather', 'Poetry & verse', (b) => versePanel(b, book, change)),
+      acc('captions', 'image', 'Captions & figures', (b) => captionsPanel(b, book, change)),
+      acc('links', 'link', 'Links & footnotes', (b) => linksNotesPanel(b, book, change)),
+      acc('overrides', 'sliders-horizontal', 'Layout overrides', (b) => overridesPanel(b, book)),
+      acc('advanced', 'file-code', 'Advanced: custom CSS', (b) => customCssPanel(b, book, change)),
       acc('toc', 'list-tree', 'Table of contents', (b) => {
         const T = F.toc;
         add(b, 

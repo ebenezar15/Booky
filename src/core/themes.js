@@ -1,5 +1,6 @@
 // Interior formatting: trim sizes, design themes and the default settings.
 import { deepMerge } from './util-merge.js';
+import { FORMAT_DEFAULTS } from './formatting.js';
 
 export const TRIM_SIZES = [
   { id: '4.25x6.87', label: 'Mass-market paperback', w: 4.25, h: 6.87 },
@@ -80,6 +81,7 @@ const BASE = {
   toc: { showNumbers: true, pageNumbers: true, leaders: true, depth: 1, numberStyle: 'smallcaps' },
   layout: { chapterStart: 'right', partStart: 'right', frontStart: 'right', widows: 2, orphans: 2 },
   ebook: { useBookFonts: true, embedFonts: false, justify: false, indent: true, includeToc: true, dropCaps: false, pageList: true },
+  ...structuredClone(FORMAT_DEFAULTS),
 };
 
 export const THEMES = {
@@ -206,10 +208,13 @@ export function applyTheme(format, theme) {
   const t = THEMES[theme] || THEMES.classic;
   // Start from the base design, keep the user's trim/margins unless the theme sets them.
   const keep = { trim: format.trim, custom: format.custom, margins: format.margins, bleed: format.bleed, bleedSize: format.bleedSize, cropMarks: format.cropMarks };
+  // The author's own styles are referenced by the text, so they survive a theme change.
+  const own = Object.fromEntries(['charStyles', 'customParaStyles', 'customCss', 'printLinks', 'captions', 'notes', 'verse'].filter((k) => format[k] !== undefined).map((k) => [k, structuredClone(format[k])]));
   const out = deepMerge(structuredClone(BASE), t.o);
   if (!t.o.trim) Object.assign(out, { trim: keep.trim, custom: keep.custom });
   if (!t.o.margins) out.margins = keep.margins;
   out.bleed = keep.bleed; out.bleedSize = keep.bleedSize; out.cropMarks = keep.cropMarks;
   out.theme = theme in THEMES ? theme : 'classic';
+  Object.assign(out, own);
   return out;
 }

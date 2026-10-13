@@ -40,6 +40,7 @@ export async function finishAndCheckInterior(input, book, platform) {
 /** Vector interior from the desktop app. */
 export async function vectorInterior(book, { onlyId } = {}) {
   if (!canVectorPdf()) throw new Error('Vector PDFs are made by the desktop app.');
+  await (await import('../render/book.js')).prepareRender(book);
   const html = printDocument(book, { onlyId, interactive: false }).html;
   return toBytes(await globalThis.bookyDesktop.renderPdf(html));
 }

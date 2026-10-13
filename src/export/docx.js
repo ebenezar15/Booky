@@ -10,7 +10,7 @@ const TW = (inch) => Math.round(inch * 1440);
 const HP = (pt) => Math.round(pt * 2);
 
 function runProps(m) {
-  let p = '';
+  let p = m.cs ? `<w:rStyle w:val="CS_${String(m.cs).replace(/[^\w]/g, '_')}"/>` : '';
   if (m.font) p += `<w:rFonts w:ascii="${x(m.font)}" w:hAnsi="${x(m.font)}" w:cs="${x(m.font)}"/>`;
   if (m.b) p += '<w:b/>';
   if (m.i) p += '<w:i/>';
@@ -87,6 +87,8 @@ export async function buildDocx(book) {
       if (tag === 'sub') m.sub = true;
       if (tag === 'mark') m.hl = true;
       if (c.classList?.contains('sc')) m.sc = true;
+      const cs = c.getAttribute?.('data-cs') || (String(c.className || '').match(/\bcs-([\w-]+)/) || [])[1];
+      if (cs) m.cs = cs;
       if (tag === 'span' && c.getAttribute('style')) {
         const st = c.style;
         if (st.fontFamily) m.font = st.fontFamily.split(',')[0].replace(/["']/g, '').trim();
@@ -128,12 +130,14 @@ export async function buildDocx(book) {
     let afterBreak = false;
     for (const n of root.children) {
       const tag = n.tagName.toLowerCase();
+      if (n.getAttribute('data-only') === 'ebook') continue; // a Word file is a print manuscript
       const align = n.style?.textAlign;
       const jc = align ? `<w:jc w:val="${align === 'justify' ? 'both' : align}"/>` : '';
       if (/^h[1-4]$/.test(tag)) { out += para(`Heading${Math.min(4, +tag[1] + (opts.shift || 0))}`, runs(n), jc); afterBreak = true; continue; }
       if (tag === 'p') {
         const ps = (n.className.match(/ps-([\w-]+)/) || [])[1];
-        const style = ps ? STYLE_FOR[ps] : first || afterBreak ? 'FirstParagraph' : null;
+        const custom = ps && (f.customParaStyles || []).some((c) => c.id === ps);
+        const style = custom ? `PS_${ps.replace(/[^\w]/g, '_')}` : ps ? STYLE_FOR[ps] : first || afterBreak ? 'FirstParagraph' : null;
         out += para(style, runs(n), jc);
         first = false; afterBreak = false;
         continue;
@@ -195,7 +199,20 @@ export async function buildDocx(book) {
   const indent = f.body.spacing === 'indent' ? Math.round(f.body.indent * f.body.size * 20) : 0;
   const line = Math.round(f.body.leading * 240);
   const after = f.body.spacing === 'block' ? Math.round(f.body.paraGap * f.body.size * 20) : 0;
-  const pStyle = (id, name, ppr, rpr, basedOn = 'Normal') => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/><w:basedOn w:val="${basedOn}"/><w:qFormat/><w:pPr>${ppr}</w:pPr><w:rPr>${rpr}</w:rPr></w:style>`;
+  // Format → Paragraph styles: the author's adjustments become part of the Word styles
+  const OVR_FOR = Object.fromEntries(Object.entries(STYLE_FOR).map(([ps, st]) => [st, ps]));
+  const ovrXml = (o) => {
+    if (!o) return { ppr: '', rpr: '' };
+    const em = (v) => Math.round(+v * f.body.size * 20);
+    const sp = [o.above !== '' && o.above != null ? `w:before="${em(o.above)}"` : '', o.below !== '' && o.below != null ? `w:after="${em(o.below)}"` : ''].filter(Boolean).join(' ');
+    return {
+      ppr: `${sp ? `<w:spacing ${sp}/>` : ''}${o.indent !== '' && o.indent != null ? `<w:ind w:firstLine="${Math.max(0, em(o.indent))}"/>` : ''}${o.align ? `<w:jc w:val="${o.align === 'justify' ? 'both' : o.align}"/>` : ''}`,
+      rpr: `${o.font ? `<w:rFonts w:ascii="${x(o.font)}" w:hAnsi="${x(o.font)}"/>` : ''}${o.italic ? '<w:i/>' : ''}${o.size && +o.size !== 1 ? `<w:sz w:val="${HP(f.body.size * +o.size)}"/>` : ''}`,
+    };
+  };
+  const pStyle = (id, name, ppr, rpr, basedOn = 'Normal') => { const o = ovrXml((f.paraStyles || {})[OVR_FOR[id]]); return `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/><w:basedOn w:val="${basedOn}"/><w:qFormat/><w:pPr>${ppr}${o.ppr}</w:pPr><w:rPr>${rpr}${o.rpr}</w:rPr></w:style>`; };
+  const customStyles = (f.customParaStyles || []).map((c) => { const o = ovrXml(c); return `<w:style w:type="paragraph" w:styleId="PS_${c.id.replace(/[^\w]/g, '_')}"><w:name w:val="${x(c.label || c.id)}"/><w:basedOn w:val="${STYLE_FOR[c.basedOn] || 'Normal'}"/><w:qFormat/><w:pPr>${o.ppr}</w:pPr><w:rPr>${o.rpr}</w:rPr></w:style>`; }).join('');
+  const charStyles = (f.charStyles || []).map((c) => `<w:style w:type="character" w:customStyle="1" w:styleId="CS_${String(c.id).replace(/[^\w]/g, '_')}"><w:name w:val="${x(c.name || c.id)}"/><w:qFormat/><w:rPr>${c.font ? `<w:rFonts w:ascii="${x(c.font)}" w:hAnsi="${x(c.font)}"/>` : ''}${c.bold ? '<w:b/>' : ''}${c.italic ? '<w:i/>' : ''}${c.smallCaps ? '<w:smallCaps/>' : ''}${c.underline ? '<w:u w:val="single"/>' : ''}${c.color ? `<w:color w:val="${String(c.color).replace('#', '')}"/>` : ''}${c.letterSpacing ? `<w:spacing w:val="${Math.round(+c.letterSpacing * f.body.size * 20)}"/>` : ''}${c.size && +c.size !== 1 ? `<w:sz w:val="${HP(f.body.size * +c.size)}"/>` : ''}</w:rPr></w:style>`).join('');
   const hfont = `<w:rFonts w:ascii="${x(headFont)}" w:hAnsi="${x(headFont)}"/>`;
   const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -226,7 +243,7 @@ ${pStyle('SceneBreak', 'Scene Break', '<w:ind w:firstLine="0"/><w:jc w:val="cent
 ${pStyle('ListPara', 'List Paragraph', '<w:ind w:left="720" w:hanging="360"/>', '')}
 ${pStyle('Figure', 'Figure', '<w:ind w:firstLine="0"/><w:jc w:val="center"/><w:spacing w:before="200" w:after="120"/>', '')}
 ${pStyle('FootnoteText', 'footnote text', '<w:ind w:firstLine="0"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/>', `<w:sz w:val="${HP(f.body.size * 0.8)}"/>`)}
-<w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>
+${customStyles}${charStyles}<w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>
 </w:styles>`;
 
   const m = f.margins;

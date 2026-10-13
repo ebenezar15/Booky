@@ -6,7 +6,7 @@ import Highlight from '@tiptap/extension-highlight';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import { generateHTML, generateJSON } from '@tiptap/core';
-import { ParagraphStyle, SceneBreak, PageBreak, Footnote, SmallCaps, BookImage, IndexMark, CrossRef, AuthorNote } from './extensions.js';
+import { ParagraphStyle, SceneBreak, PageBreak, Footnote, SmallCaps, BookImage, IndexMark, CrossRef, AuthorNote, CharStyle, BlockOptions } from './extensions.js';
 
 export function baseExtensions() {
   return [
@@ -31,6 +31,8 @@ export function baseExtensions() {
     IndexMark,
     CrossRef,
     AuthorNote,
+    CharStyle,
+    BlockOptions,
   ];
 }
 

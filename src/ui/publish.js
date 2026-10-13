@@ -63,7 +63,7 @@ export function renderPublish(host) {
           ]),
           card('globe', 'linear-gradient(135deg,#6b7280,#9ca3af)', 'Web page (HTML)', 'A single, self-contained web page of your book — share it, host it, or read it in any browser.', [
             btn('HTML', { icon: 'download', onClick: () => run('Building HTML', async () => { const { buildHtml } = await import('../export/simple.js'); downloadBlob(new Blob([buildHtml(book)], { type: 'text/html' }), `${fileBase}.html`); }) }),
-            btn('Print-ready HTML', { kind: 'ghost', title: 'Paged HTML you can open in Chrome and print to PDF, or use with other PDF tools', onClick: () => run('Building print HTML', async () => { const { buildPrintHtml } = await import('../export/simple.js'); downloadBlob(new Blob([buildPrintHtml(book)], { type: 'text/html' }), `${fileBase}-print.html`); }) }),
+            btn('Print-ready HTML', { kind: 'ghost', title: 'Paged HTML you can open in Chrome and print to PDF, or use with other PDF tools', onClick: () => run('Building print HTML', async () => { await (await import('../render/book.js')).prepareRender(book); const { buildPrintHtml } = await import('../export/simple.js'); downloadBlob(new Blob([buildPrintHtml(book)], { type: 'text/html' }), `${fileBase}-print.html`); }) }),
           ]),
           card('file-code', 'linear-gradient(135deg,#334155,#64748b)', 'Markdown & plain text', 'Portable text formats for other tools, version control, or audiobook scripts.', [
             btn('Markdown', { icon: 'download', onClick: () => run('Building Markdown', async () => { const { buildMarkdown } = await import('../export/simple.js'); downloadBlob(new Blob([buildMarkdown(book)], { type: 'text/markdown' }), `${fileBase}.md`); }) }),

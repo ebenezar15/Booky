@@ -89,6 +89,8 @@ export function renderInspector(host) {
           ? h('div.row', h('img', { src: el.headingImage, style: { maxWidth: '120px', maxHeight: '70px', borderRadius: '6px', border: '1px solid var(--border)' } }), btn('Remove', { cls: 'btn-sm', kind: 'ghost', onClick: () => { el.headingImage = ''; touch('elements'); draw(); } }))
           : btn('Add image above heading', { icon: 'image-plus', cls: 'btn-sm', onClick: async () => { const f = await pickFile('image/*'); if (f) { el.headingImage = await compressImage(f, 1200); touch('elements'); draw(); } } }),
         h('p.hint', 'Shown above this heading. Set one for all chapters in Format → Chapter headings.')) : null,
+      el.type === 'chapter' ? toggle(el.opener === 'special', (v) => { el.opener = v ? 'special' : ''; touch('elements'); }, 'Special opener (Format → Chapter openers)') : null,
+      field('Tracking for the whole page', select([['0', 'Normal'], ['-6', '−6/1000 em (tighter)'], ['-3', '−3/1000 em'], ['3', '+3/1000 em'], ['6', '+6/1000 em (looser)']], String(el.tracking || 0), (v) => { el.tracking = +v || 0; touch('elements'); }), 'A small change pulls back a short last page or a widow. Shown in Format → Layout overrides.'),
       h('div.section-title', 'Goal'),
       field('Word target for this page', input(el.wordTarget || '', (v) => { el.wordTarget = +v || 0; touch('elements'); }, { type: 'number', min: 0, step: 100, placeholder: 'e.g. 3000' })),
     );

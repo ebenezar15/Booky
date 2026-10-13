@@ -54,6 +54,7 @@ window.printIndex = async (raw) => {
 // Lays the book out and runs the Layout check, plus a few measurements for the typography options.
 window.layoutProbe = async (raw) => {
   const { printDocument } = await import('../../src/render/preview.js');
+  await (await import('../../src/render/book.js')).prepareRender(normalizeBook(raw));
   const { readLayout } = await import('../../src/render/layout-read.js');
   const { layoutFindings } = await import('../../src/core/layout-check.js');
   const book = normalizeBook(raw);

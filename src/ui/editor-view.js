@@ -7,8 +7,9 @@ import { state, on, emit, touch, currentElement, selectElement, setApp, sessionW
 import { ELEMENT_TYPES, computeNumbers, chapterLabel, countWords, orderedElements } from '../core/model.js';
 import { SCENE_BREAKS } from '../core/themes.js';
 import { allFonts, fontStack, fontOptions } from '../core/fonts.js';
+import { charStylesCss, paraStylesCss } from '../core/formatting.js';
 import { baseExtensions } from '../editor/schema.js';
-import { PARAGRAPH_STYLES, Typewriter, PhoneticTyping, ReadAloudHighlight } from '../editor/extensions.js';
+import { PARAGRAPH_STYLES, Typewriter, PhoneticTyping, ReadAloudHighlight, BlockBadges } from '../editor/extensions.js';
 import { splitChapterHere, mergeWithNext, nextInSection, moveSelectionTo, addAuthorNote, openMarkersPanel, readAloud, stopReading, specialCharPicker, sidePane, rememberPlace } from './writing-tools.js';
 import { transliterateWord, PHONETIC_SCRIPTS, PHONETIC_HELP } from '../lang/translit.js';
 import { Proofing, issuesAt, proofKey, sentenceAround, dismissed } from '../editor/proofing.js';
@@ -69,7 +70,14 @@ export function renderEditor(host) {
     const sym = sb.style === 'custom' ? sb.custom : SCENE_BREAKS[sb.style] ?? '* * *';
     page.style.setProperty('--scene-symbol', `"${(sym || '— — —').replace(/"/g, '\\"')}"`);
     center.classList.toggle('hide-style', state.app.styleHints === false);
+    // the book's character and paragraph styles, so the editor shows them as they will print
+    let st = center.querySelector('style.book-styles');
+    if (!st) { st = h('style.book-styles'); center.prepend(st); }
+    const fs = (n) => fontStack(n);
+    st.textContent = `${charStylesCss(book.format.charStyles || [], fs).replace(/\.cs-/g, '.book-prose .cs-')}\n${paraStylesCss(book.format.paraStyles || {}, book.format.customParaStyles || [], fs, (id) => `.book-prose .ps-${id}`)}`;
+    fillStyleMenus?.();
   };
+  let fillStyleMenus = null;
   applyView();
 
   // ---------- phonetic typing (Indian languages) ----------
@@ -171,16 +179,31 @@ export function renderEditor(host) {
   drawMic();
 
   // ---------- toolbar ----------
-  const styleSel = select([
+  const paraOptions = () => [
     ['p', 'Body text'], ['h1', 'Heading 1'], ['h2', 'Heading 2'], ['h3', 'Heading 3'], ['h4', 'Heading 4'],
     ...PARAGRAPH_STYLES.filter((s) => s.id).map((s) => [`ps:${s.id}`, s.label]),
-  ], 'p', (v) => {
+    ...(book.format.customParaStyles || []).map((c) => [`ps:${c.id}`, `${c.label} ★`]),
+  ];
+  const styleSel = select(paraOptions(), 'p', (v) => {
     const c = editor.chain().focus();
     if (v === 'p') c.setParagraph().updateAttributes('paragraph', { pstyle: '' }).run();
     else if (v.startsWith('h')) c.toggleHeading({ level: +v[1] }).run();
     else c.setParagraphStyle(v.slice(3)).run();
   }, { class: 'tb-style', title: 'Paragraph style' });
   styleSel.classList.add('tb-style');
+  // character styles: named inline styles from Format → Character styles (Alt+Shift+1…9, Alt+Shift+0 clears)
+  const charOptions = () => [['', 'Character style'], ...(book.format.charStyles || []).map((c, i) => [c.id, `${c.name}${i < 9 ? `  (Alt⇧${i + 1})` : ''}`]), ['__none', 'Clear character style (Alt⇧0)']];
+  const charSel = select(charOptions(), '', (v) => {
+    if (!editor) return;
+    if (v === '__none' || !v) editor.chain().focus().unsetCharStyle().run(); else editor.chain().focus().setCharStyle(v).run();
+    charSel.value = '';
+  }, { title: 'Character style (named inline style)' });
+  charSel.classList.add('tb-charstyle');
+  fillStyleMenus = () => {
+    const cur = styleSel.value;
+    clear(styleSel); paraOptions().forEach(([v, l]) => styleSel.appendChild(h('option', { value: v }, l))); styleSel.value = cur;
+    clear(charSel); charOptions().forEach(([v, l]) => charSel.appendChild(h('option', { value: v }, l))); charSel.value = '';
+  };
 
   const fontSel = select([['', 'Default font'], ...fontOptions(book.meta.language)], '', (v) => {
     v ? editor.chain().focus().setFontFamily(v).run() : editor.chain().focus().unsetFontFamily().run();
@@ -217,7 +240,7 @@ export function renderEditor(host) {
     tbtn('undo', 'undo-2', 'Undo (Ctrl Z)', () => editor.chain().focus().undo().run()),
     tbtn('redo', 'redo-2', 'Redo (Ctrl Shift Z)', () => editor.chain().focus().redo().run()),
     h('span.sep'),
-    styleSel, fontSel, sizeSel,
+    styleSel, charSel, fontSel, sizeSel,
     h('span.sep'),
     tbtn('bold', 'bold', 'Bold (Ctrl B)', () => editor.chain().focus().toggleBold().run()),
     tbtn('italic', 'italic', 'Italic (Ctrl I)', () => editor.chain().focus().toggleItalic().run()),
@@ -392,6 +415,7 @@ export function renderEditor(host) {
         Proofing.configure({ getSettings: proofSettings, onUpdate: () => { emit('proof', editor); updateStatus(); } }),
         FindHighlight,
         ReadAloudHighlight,
+        BlockBadges,
         Typewriter.configure({ enabled: () => state.app.typewriter, scroller: () => scroller }),
         PhoneticTyping.configure({
           enabled: () => phoneticOn(),
@@ -550,6 +574,21 @@ export function renderEditor(host) {
     items.push({ label: 'Insert footnote', icon: 'sticky-note', onClick: () => insertFootnote() });
     items.push({ label: 'Insert scene break', icon: 'asterisk', onClick: () => editor.chain().focus().insertSceneBreak().run() });
     items.push({ label: 'Insert cross-reference…', icon: 'link', onClick: () => crossRefDialog(editor, book) });
+    const blk = (() => { const $f = editor.state.selection.$from; return $f.depth ? $f.node(1) : null; })();
+    const a = blk?.attrs || {};
+    const setOpt = (k, v) => editor.chain().focus().setBlockOption(k, v).run();
+    items.push({ label: 'Block options', icon: 'sliders-horizontal', sub: [
+      { header: 'Show this block in' },
+      { label: 'Print and ebook', checked: !a.only, onClick: () => setOpt('only', null) },
+      { label: 'Print only', checked: a.only === 'print', onClick: () => setOpt('only', 'print') },
+      { label: 'Ebook only', checked: a.only === 'ebook', onClick: () => setOpt('only', 'ebook') },
+      { divider: true },
+      { header: 'Print layout fixes' },
+      { label: 'Keep with next', checked: !!a.keepNext, onClick: () => setOpt('keepNext', a.keepNext ? null : true) },
+      { label: 'Keep lines together', checked: !!a.keepLines, onClick: () => setOpt('keepLines', a.keepLines ? null : true) },
+      { label: 'Page break before', checked: !!a.breakBefore, onClick: () => setOpt('breakBefore', a.breakBefore ? null : true) },
+      { label: `Tracking${a.tracking ? ` (${a.tracking > 0 ? '+' : ''}${a.tracking})` : ''}`, sub: [-10, -6, -3, 0, 3, 6, 10].map((t) => ({ label: t ? `${t > 0 ? '+' : ''}${t}/1000 em${t < 0 ? ' (tighter — pulls back a short line)' : ' (looser)'}` : 'Normal', checked: (a.tracking || 0) === t, onClick: () => setOpt('tracking', t || null) })) },
+    ] });
     items.push({ label: 'Note to self…', icon: 'message-square-dashed', onClick: () => addAuthorNote(editor) });
     items.push({ label: 'Read aloud from here', icon: 'audio-lines', onClick: () => { if (posInfo && sel.empty) editor.commands.setTextSelection(posInfo.pos); readAloud(editor, book); } });
     items.push({ divider: true });
@@ -749,6 +788,11 @@ export function renderEditor(host) {
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyV') { e.preventDefault(); toggleVoice(); }
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyT') { e.preventDefault(); suggestForSelection(editor, book); }
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'KeyA') { e.preventDefault(); if (editor) readAloud(editor, book); }
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && /^Digit[0-9]$/.test(e.code) && editor) {
+      const n = +e.code.slice(5);
+      const cs = (book.format.charStyles || [])[n - 1];
+      if (n === 0) { e.preventDefault(); editor.chain().focus().unsetCharStyle().run(); } else if (cs) { e.preventDefault(); editor.chain().focus().setCharStyle(cs.id).run(); }
+    }
   };
   document.addEventListener('keydown', onKey);
 

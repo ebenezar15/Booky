@@ -855,3 +855,16 @@ a.btn { text-decoration: none; }
 .side-pane .op-body > *:hover { background: none; }
 .side-pane .side-editor .ProseMirror { outline: none; min-height: 200px; }
 .bible-card.flash { outline: 3px solid var(--primary); outline-offset: 2px; transition: outline .3s; }
+
+/* formatting control: block badges, character style picker */
+.book-prose .has-block-badge { position: relative; }
+.book-prose .block-only-print { background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(37, 99, 235, .05) 8px 16px); outline: 1px dashed rgba(37, 99, 235, .45); outline-offset: 3px; }
+.book-prose .block-only-ebook { background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(5, 150, 105, .06) 8px 16px); outline: 1px dashed rgba(5, 150, 105, .5); outline-offset: 3px; }
+.book-prose .block-badges { position: absolute; right: 100%; margin-right: 12px; top: .15em; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-indent: 0; user-select: none; pointer-events: none; }
+.book-prose .block-badge { font: 600 9.5px/1.5 var(--font-ui, system-ui); white-space: nowrap; padding: 0 6px; border-radius: 999px; background: #fef3c7; color: #92400e; letter-spacing: .02em; }
+.book-prose .block-badge.only-print { background: #dbeafe; color: #1e40af; }
+.book-prose .block-badge.only-ebook { background: #d1fae5; color: #065f46; }
+.book-prose[dir="rtl"] .block-badges { right: auto; left: 100%; margin-right: 0; margin-left: 12px; align-items: flex-start; }
+@media (max-width: 1100px) { .book-prose .block-badges { position: static; flex-direction: row; margin: 0 0 2px; } }
+.tb-charstyle { max-width: 150px; }
+.book-prose [data-cs] { text-decoration: underline dotted rgba(124, 58, 237, .45); text-underline-offset: 3px; }

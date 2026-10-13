@@ -232,6 +232,16 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
 - **Running heads and page numbers**: author / title / chapter on verso and recto pages, positioned centred or on the outside edge. Page numbers have a style (12, — 12 —, Page 12, [ 12 ], · 12 ·), a starting number, font, size and colour. Front matter uses roman numerals and body numbering restarts. No running heads appear on opening or display pages.
 - **Page flow**: chapters, parts and front matter can start on right-hand pages, and individual pages can be overridden.
 - **Table of contents**: page numbers, dot leaders and depth.
+- **Character styles** (Format → Character styles): named inline styles such as *Foreign word*, *Thought*, *Ship name* or *Text message*. Define them once, then apply them from the editor toolbar or with Alt+Shift+1…9. Changing a style updates every use, in print, in the EPUB (as classes) and in Word files (as real character styles).
+- **Paragraph styles** (Format → Paragraph styles): adjust the font, size, spacing, indents and alignment of verse, epigraph, letter, callout and the other styles, or create your own based on one. Styles are saved with the book and in *My templates*, and they survive a change of theme.
+- **Print-only and ebook-only content**: right-click → *Block options* to show a paragraph only in print (“scan the QR code”) or only in the ebook (“tap the link”). The editor shows a badge on these blocks.
+- **Links in print**: show the URL in a footnote, in brackets, as a small QR code, or not at all. The ebook keeps live links.
+- **Captions and figures**: a *Caption* paragraph after an image is numbered automatically (*Figure 3.2*, or through the book) and can be cross-referenced. A *List of Illustrations* page lists them with page numbers in print and links in the ebook.
+- **Footnotes**: put them at the foot of the page, at the end of each chapter, or at the back of the book under chapter headings. Numbering restarts each chapter or runs through the book, with marks 1, 2, 3 or *, †, ‡. The EPUB always uses pop-up notes with a link back.
+- **Layout fixes**: right-click → *Block options* for *Keep with next*, *Keep lines together*, *Page break before*, or a small tracking change (±10/1000 em) to pull back a widow or a short last line. Whole chapters can be tracked from the Page panel. Every fix shows a badge in the editor and is listed in Format → Layout overrides.
+- **Chapter openers**: prologues, epilogues, interludes, part pages and chapters you mark as “special” can each have their own ornament, alignment, title size and opener image within the theme.
+- **Poetry and verse**: leading indentation is kept, long lines turn over with a hanging indent, lines can be numbered every 5 or 10 in print, short stanzas never split across pages, and each poem can start on a new page.
+- **Custom CSS** (Format → Advanced): separate print and ebook CSS, added after the theme. Rules with a syntax error are not applied, so the preview never goes blank.
 - **Live paginated preview** (Paged.js) shown as spreads or single pages, with zoom and margin guides. For long books, the chapter you're working on appears in under a second while the whole book is typeset in the background. There is also an **ebook preview** on e-reader, phone and tablet frames with light, sepia and dark reading modes.
 
 ### 🖼️ Cover
@@ -410,5 +420,7 @@ Booky is MIT-licensed. It bundles open-source components:
 - nspell (MIT) with the Hunspell English dictionary (MIT/BSD)
 - Mammoth (BSD-2)
 - JSZip (MIT)
+- pdf-lib (MIT), for finishing print PDFs
+- qrcode-generator (MIT), for QR codes in print (loaded only when used)
 - Lucide icons (ISC)
 - Fonts under the SIL Open Font License

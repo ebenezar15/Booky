@@ -4,6 +4,7 @@
 import { fontStack as baseStack } from '../core/fonts.js';
 import { langInfo } from '../core/languages.js';
 import { trimOf } from '../core/themes.js';
+import { charStylesCss, paraStylesCss, validateCss, FORMAT_DEFAULTS } from '../core/formatting.js';
 
 const cssStr = (s) => `"${String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ')}"`;
 
@@ -58,7 +59,7 @@ ${NO_INDENT.filter((x) => x.includes('+')).join(', ')} { text-indent: 0 !importa
 .ps-author { font-family: ${headFont}; font-size: 1.35em; letter-spacing: .12em; text-transform: uppercase; text-indent: 0 !important; text-align: center; }
 .ps-small { font-size: 0.78em; line-height: 1.45; text-indent: 0 !important; margin-bottom: .7em !important; text-align: left; hyphens: manual; }
 .ps-spacer { height: 2.4em; text-indent: 0 !important; }
-.ps-verse { text-align: left !important; text-indent: 0 !important; margin: 0 0 1em 0 !important; hyphens: manual; }
+.ps-verse { text-align: start !important; text-indent: 0 !important; margin: 0 0 1em 0 !important; hyphens: manual; }
 .ps-epigraph { font-size: 1.05em; text-indent: 0 !important; margin: 0 1.5em .4em !important; text-align: center; }
 .ps-attribution { text-align: right; text-indent: 0 !important; font-size: .9em; margin: 0 1.5em 1em !important; }
 .ps-caption { text-align: center; font-size: .85em; font-style: italic; text-indent: 0 !important; margin: .3em 0 1em !important; }
@@ -113,7 +114,40 @@ ${NO_INDENT.filter((x) => x.includes('+')).join(', ')} { text-indent: 0 !importa
 .bk-toc-sub { padding-left: 1.3em !important; font-size: .92em; }
 .bk-simple .bk-content { text-align: center; }
 .bk-copyright .bk-content, .bk-copyright .bk-content p { text-align: left; }
+/* captions, links, notes */
+.bk-fig-label { font-style: normal; font-weight: 700; margin-right: .3em; }
+.bk-url { font-size: .85em; word-break: break-all; hyphens: none; }
+.bk-qr { display: inline-block; width: 1.9em; height: 1.9em; vertical-align: middle; margin-left: .35em; }
+.bk-qr svg { width: 100%; height: 100%; display: block; }
+.bk-notelist { list-style: none; margin: 0 !important; padding: 0 !important; }
+.bk-notelist li { margin: 0 0 .3em; padding-inline-start: 1.6em; text-indent: -1.6em; }
+.bk-note-n { display: inline-block; min-width: 1.4em; text-indent: 0; }
+.bk-notes-chapter { font-size: 1em; font-variant: small-caps; letter-spacing: .06em; margin: 1.2em 0 .4em; text-align: left; }
+/* verse: each line is its own box; long lines turn over with a hanging indent */
+.bk-content .ps-verse { white-space: break-spaces; }
+.bk-content .ps-verse .bk-vline { display: block; position: relative; ${(f.verse || FORMAT_DEFAULTS.verse).hanging !== false ? 'padding-inline-start: 2em; text-indent: -2em;' : ''} }
+.bk-vnum { position: absolute; inset-inline-end: -3em; width: 2.4em; text-align: end; text-indent: 0; font-size: .75em; line-height: inherit; opacity: .7; font-variant-numeric: lining-nums; }
+.bk-content .ps-verse.bk-keep { break-inside: avoid; page-break-inside: avoid; }
+/* character and paragraph styles (Format → Character styles / Paragraph styles) */
+${charStylesCss(f.charStyles || [], fontStack)}
+${paraStylesCss(f.paraStyles || {}, f.customParaStyles || [], fontStack)}
+${openerCss(f, print)}
 `;
+}
+
+// Chapter-opener variants: title size and alignment per variant (the HTML part is in book.js).
+function openerCss(f, print) {
+  return Object.entries(f.openers || {}).map(([key, o]) => [
+    o.titleSize ? `.bk-opener-${key} .bk-chap-title, .bk-opener-${key} .bk-part-title { font-size: ${print ? `${+o.titleSize}pt` : `${(+o.titleSize / (f.body.size || 11)).toFixed(2)}em`}; }` : '',
+    o.align ? `.bk-opener-${key} .bk-chap-head, .bk-opener-${key} .bk-part-head { text-align: ${o.align}; }` : '',
+    o.italic ? `.bk-opener-${key} .bk-chap-title { font-style: italic; }` : '',
+  ].join('\n')).join('\n');
+}
+
+/** The author's own CSS for print or ebook, only when it is well-formed (a broken rule must not blank the preview). */
+export function customCss(book, target) {
+  const v = validateCss(book.format.customCss?.[target === 'ebook' ? 'ebook' : 'print'] || '');
+  return v.ok && v.css ? `\n/* custom ${target} CSS */\n${v.css}\n` : '';
 }
 
 function pageBoxes(book, s, side, frontRoman, first) {
@@ -192,6 +226,21 @@ ${f.toc?.pageNumbers === false ? '.bk-toc-dots { border: none !important; }' : '
 @page bkfull { margin: 0; ${boxRules({})} }
 .bk-fullpage { page: bkfull; break-before: page; break-after: page; margin: 0 !important; width: ${w}in; height: ${h}in; overflow: visible; }
 .bk-fullpage img { display: block; max-width: none; object-fit: cover; width: ${(w + (f.bleed ? 2 * f.bleedSize : 0)).toFixed(4)}in; height: ${(h + (f.bleed ? 2 * f.bleedSize : 0)).toFixed(4)}in; ${f.bleed ? `margin: -${f.bleedSize}in;` : ''} }
+/* layout overrides (Write → block options) */
+[data-keep-next] { break-after: avoid; page-break-after: avoid; }
+[data-keep-lines] { break-inside: avoid; page-break-inside: avoid; }
+[data-break-before] { break-before: page; page-break-before: always; }
+${f.verse?.onePerPage ? '.bk-has-verse { break-before: page; }' : ''}
+${(f.notes || {}).placement === 'page' ? `/* footnotes at the foot of the page (Paged.js) */
+.bk-footnote { float: footnote; display: block; font-family: ${fontStack(f.body.font)}; font-size: ${(f.body.size * 0.8).toFixed(1)}pt; line-height: 1.35; color: ${f.body.color}; padding-inline-start: 1.2em; text-indent: -1.2em; text-align: start; hyphens: manual; }
+.bk-footnote::footnote-call { content: none; }
+.bk-footnote::footnote-marker { content: none; }
+.bk-fn-mark { display: inline-block; min-width: 1.2em; }
+/* the separator rule sits on the first note: padding or borders on @footnote throw off Paged.js's measurements */
+.pagedjs_footnote_inner_content > .bk-footnote:first-child { margin-top: .5em; padding-top: .45em; background: linear-gradient(currentColor, currentColor) top left / 33% 0.5pt no-repeat; }
+[dir='rtl'] .pagedjs_footnote_inner_content > .bk-footnote:first-child { background-position: top right; }
+/* Paged.js marks the element a footnote was moved out of with text-align-last: justify, which every paragraph inside inherits */
+[data-align-last-split-element] :not([data-align-last-split-element]) { text-align-last: auto; }` : ''}
 `;
 
   const firstBody = sections.find((s) => !s.front);
@@ -216,7 +265,7 @@ ${f.toc?.pageNumbers === false ? '.bk-toc-dots { border: none !important; }' : '
     css += `@page ${name}:right { ${boxRules(pageBoxes(book, s, 'right', pn.frontRoman))} }\n`;
     css += `@page ${name}:first { ${boxRules(pageBoxes(book, s, 'right', pn.frontRoman, true))} }\n`;
   });
-  return css;
+  return css + customCss(book, 'print');
 }
 
 // Screen-only chrome for the paginated preview (kept out of Paged.js processing).
@@ -255,5 +304,5 @@ body { ${f.ebook.useBookFonts ? '' : 'font-family: serif;'} }
 .bk-toc-dots { display: none; }
 .bk-note { display: block; }
 ${typographyCss(book, 'ebook')}
-`;
+${customCss(book, 'ebook')}`;
 }

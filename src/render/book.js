@@ -6,6 +6,17 @@ import {
 } from '../core/model.js';
 import { SCENE_BREAKS, ORNAMENTS } from '../core/themes.js';
 import { isRtl } from '../core/languages.js';
+import { linkForPrint, noteMarker, figureLabel, FORMAT_DEFAULTS } from '../core/formatting.js';
+
+// QR codes for links in print are made by a small library loaded only when that option is used.
+let qrEncoder = null;
+export async function prepareRender(book) {
+  if (book.format.printLinks === 'qr' && !qrEncoder) {
+    const mod = await import('qrcode-generator');
+    const qrcode = mod.default || mod;
+    qrEncoder = (text) => { try { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 2, margin: 0, scalable: true }); } catch { return ''; } };
+  }
+}
 
 // Pages printed without running heads or folios, usually vertically placed.
 export const SIMPLE_PAGES = new Set(['half-title', 'series-title', 'frontispiece', 'title', 'copyright', 'dedication', 'epigraph', 'blank', 'colophon']);
@@ -95,6 +106,24 @@ function processContent(book, el, target, opts = {}) {
     if (next && next.tagName === 'P' && fmt.sceneBreak.noIndentAfter) next.classList.add('bk-after-break');
   });
 
+  // Print-only / ebook-only blocks (DOCX counts as print)
+  root.querySelectorAll('[data-only]').forEach((n) => { if (n.getAttribute('data-only') !== (target === 'ebook' ? 'ebook' : 'print')) n.remove(); });
+  // Tracking override on one paragraph (print layout fixes; reflowable ebooks don't need them)
+  root.querySelectorAll('[data-tracking]').forEach((n) => { const t = +n.getAttribute('data-tracking'); if (t && target === 'print') n.style.letterSpacing = `${(t / 1000).toFixed(3)}em`; });
+  // Custom paragraph styles also carry their base style's class
+  for (const c of fmt.customParaStyles || []) root.querySelectorAll(`.ps-${c.id}`).forEach((n) => { if (c.basedOn) n.classList.add(`ps-${c.basedOn}`); });
+  // Links in print: plain text, URL in a note, URL in brackets, or a QR code. The ebook keeps live links.
+  if (target === 'print') {
+    root.querySelectorAll('a[href]').forEach((a) => {
+      if (a.closest('.bk-fnref') || a.classList.contains('bk-xref')) return;
+      const r = linkForPrint(a.getAttribute('href'), a.innerHTML, fmt.printLinks || 'footnote', qrEncoder);
+      const span = doc.createElement('span');
+      span.innerHTML = r.html;
+      if (r.note) { const fn = doc.createElement('span'); fn.setAttribute('data-type', 'footnote'); fn.setAttribute('data-note', r.note); span.appendChild(fn); }
+      a.replaceWith(...span.childNodes);
+    });
+  }
+
   // Page breaks
   root.querySelectorAll('[data-type="page-break"]').forEach((n) => {
     const d = doc.createElement('div');
@@ -120,8 +149,10 @@ function processContent(book, el, target, opts = {}) {
     n.replaceWith(a);
   });
 
-  // Images → figures
-  let figN = 0;
+  // Images → figures (numbered when the next paragraph is a caption)
+  const ctx = opts.ctx || { bookFig: 0, figList: [] };
+  const caps = { ...FORMAT_DEFAULTS.captions, ...(fmt.captions || {}) };
+  let figN = 0, capN = 0;
   root.querySelectorAll('img').forEach((img) => {
     if (img.classList.contains('bk-scene-img')) return;
     const figId = `${el.id}-f${figN++}`;
@@ -138,21 +169,47 @@ function processContent(book, el, target, opts = {}) {
       img.replaceWith(fig);
       fig.appendChild(img);
     }
+    const holder = img.closest('figure') || img.closest('p') || img;
+    const cap = holder.nextElementSibling;
+    if (cap && cap.classList?.contains('ps-caption')) {
+      capN++; ctx.bookFig++;
+      const label = figureLabel(caps, opts.chapterNo, capN, ctx.bookFig);
+      if (label) cap.insertAdjacentHTML('afterbegin', `<span class="bk-fig-label">${escapeHtml(label)}</span> `);
+      (holder.tagName === 'FIGURE' ? holder : img).setAttribute('data-label', label);
+      if (holder.tagName !== 'FIGURE' && !img.id) img.id = figId;
+      ctx.figList.push({ id: holder.tagName === 'FIGURE' ? holder.id : img.id, label, caption: cap.textContent.replace(label, '').trim(), elId: el.id });
+    }
   });
 
-  // Footnotes → numbered notes at the end of the section
+  // Footnotes: at the foot of the page, at the end of the chapter, or collected at the back (print);
+  // pop-up notes with back-links in the ebook in every case.
+  const nopt = { ...FORMAT_DEFAULTS.notes, ...(fmt.notes || {}) };
   const notes = [];
   root.querySelectorAll('[data-type="footnote"]').forEach((n) => {
     const i = notes.length + 1;
+    const num = nopt.numbering === 'continuous' ? (ctx.noteN = (ctx.noteN || 0) + 1) : i;
+    const mark = noteMarker(num, nopt.marker);
     const id = `fn-${el.id}-${i}`;
-    notes.push({ id, text: n.getAttribute('data-note') || n.textContent || '' });
+    const text = n.getAttribute('data-note') || n.textContent || '';
+    notes.push({ id, text, mark });
+    if (target === 'print' && nopt.placement === 'page') {
+      const sup = doc.createElement('sup');
+      sup.className = 'bk-fnref';
+      sup.textContent = mark;
+      const fn = doc.createElement('span');
+      fn.className = 'bk-footnote';
+      fn.innerHTML = `<span class="bk-fn-mark">${escapeHtml(mark)}</span> ${escapeHtml(text)}`;
+      n.replaceWith(sup, fn);
+      return;
+    }
     const sup = doc.createElement('sup');
     sup.className = 'bk-fnref';
     sup.innerHTML = target === 'ebook'
-      ? `<a epub:type="noteref" href="#${id}" id="ref-${id}">${i}</a>`
-      : `<a href="#${id}" id="ref-${id}">${i}</a>`;
+      ? `<a epub:type="noteref" href="#${id}" id="ref-${id}">${escapeHtml(mark)}</a>`
+      : `<a href="#${id}" id="ref-${id}">${escapeHtml(mark)}</a>`;
     n.replaceWith(sup);
   });
+  if (target === 'print' && nopt.placement === 'book' && notes.length) (ctx.bookNotes ||= []).push({ elId: el.id, notes });
 
   // Subheads get anchors for navigation
   const subheads = [];
@@ -194,6 +251,19 @@ function processContent(book, el, target, opts = {}) {
     });
   }
 
+  // Verse: each line its own box (turnover lines hang), optional line numbers, short stanzas kept together
+  const verse = { ...FORMAT_DEFAULTS.verse, ...(fmt.verse || {}) };
+  let vline = 0;
+  root.querySelectorAll('p.ps-verse').forEach((p) => {
+    const lines = p.innerHTML.split(/<br\s*\/?>/i);
+    p.innerHTML = lines.map((l) => {
+      vline++;
+      const num = verse.lineNumbers && vline % verse.lineNumbers === 0 && target === 'print' ? `<span class="bk-vnum" aria-hidden="true">${vline}</span>` : '';
+      return `<span class="bk-vline">${num}${l || '&#8203;'}</span>`;
+    }).join('');
+    if (verse.keepStanzas && lines.length <= 8) p.classList.add('bk-keep');
+  });
+
   // Number the top-level blocks so print pages can be mapped to ebook positions (EPUB page-list).
   [...root.children].forEach((n, i) => n.setAttribute('data-b', String(i)));
 
@@ -201,16 +271,18 @@ function processContent(book, el, target, opts = {}) {
   const wrap = doc.createElement('div');
   wrap.appendChild(root);
   html = wrap.innerHTML;
-  if (notes.length) {
+  if (notes.length && !(target === 'print' && nopt.placement !== 'chapter')) {
     html += target === 'ebook'
-      ? `<section class="bk-notes"><h3 class="bk-notes-title">Notes</h3>${notes.map((n, i) => `<aside epub:type="footnote" id="${n.id}" class="bk-note"><p><a href="#ref-${n.id}">${i + 1}.</a> ${escapeHtml(n.text)}</p></aside>`).join('')}</section>`
-      : `<section class="bk-notes"><h3 class="bk-notes-title">Notes</h3><ol>${notes.map((n) => `<li id="${n.id}">${escapeHtml(n.text)}</li>`).join('')}</ol></section>`;
+      ? `<section class="bk-notes"><h3 class="bk-notes-title">Notes</h3>${notes.map((n, i) => `<aside epub:type="footnote" id="${n.id}" class="bk-note"><p><a href="#ref-${n.id}">${escapeHtml(n.mark)}</a> ${escapeHtml(n.text)}</p></aside>`).join('')}</section>`
+      : `<section class="bk-notes"><h3 class="bk-notes-title">Notes</h3><ol class="bk-notelist">${notes.map((n) => `<li id="${n.id}"><span class="bk-note-n">${escapeHtml(n.mark)}</span> ${escapeHtml(n.text)}</li>`).join('')}</ol></section>`;
   }
   return { html, subheads, headings, figures: figN };
 }
 
 function headingHtml(book, el, nums) {
-  const f = book.format.headings;
+  const key = openerKey(book, el);
+  const variant = key ? book.format.openers[key] : null;
+  const f = variant ? { ...book.format.headings, ...Object.fromEntries(Object.entries(variant).filter(([, v]) => v !== '' && v != null)) } : book.format.headings;
   const type = el.type;
   const def = ELEMENT_TYPES[type] || {};
   if (!def.heading || el.showTitle === false) return '';
@@ -279,6 +351,22 @@ function indexHtml(book, sections, marks, target) {
   return `<div class="bk-index"${target === 'ebook' ? ' epub:type="index"' : ''}>${groups.map((g) => `<h2 class="bk-ix-letter">${escapeHtml(g.letter)}</h2>${g.entries.map((e) => line(e, 'bk-ix-entry') + e.subs.map((sub) => line(sub, 'bk-ix-sub')).join('')).join('')}`).join('')}</div>`;
 }
 
+// List of illustrations: every captioned figure with its number, and its page in print.
+function figureListHtml(sections, figs, target) {
+  return `<nav class="bk-toc bk-figlist"><ol>${figs.map((f) => {
+    const s = sections.find((x) => x.el.id === f.elId);
+    const href = `${target === 'ebook' ? s?.file || '' : ''}#${f.id}`;
+    return `<li class="bk-toc-item"><a href="${href}">${f.label ? `<span class="bk-toc-num">${escapeHtml(f.label)}</span>` : ''}<span class="bk-toc-text">${escapeHtml(f.caption)}</span>${target === 'print' ? '<span class="bk-toc-dots"></span>' : ''}</a></li>`;
+  }).join('')}</ol></nav>`;
+}
+
+/** Which opener variant a page uses: its own "special" flag, or its type (prologue, epilogue, interlude, part). */
+export function openerKey(book, el) {
+  const o = book.format.openers || {};
+  if (el.opener === 'special' && o.special) return 'special';
+  return o[el.type] ? el.type : '';
+}
+
 function tocHtml(book, sections, target) {
   const t = book.format.toc || {};
   const items = sections.filter((s) => s.inToc);
@@ -303,9 +391,10 @@ export function renderSections(book, target = 'print', { onlyId } = {}) {
   if (onlyId) els = els.filter((e) => e.id === onlyId);
   const tocIdx = els.findIndex((e) => e.type === 'toc');
 
+  const ctx = { bookFig: 0, noteN: 0, figList: [], bookNotes: [] };
   const sections = els.map((el, i) => {
     const simple = SIMPLE_PAGES.has(el.type);
-    const { html, subheads, headings = [], figures = 0 } = el.type === 'toc' ? { html: '', subheads: [] } : processContent(book, el, target);
+    const { html, subheads, headings = [], figures = 0 } = el.type === 'toc' ? { html: '', subheads: [] } : processContent(book, el, target, { ctx, chapterNo: nums[el.id] });
     const head = headingHtml(book, el, nums);
     const label = el.type === 'chapter' || el.type === 'part' ? chapterLabel(book, el, nums) : '';
     return {
@@ -330,12 +419,26 @@ export function renderSections(book, target = 'print', { onlyId } = {}) {
 
   const firstBody = sections.find((s) => !s.front);
   const marks = collectIndexMarks(els);
+  // Notes collected at the back of the book (print): the Notes page, or a generated one at the end
+  if (ctx.bookNotes.length) {
+    let notesSec = sections.find((s) => s.kind === 'endnotes');
+    if (!notesSec) {
+      const el = { id: 'gen-notes', type: 'endnotes', section: 'back', title: 'Notes', content: '' };
+      notesSec = { el, anchor: 's-gen-notes', file: '', kind: 'endnotes', section: 'back', front: false, simple: false, head: `<header class="bk-chap-head"><h1 class="bk-chap-title">${escapeHtml(applyCase('Notes', book.format.headings.titleCase))}</h1></header>`, body: '', title: 'Notes', label: '', nav: 'Notes', subheads: [], headings: [], figures: 0, inToc: true };
+      sections.push(notesSec);
+    }
+    notesSec.body = ctx.bookNotes.map((g) => {
+      const s = sections.find((x) => x.el.id === g.elId);
+      return `<h2 class="bk-notes-chapter">${escapeHtml(s?.nav || s?.title || '')}</h2><ol class="bk-notelist">${g.notes.map((n) => `<li id="${n.id}"><span class="bk-note-n">${escapeHtml(n.mark)}</span> ${escapeHtml(n.text)}</li>`).join('')}</ol>`;
+    }).join('') + (notesSec.body && !/^\s*(<p>\s*<\/p>)?\s*$/.test(notesSec.body) ? notesSec.body : '');
+  }
   for (const s of sections) {
     if (s.kind === 'toc') s.body = tocHtml(book, sections, target);
+    if (s.kind === 'list-figures' && ctx.figList.length) s.body = figureListHtml(sections, ctx.figList, target);
     if (s.kind === 'index' && marks.length) s.body = indexHtml(book, sections, marks, target);
     if (s.body.includes('data-xref')) s.body = resolveXrefs(book, sections, s.body, target);
-    const v = s.el.align && s.el.align !== 'default' ? ` bk-valign-${s.el.align}` : '';
-    s.html = `<section class="bk-sec bk-${s.kind}${s.simple ? ' bk-simple' : ''}${s.front ? ' bk-front' : ''}${v}" id="${s.anchor}" data-el="${s.el.id}"${s === firstBody ? ' data-body-start="1"' : ''}>${s.head}<div class="bk-content">${s.body}</div></section>`;
+    const v = (s.el.align && s.el.align !== 'default' ? ` bk-valign-${s.el.align}` : '') + (openerKey(book, s.el) ? ` bk-opener-${openerKey(book, s.el)}` : '') + (s.body.includes('ps-verse') ? ' bk-has-verse' : '');
+    s.html = `<section class="bk-sec bk-${s.kind}${s.simple ? ' bk-simple' : ''}${s.front ? ' bk-front' : ''}${v}" id="${s.anchor}" data-el="${s.el.id}"${s === firstBody ? ' data-body-start="1"' : ''}${target === 'print' && +s.el.tracking ? ` style="letter-spacing:${(+s.el.tracking / 1000).toFixed(3)}em"` : ''}>${s.head}<div class="bk-content">${s.body}</div></section>`;
   }
   return sections;
 }
