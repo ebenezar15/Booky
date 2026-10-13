@@ -74,8 +74,8 @@ app.on('second-instance', (e, argv) => { argv.slice(1).forEach(queueFile); if (w
 process.argv.slice(1).forEach(queueFile); // Windows: file passed on the command line
 
 // ---------- vector PDF: typeset in a hidden window and print it to PDF ----------
-ipcMain.handle('booky:print-pdf', async (_e, { html, fileName }) => {
-  const tmp = path.join(os.tmpdir(), `booky-print-${Date.now()}.html`);
+async function renderPdf(html) {
+  const tmp = path.join(os.tmpdir(), `booky-print-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.html`);
   fs.writeFileSync(tmp, html);
   const pw = new BrowserWindow({ show: false, width: 1200, height: 900, webPreferences: { sandbox: true, contextIsolation: true } });
   try {
@@ -88,18 +88,27 @@ ipcMain.handle('booky:print-pdf', async (_e, { html, fileName }) => {
       if (Date.now() - started > 10 * 60 * 1000) throw new Error('Typesetting took too long.');
       await new Promise((r) => setTimeout(r, 300));
     }
-    await new Promise((r) => setTimeout(r, 300)); // let images and fonts settle
-    const pdf = await pw.webContents.printToPDF({ preferCSSPageSize: true, printBackground: true, margins: { top: 0, bottom: 0, left: 0, right: 0 }, generateDocumentOutline: true });
-    const { canceled, filePath } = await dialog.showSaveDialog(win, {
-      title: 'Save PDF', defaultPath: path.join(app.getPath('documents'), fileName || 'book.pdf'), filters: [{ name: 'PDF', extensions: ['pdf'] }],
-    });
-    if (canceled || !filePath) return { canceled: true };
-    fs.writeFileSync(filePath, pdf);
-    return { filePath, bytes: pdf.length };
+    await pw.webContents.executeJavaScript('document.fonts ? document.fonts.ready.then(function(){return true}) : true');
+    await new Promise((r) => setTimeout(r, 300)); // let images settle
+    return await pw.webContents.printToPDF({ preferCSSPageSize: true, printBackground: true, margins: { top: 0, bottom: 0, left: 0, right: 0 }, generateDocumentOutline: true, generateTaggedPDF: true });
   } finally {
     pw.destroy();
     fs.rm(tmp, () => {});
   }
+}
+
+// Returns the PDF bytes to the page (used for print packages, which post-process and zip them).
+ipcMain.handle('booky:render-pdf', async (_e, { html }) => renderPdf(html));
+
+// Renders and asks where to save (“Save vector PDF…”). The page may pass already-finished bytes.
+ipcMain.handle('booky:print-pdf', async (_e, { html, bytes, fileName }) => {
+  const pdf = bytes ? Buffer.from(bytes) : await renderPdf(html);
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: 'Save PDF', defaultPath: path.join(app.getPath('documents'), fileName || 'book.pdf'), filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  });
+  if (canceled || !filePath) return { canceled: true };
+  fs.writeFileSync(filePath, pdf);
+  return { filePath, bytes: pdf.length };
 });
 ipcMain.handle('booky:show-file', (_e, file) => { if (file) shell.showItemInFolder(file); });
 

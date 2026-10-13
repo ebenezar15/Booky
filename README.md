@@ -198,11 +198,21 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
 
 ### 📦 Publish
 - **Export PDF** (top bar, Format and Publish):
-  - **Download PDF file**: one click, rendered at 150, 220 or 300 DPI and sized exactly to your trim.
-  - **Vector PDF via the print dialog**: the sharpest text.
+  - **Desktop app: Save vector PDF** — real, sharp text with embedded fonts, at your exact trim size, in one click.
+  - **Vector PDF via the print dialog** (browser): the same quality, saved through the browser's print dialog.
+  - **Image-based PDF (proof / fallback)**: one click, rendered at 150, 220 or 300 DPI. Good for proofs; text is softer. Not recommended for Tamil, Hindi and other complex scripts: with letter spacing, joined letters can come out broken.
+  - Every PDF Booky makes or receives is finished for print: trim and bleed boxes are set, interior bleed is kept only on the outside, top and bottom edges (as printers require), title, author, keywords and language are written into the file, and the page count is made even.
 - **Publish to a platform**: ready-to-upload ZIP packages that check each platform's requirements (trim sizes, page limits, margins, ISBN) and offer one-click fixes.
   - **Ebook stores**: Amazon Kindle (KDP), Apple Books, Kobo, Google Play Books, Barnes & Noble Press and Draft2Digital. Each package contains an EPUB, a cover JPG at the store's recommended size, and a metadata sheet (plus a DOCX for Draft2Digital).
-  - **Print-on-demand**: KDP Paperback, KDP Hardcover, IngramSpark, Lulu and B&N Press print. Each package contains a 300-DPI interior PDF, a full cover PDF with the spine width calculated for that printer's paper, and a metadata sheet.
+  - **Print-on-demand**: KDP Paperback, KDP Hardcover, IngramSpark, Lulu and B&N Press print. Each package contains the interior PDF, a full cover PDF with the spine width calculated for that printer's paper, and a metadata sheet.
+    - **Desktop app**: the interior is a vector PDF made automatically.
+    - **Browser**: save the interior from the print dialog and drop it into the platform dialog. You can also choose the image-based PDF as a fallback.
+    - **Interior PDF check**, run before anything goes into the package:
+      - the page size matches your trim (with or without bleed);
+      - the page count is within the platform's limits (and even);
+      - every font is embedded;
+      - no page is a single full-page image.
+    - Booky makes **standard PDFs** (RGB colour, fonts embedded), not PDF/X-1a. KDP, Lulu and B&N accept them, and IngramSpark's file checker accepts them too.
 - **EPUB 3** with cover, navigation, landmarks, metadata, series information and pop-up footnotes. Validated with EPUBCheck: 0 errors, 0 warnings.
 - **DOCX** with real Word styles, mirrored margins, footnotes and images.
 - **HTML** (a single web page), **print-ready HTML**, **Markdown**, **plain text** and **.booky backups**.
@@ -237,9 +247,11 @@ Word (.docx), Markdown, plain text, HTML, RTF and Booky backups. Chapters are de
 ## Getting a print-ready PDF
 
 1. Choose a theme and trim size in **Format**, and check the preview.
-2. Go to **Publish → Print-ready PDF → Create PDF → Open print dialog**.
-3. In the dialog set **Destination: Save as PDF**, **Margins: Default/None**, **Scale: 100%**, and tick **Background graphics**.
-4. Upload the PDF to KDP Print, IngramSpark, Lulu or your printer. The page size already matches your trim size and the fonts are embedded.
+2. **Desktop app:** click **Export PDF → Save vector PDF**, or build a platform package (Publish → choose the printer). You're done.
+3. **Browser:** open **Publish → choose the printer → Interior PDF → Open print dialog**.
+   - In the dialog, set **Destination: Save as PDF**, **Margins: Default/None** and **Scale: 100%**, and tick **Background graphics**.
+   - Drop the saved PDF into the same dialog. Booky checks it, fixes the page boxes and bleed, and adds it to the package.
+4. Upload to KDP Print, IngramSpark, Lulu or your printer, and order a printed proof before you publish.
 
 ---
 

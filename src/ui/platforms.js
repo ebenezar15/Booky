@@ -1,7 +1,7 @@
 // "Publish to a platform": checks the book against a store's requirements and builds a
 // ready-to-upload ZIP (EPUB + cover for ebook stores; interior PDF + cover PDF for printers).
 import JSZip from 'jszip';
-import { h, icon, btn, clear, add, modal, toast, downloadBlob, slugify, select, field, celebrate } from './dom.js';
+import { h, icon, btn, clear, add, modal, toast, downloadBlob, slugify, select, field, celebrate, pickFile } from './dom.js';
 import { touch, setMode, state } from '../core/store.js';
 import { PLATFORMS, checkPlatform, gutterFor } from '../core/platforms.js';
 import { trimOf } from '../core/themes.js';
@@ -10,6 +10,9 @@ import { estimatePages, drawFront, drawWrap, wrapDims } from '../render/cover.js
 import { ensureFontsLoaded } from '../core/fonts.js';
 import { PrintPreview } from '../render/preview.js';
 import { PDF_QUALITY } from '../export/pdf.js';
+import { canVectorPdf, isComplexScript, finishAndCheckInterior, vectorInterior, finishCoverPdf } from '../export/print-pdf.js';
+import { langInfo } from '../core/languages.js';
+import { inspectPdf } from '../export/pdf-check.js';
 
 export function platformGrid(book) {
   const card = (p) => h('button.platform', { type: 'button', on: { click: () => platformDialog(book, p) } },
@@ -33,7 +36,7 @@ function metadataSheet(book, p, extra = {}) {
     p.kind === 'print' ? `ISBN (print): ${m.isbnPrint || '(not set)'}` : `ISBN (ebook): ${m.isbnEbook || '(not required on most stores)'}`,
     `Keywords:     ${m.keywords || ''}`, `Categories:   ${m.categories || ''}`, `Word count:   ${bookWords(book).toLocaleString()}`,
     p.kind === 'print' ? `Trim size:    ${t.w} × ${t.h} in` : '',
-    extra.pages ? `Page count:   ${extra.pages}` : '', extra.spine ? `Spine width:  ${extra.spine.toFixed(3)} in (${book.cover.paper} paper)` : '',
+    extra.pages ? `Page count:   ${extra.pages}` : '', extra.interior ? `Interior:     ${extra.interior}` : '', extra.spine ? `Spine width:  ${extra.spine.toFixed(3)} in (${book.cover.paper} paper)` : '',
     extra.cover ? `Cover size:   ${extra.cover}` : '', '', 'Description:', m.description || '(add a description in Book details → Marketing)', '',
     'Files in this package:', ...p.files.map((f) => `  • ${f}`), '', 'Platform notes:', ...p.notes.map((n) => `  • ${n}`), '',
     'Prepared with Booky.',
@@ -56,6 +59,59 @@ export async function platformDialog(book, p) {
     book.cover.lastPageCount = pages;
   }
   let quality = 'print';
+  // Where the interior PDF comes from: the desktop app makes a vector PDF itself; in the
+  // browser the author saves one from the print dialog and drops it in; the image-based
+  // PDF stays available as a proof / fallback.
+  let interiorMode = canVectorPdf() ? 'vector' : 'dropped';
+  let dropped = null; // { name, bytes, notes, checks }
+  const checkList = (checks) => h('div.pl-checks', checks.map((c) => h(`div.check-item.${c.ok === true ? 'ok' : c.ok === 'warn' ? 'warn' : 'bad'}`,
+    icon(c.ok === true ? 'circle-check' : 'triangle-alert', 17), h('div', h('b', c.text)))));
+
+  async function takePdf(file) {
+    if (!file) return;
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') { toast('Please choose a PDF file', 'warn'); return; }
+    toast('Checking the PDF…', 'info', 1500);
+    try {
+      dropped = { name: file.name, ...(await finishAndCheckInterior(file, book, p)) };
+    } catch (e) { console.error(e); toast(`Could not read this PDF: ${e.message}`, 'error', 6000); dropped = null; }
+    draw();
+  }
+
+  const interiorSection = () => {
+    if (p.kind !== 'print') return null;
+    const complex = isComplexScript(book.meta.language);
+    const opt = (id, title, desc) => h(`label.pdf-choice${interiorMode === id ? '.on' : ''}`,
+      h('input', { type: 'radio', name: 'interior', checked: interiorMode === id, on: { change: () => { interiorMode = id; draw(); } } }),
+      h('div', h('b', title), h('div.small.muted', desc)));
+    const choices = [
+      canVectorPdf() ? opt('vector', 'Vector PDF (recommended)', 'Sharp, real text with embedded fonts, made by the Booky app. The best file for printers.') : null,
+      canVectorPdf() ? null : opt('dropped', 'Vector PDF from the print dialog (recommended)', 'Real text with embedded fonts. Save it with your browser’s print dialog, then add it here — Booky checks it and puts it in the package.'),
+      opt('raster', 'Image-based PDF (proof / fallback)', 'Each page is a picture. Larger files and softer text — fine for proofs.'),
+    ];
+    let detail = null;
+    if (interiorMode === 'dropped') {
+      const zone = h('div.dropzone.pdf-drop', { tabindex: '0', on: {
+        click: async () => takePdf(await pickFile('.pdf,application/pdf')),
+        dragover: (e) => { e.preventDefault(); zone.classList.add('over'); },
+        dragleave: () => zone.classList.remove('over'),
+        drop: (e) => { e.preventDefault(); zone.classList.remove('over'); takePdf(e.dataTransfer.files[0]); },
+      } }, icon('file-up', 22), h('b', dropped ? `✓ ${dropped.name} — drop another to replace` : 'Drop the saved PDF here, or click to choose it'));
+      detail = h('div.col', { style: { gap: '8px' } },
+        h('ol.small', { style: { margin: 0, paddingLeft: '18px', lineHeight: 1.7 } },
+          h('li', btn('Open print dialog', { icon: 'printer', cls: 'btn-sm', onClick: () => pv.print() })),
+          h('li', 'Destination: ', h('b', 'Save as PDF'), ' · Margins: ', h('b', 'Default'), ' (or None) · Scale: ', h('b', '100%'), ' · tick ', h('b', 'Background graphics'), '.'),
+          h('li', 'Save, then drop the PDF below.')),
+        zone,
+        dropped ? h('div', h('div.section-title', 'Interior PDF check'), checkList(dropped.checks), dropped.notes.length ? h('p.small.muted', dropped.notes.join(' ')) : null) : h('p.small.muted', 'No PDF yet — the package will still contain the cover, metadata and these instructions.'));
+    }
+    if (interiorMode === 'raster') {
+      detail = h('div.col', { style: { gap: '8px' } },
+        complex ? h('div.notice.notice-error', icon('triangle-alert', 16), h('span', h('b', `${langInfo(book.meta.language).name} text may render incorrectly in an image-based PDF. `), 'Letters that join or change shape (conjuncts, vowel signs, ligatures) can come out broken or misplaced. Use the vector PDF for anything you will print or upload.')) : null,
+        field('Image quality', select(Object.entries(PDF_QUALITY).map(([k, v]) => [k, v.label]), quality, (v) => { quality = v; })));
+    }
+    return h('div', h('div.section-title', { style: { marginTop: '14px' } }, 'Interior PDF'), h('div.col', { style: { gap: '6px' } }, choices), detail);
+  };
+
   const draw = () => {
     clear(body);
     const checks = checkPlatform(p, book, pages);
@@ -66,13 +122,16 @@ export async function platformDialog(book, p) {
     };
     const status = h('p.small.muted');
     const progress = h('div.progress.hidden', h('div', { style: { width: '0%' } }));
+    const results = h('div');
     const blocking = checks.some((c) => c.ok === false);
     const build = btn(p.kind === 'print' ? 'Build print package (.zip)' : 'Build ebook package (.zip)', { kind: 'primary', icon: 'package', onClick: async () => {
       build.disabled = true;
       progress.classList.remove('hidden');
+      clear(results);
       try {
-        await buildPackage(book, p, { pv, pages, quality, onProgress: (pct, msg) => { progress.firstChild.style.width = `${pct}%`; status.textContent = msg; } });
+        const res = await buildPackage(book, p, { pv, pages, quality, interiorMode, dropped, onProgress: (pct, msg) => { progress.firstChild.style.width = `${pct}%`; status.textContent = msg; } });
         status.textContent = 'Package downloaded. Unzip it and upload the files to the platform.';
+        if (res?.checks) add(results, h('div.section-title', 'Interior PDF check'), checkList(res.checks), res.notes?.length ? h('p.small.muted', res.notes.join(' ')) : null);
       } catch (e) { console.error(e); status.textContent = `Could not build the package: ${e.message}`; }
       build.disabled = false;
     } });
@@ -80,20 +139,21 @@ export async function platformDialog(book, p) {
       h('div.pl-checks', checks.map((c) => h(`div.check-item.${c.ok === true ? 'ok' : c.ok === 'warn' ? 'warn' : 'bad'}`,
         icon(c.ok === true ? 'circle-check' : 'triangle-alert', 17), h('div', h('b', c.text)),
         c.ok !== true && fixes[c.fix] ? btn('Fix', { cls: 'btn-sm', onClick: () => { fixes[c.fix](); touch('format'); touch('elements'); toast('Fixed', 'success'); if (pv && c.fix !== 'toc') { pv.render(book).then((r) => { pages = r.pages + (r.pages % 2); draw(); }); } else draw(); } }) : null))),
+      interiorSection(),
       h('div.section-title', { style: { marginTop: '14px' } }, 'The package contains'),
       h('ul.small', { style: { margin: '0 0 10px', paddingLeft: '18px', lineHeight: 1.7 } }, p.files.map((f) => h('li', f)), h('li', 'metadata.txt — title, description, keywords and specs to copy into the upload form')),
-      p.kind === 'print' ? field('Interior PDF quality', select(Object.entries(PDF_QUALITY).map(([k, v]) => [k, v.label]), quality, (v) => { quality = v; })) : null,
       h('div.section-title', 'Platform notes'),
       h('ul.small.muted', { style: { margin: '0 0 12px', paddingLeft: '18px', lineHeight: 1.6 } }, p.notes.map((n) => h('li', n))),
       blocking ? h('p.small', { style: { color: 'var(--danger)' } }, 'Some requirements are not met yet — you can still build the package, but the platform may reject it.') : null,
       h('div.row', { style: { flexWrap: 'wrap' } }, build, p.kind === 'print' ? btn('Adjust design', { kind: 'ghost', onClick: () => { m.close(); setMode('format'); } }) : null),
-      progress, status);
+      progress, status, results);
   };
   draw();
 }
 
-async function buildPackage(book, p, { pv, pages, quality, onProgress }) {
+async function buildPackage(book, p, { pv, pages, quality, interiorMode = 'raster', dropped = null, onProgress }) {
   const zip = new JSZip();
+  const result = {};
   const base = slugify(book.meta.title);
   const extra = { pages: p.kind === 'print' ? pages : 0 };
   await ensureFontsLoaded([...book.cover.layers.map((l) => l.font), book.cover.spine.font, book.cover.back.font]);
@@ -114,8 +174,30 @@ async function buildPackage(book, p, { pv, pages, quality, onProgress }) {
     }
   } else {
     const { pdfFromPreview, pdfFromCanvas } = await import('../export/pdf.js');
-    const interior = await pdfFromPreview(pv, { quality, title: book.meta.title, author: book.meta.author, onProgress: (d, n) => onProgress(Math.round((d / n) * 80), `Rendering interior page ${d} of ${n}…`) });
-    zip.file(`${base}-interior.pdf`, interior);
+    let interior = null;
+    if (interiorMode === 'vector') {
+      onProgress(10, 'Typesetting the vector interior…');
+      interior = await finishAndCheckInterior(await vectorInterior(book), book, p);
+    } else if (interiorMode === 'raster') {
+      const blob = await pdfFromPreview(pv, { quality, title: book.meta.title, author: book.meta.author, onProgress: (d, n) => onProgress(Math.round((d / n) * 70), `Rendering interior page ${d} of ${n}…`) });
+      onProgress(72, 'Checking the interior…');
+      interior = await finishAndCheckInterior(blob, book, p);
+    } else if (dropped) {
+      interior = dropped;
+    }
+    if (interior) {
+      zip.file(`${base}-interior.pdf`, interior.bytes);
+      extra.pages = (await inspectPdf(interior.bytes)).pages.length;
+      extra.interior = interiorMode === 'raster' ? 'image-based PDF (proof / fallback)' : 'vector PDF, fonts embedded';
+    } else {
+      zip.file('HOW-TO-ADD-THE-INTERIOR.txt', [
+        'This package has the cover and the upload details. Add the interior PDF like this:', '',
+        '1. In Booky, open Publish → this platform → Interior PDF → “Open print dialog”.',
+        '2. Destination: Save as PDF · Margins: Default (or None) · Scale: 100% · tick Background graphics.',
+        '3. Drop the saved PDF into the same dialog — Booky checks page size, page count and fonts,',
+        '   fixes the page boxes and adds it to a new package.',
+      ].join('\n'));
+    }
     onProgress(85, 'Rendering cover…');
     const opts = { paper: p.paper, wrap: p.wrap || 0 };
     const d = wrapDims(book, opts);
@@ -123,9 +205,12 @@ async function buildPackage(book, p, { pv, pages, quality, onProgress }) {
     const cv = document.createElement('canvas');
     cv.width = Math.round(d.totalW * dpi); cv.height = Math.round(d.totalH * dpi);
     drawWrap(cv.getContext('2d'), book, dpi, undefined, opts);
-    zip.file(`${base}-cover.pdf`, await pdfFromCanvas(cv, d.totalW, d.totalH, { title: `${book.meta.title} — cover` }));
+    const coverPdf = await pdfFromCanvas(cv, d.totalW, d.totalH, { title: `${book.meta.title} — cover` });
+    zip.file(`${base}-cover.pdf`, await finishCoverPdf(coverPdf, book, d.bleed));
     extra.spine = d.spine;
     extra.cover = `${d.totalW.toFixed(3)} × ${d.totalH.toFixed(3)} in including ${d.bleed} in bleed`;
+    result.checks = interior?.checks;
+    result.notes = interior?.notes;
   }
   zip.file('metadata.txt', metadataSheet(book, p, extra));
   onProgress(95, 'Zipping…');
@@ -133,5 +218,6 @@ async function buildPackage(book, p, { pv, pages, quality, onProgress }) {
   downloadBlob(blob, `${base}-${p.id}.zip`);
   onProgress(100, 'Done');
   toast(`${p.name} package ready`, 'success'); celebrate();
+  return result;
 }
 

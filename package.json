@@ -166,6 +166,7 @@
     "mammoth": "^1.13.0",
     "nspell": "^2.1.5",
     "pagedjs": "^0.4.3",
+    "pdf-lib": "^1.17.1",
     "vite": "^8.3.4",
     "vite-plugin-singlefile": "^2.3.3"
   },

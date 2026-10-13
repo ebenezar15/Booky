@@ -792,3 +792,10 @@ a.btn { text-decoration: none; }
 :root.desktop .topbar button, :root.desktop .topbar a, :root.desktop .topbar input, :root.desktop .topbar select, :root.desktop .topbar .brand, :root.desktop .topbar .topbar-title b { -webkit-app-region: no-drag; }
 :root.desktop-darwin .topbar { padding-left: 84px; }
 .pdf-best { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); background: color-mix(in srgb, var(--primary) 5%, transparent); }
+
+/* print interior choice in the platform dialog */
+.pdf-choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm, 8px); cursor: pointer; transition: border-color .15s, background-color .15s; }
+.pdf-choice.on { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.pdf-choice input { margin-top: 3px; accent-color: var(--primary); }
+.pdf-drop { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px; min-height: 0; text-align: center; }
+.pdf-drop.over { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }

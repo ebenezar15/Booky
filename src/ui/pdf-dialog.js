@@ -4,7 +4,9 @@ import { h, btn, clear, modal, toast, downloadBlob, slugify, select, field, add,
 import { trimOf } from '../core/themes.js';
 import { PrintPreview } from '../render/preview.js';
 import { pdfFromPreview, PDF_QUALITY } from '../export/pdf.js';
-import { printDocument } from '../render/preview.js';
+import { finishAndCheckInterior, vectorInterior, isComplexScript } from '../export/print-pdf.js';
+import { langInfo } from '../core/languages.js';
+import { icon } from './dom.js';
 
 export async function exportPdfDialog(book, { onlyId = null, quality = 'print' } = {}) {
   const hostEl = h('div', { style: { position: 'fixed', left: '-10000px', top: 0, width: '1200px', height: '900px', overflow: 'hidden' } });
@@ -26,10 +28,12 @@ export async function exportPdfDialog(book, { onlyId = null, quality = 'print' }
     progress.classList.remove('hidden');
     ctrl = new AbortController();
     try {
-      const blob = await pdfFromPreview(pv, {
+      const raw = await pdfFromPreview(pv, {
         quality: q, title: book.meta.title, author: book.meta.author, signal: ctrl.signal,
         onProgress: (d, n) => { progress.firstChild.style.width = `${(d / n) * 100}%`; status.textContent = `Rendering page ${d} of ${n}…`; },
       });
+      const { bytes } = await finishAndCheckInterior(raw, book);
+      const blob = new Blob([bytes], { type: 'application/pdf' });
       downloadBlob(blob, name);
       status.textContent = `Saved ${name} (${(blob.size / 1048576).toFixed(1)} MB).`;
       toast('PDF downloaded', 'success'); celebrate();
@@ -42,8 +46,9 @@ export async function exportPdfDialog(book, { onlyId = null, quality = 'print' }
   add(body,
     h('p', h('b', `${r.pages} pages typeset at ${t.w} × ${t.h} in${book.format.bleed ? ` + ${book.format.bleedSize} in bleed` : ''}.`)),
     h('div.pdf-option',
-      h('h4', '1 · Download a PDF file'),
-      h('p.small.muted', 'One click, saves straight to your Downloads folder. Each page is rendered as a high-resolution image — accepted by KDP, IngramSpark and Lulu at 300 DPI.'),
+      h('h4', '1 · Image-based PDF (proof / fallback)'),
+      isComplexScript(book.meta.language) ? h('div.notice.notice-error', icon('triangle-alert', 16), h('span', h('b', `${langInfo(book.meta.language).name} text can come out broken in an image-based PDF. `), 'Use the vector PDF for printing.')) : null,
+      h('p.small.muted', 'One click, saves straight to your Downloads folder. Each page is a high-resolution image (image-based PDF) — good for proofs and sharing. For printing, the vector PDF has sharper text' + (globalThis.bookyDesktop ? '.' : ' (option 2).')),
       field('Quality', select(Object.entries(PDF_QUALITY).map(([k, v]) => [k, v.label]), q, (v) => { q = v; })),
       download, progress, status),
     globalThis.bookyDesktop ? h('div.pdf-option.pdf-best',
@@ -54,7 +59,8 @@ export async function exportPdfDialog(book, { onlyId = null, quality = 'print' }
         const b = btn('Save vector PDF…', { kind: 'primary', icon: 'file-down', onClick: async () => {
           b.disabled = true; st.textContent = 'Typesetting and saving…';
           try {
-            const res = await globalThis.bookyDesktop.printPdf(printDocument(book, { onlyId, interactive: false }).html, name);
+            const fin = await finishAndCheckInterior(await vectorInterior(book, { onlyId }), book);
+            const res = await globalThis.bookyDesktop.savePdf(fin.bytes, name);
             if (res?.filePath) {
               clear(st); add(st, `Saved ${res.filePath.split(/[\\/]/).pop()} (${(res.bytes / 1048576).toFixed(1)} MB). `, h('a', { href: '#', on: { click: (e) => { e.preventDefault(); globalThis.bookyDesktop.showFile(res.filePath); } } }, 'Show in folder'));
               toast('PDF saved', 'success'); celebrate();
