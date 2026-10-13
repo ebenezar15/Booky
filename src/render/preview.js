@@ -151,9 +151,10 @@ export class PrintPreview {
     }
   }
 
-  goToPage(n) {
+  goToPage(n, flash = false) {
     const page = this.doc?.querySelectorAll('.pagedjs_page')[n - 1];
     page?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (page && flash) { page.classList.add('bk-flash'); setTimeout(() => page.classList.remove('bk-flash'), 1400); }
   }
 
   currentPage() {

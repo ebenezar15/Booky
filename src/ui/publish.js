@@ -130,6 +130,16 @@ function preflight(book) {
     icon(i.level === 'ok' ? 'circle-check' : 'triangle-alert', 17), h('div', h('b', i.title), h('span', i.detail)))));
 
   const proofOut = h('div');
+  const layoutOut = h('div');
+  const layoutBtn = btn('Check layout (widows, orphans, blank pages…)', { icon: 'triangle-alert', cls: 'btn-block', onClick: async () => {
+    layoutBtn.disabled = true;
+    layoutOut.textContent = 'Typesetting the book to check it…';
+    try {
+      const { checkLayoutOffscreen, drawLayoutReport } = await import('./layout-report.js');
+      const { findings } = await checkLayoutOffscreen(book);
+      drawLayoutReport(layoutOut, findings);
+    } finally { layoutBtn.disabled = false; }
+  } });
   const imagesOut = h('div');
   imageCheck(book, imagesOut);
   return h('div.card',
@@ -138,7 +148,8 @@ function preflight(book) {
     list,
     imagesOut,
     h('div', { style: { borderTop: '1px solid var(--border)', marginTop: '10px', paddingTop: '12px' } },
-      btn('Proofread whole book', { icon: 'spell-check', cls: 'btn-block', onClick: () => proofreadAll(book, proofOut) }), proofOut));
+      btn('Proofread whole book', { icon: 'spell-check', cls: 'btn-block', onClick: () => proofreadAll(book, proofOut) }), proofOut,
+      h('div', { style: { height: '8px' } }), layoutBtn, layoutOut));
 }
 
 /** Image checks (resolution, colour, bleed, alt text), each clickable to the image. */

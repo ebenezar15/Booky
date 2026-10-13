@@ -62,6 +62,7 @@ const BASE = {
   body: {
     font: 'EB Garamond', size: 11.5, leading: 1.45, align: 'justify', hyphenate: true,
     spacing: 'indent', indent: 1.5, paraGap: 0.7, indentGap: 0, letterSpacing: 0, wordSpacing: 0, color: '#111111',
+    keepWithNext: true, hyphenLimit: 2, figures: 'auto', hangPunct: false,
   },
   headings: {
     font: 'EB Garamond', numberFont: '', align: 'center', sink: 1.4, afterSpace: 0.45,

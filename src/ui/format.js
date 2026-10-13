@@ -3,11 +3,12 @@ import { h, icon, btn, iconBtn, clear, field, input, select, toggle, slider, col
 import { state, on, touch, setApp } from '../core/store.js';
 import { templateFromBook } from '../core/templates.js';
 import { THEMES, TRIM_SIZES, SCENE_BREAKS, ORNAMENTS, applyTheme, trimOf } from '../core/themes.js';
-import { allFonts, fontStack, fontOptions } from '../core/fonts.js';
+import { allFonts, fontStack, fontOptions, figureSupport } from '../core/fonts.js';
 import { orderedElements, displayTitle, bookWords, elementWords, formatNumber, applyCase } from '../core/model.js';
 import { PrintPreview, ebookPreviewHtml } from '../render/preview.js';
 import { renderSections } from '../render/book.js';
 import { exportPdfDialog } from './pdf-dialog.js';
+import { checkLayout, drawLayoutReport } from './layout-report.js';
 
 const openSections = new Set(['theme']);
 
@@ -213,7 +214,7 @@ export function renderFormat(host) {
       }),
       acc('body', 'whole-word', 'Body text', (b) => {
         add(b, 
-          field('Font', sel(F.body, 'font', fonts())),
+          field('Font', sel(F.body, 'font', fonts(), true)),
           h('div.grid-2', field('Size (pt)', num(F.body, 'size', { step: 0.5, min: 6, max: 24 })), field('Line spacing', num(F.body, 'leading', { step: 0.05, min: 1, max: 2.5 }))),
           field('Alignment', seg(F.body, 'align', [['justify', 'Justified'], ['left', 'Left']])),
           field('Paragraphs', seg(F.body, 'spacing', [['indent', 'First-line indent'], ['block', 'Space between']], true)),
@@ -224,8 +225,14 @@ export function renderFormat(host) {
           h('div.grid-2',
             field('Letter spacing', sld(F.body, 'letterSpacing', -0.03, 0.1, 0.005, (v) => `${v.toFixed(3)} em`)),
             field('Word spacing', sld(F.body, 'wordSpacing', -0.1, 0.4, 0.01, (v) => `${v.toFixed(2)} em`))),
-          h('div.col', { style: { gap: '10px', marginBottom: '12px' } }, tog(F.body, 'hyphenate', 'Hyphenation (smoother justified text)')),
+          h('div.col', { style: { gap: '10px', marginBottom: '12px' } }, tog(F.body, 'hyphenate', 'Hyphenation (smoother justified text)', true)),
+          F.body.hyphenate ? field('Hyphenated lines in a row', sel(F.body, 'hyphenLimit', [['0', 'No limit'], ['2', 'At most 2'], ['3', 'At most 3']]), 'Browsers can’t enforce this yet, so the Layout check lists pages that go over it.') : null,
           h('div.grid-2', field('Widow lines', num(F.layout, 'widows', { min: 1, max: 4 })), field('Orphan lines', num(F.layout, 'orphans', { min: 1, max: 4 }))),
+          field('Numbers', sel(F.body, 'figures', [['auto', 'Font default'], ['lining', 'Lining (the height of capitals)'], ['oldstyle', 'Old-style (sit in the text like lower-case)']]),
+            { lining: `${F.body.font} can switch figure styles: choose Lining for figures the height of capitals (good for tables and dates).`, single: `${F.body.font} has one style of figures, so this changes nothing. Cormorant Garamond, Alegreya, Playfair Display and Sorts Mill Goudy can switch to lining figures.`, unknown: 'Depends on your font — check the preview.' }[figureSupport(F.body.font)]),
+          h('div.col', { style: { gap: '10px', marginBottom: '12px' } },
+            tog(F.body, 'keepWithNext', 'Keep headings with the next paragraph'),
+            tog(F.body, 'hangPunct', 'Hanging punctuation (opening quotes sit in the margin)')),
           field('Text colour', color(F.body.color, (v) => { F.body.color = v; change(); })),
         );
       }),
@@ -310,6 +317,20 @@ export function renderFormat(host) {
           h('div.col', { style: { gap: '10px' } }, tog(N, 'showOnChapterStart', 'Number on chapter opening pages'), tog(N, 'frontRoman', 'Roman numerals (i, ii, iii) for front matter')),
           h('p.hint', 'Title, copyright, dedication and blank pages never show heads or numbers — that’s the publishing convention.'),
         );
+      }),
+      acc('check', 'triangle-alert', 'Layout check', (b) => {
+        const out = h('div');
+        add(b,
+          h('p.hint', { style: { marginTop: 0 } }, 'Looks through the print preview for widows and orphans, headings or scene breaks left at the foot of a page, short last pages, stacks of hyphens, very loose lines and blank pages.'),
+          btn('Check layout', { icon: 'triangle-alert', cls: 'btn-block', onClick: async () => {
+            if (!preview.doc?.querySelector('.pagedjs_page')) await refresh();
+            out.textContent = 'Checking…';
+            await new Promise((r) => setTimeout(r, 30));
+            const findings = checkLayout(book, preview.doc);
+            drawLayoutReport(out, findings, { onPage: (n) => preview.goToPage(n, true) });
+            if (scope !== 'book') out.prepend(h('p.hint', 'Only the pages in the preview were checked. Choose “Whole book” above the preview to check everything.'));
+          } }),
+          out);
       }),
       acc('layout', 'book-open', 'Page flow', (b) => {
         const L = F.layout;

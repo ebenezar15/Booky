@@ -5,6 +5,7 @@ import {
   escapeHtml, ELEMENT_TYPES, applyCase,
 } from '../core/model.js';
 import { SCENE_BREAKS, ORNAMENTS } from '../core/themes.js';
+import { isRtl } from '../core/languages.js';
 
 // Pages printed without running heads or folios, usually vertically placed.
 export const SIMPLE_PAGES = new Set(['half-title', 'series-title', 'frontispiece', 'title', 'copyright', 'dedication', 'epigraph', 'blank', 'colophon']);
@@ -170,6 +171,24 @@ function processContent(book, el, target, opts = {}) {
       if (fmt.firstPara.leadIn === 'smallcaps-words') applyLeadIn(first, doc, fmt.firstPara.leadWords || 3);
       if (fmt.firstPara.leadIn === 'smallcaps-line') first.classList.add('bk-leadline');
     }
+  }
+
+  // Hanging punctuation (print): wrap an opening quote that starts a paragraph; CSS hangs it in flush-left paragraphs.
+  if (target === 'print' && fmt.body.hangPunct && !isRtl(book.meta.language)) {
+    root.querySelectorAll('p').forEach((p) => {
+      if (/ps-(centered|epigraph|attribution|caption|signature|display|subtitle|author)|bk-scene|has-dropcap/.test(p.className) || /text-align:\s*(center|right)/.test(p.getAttribute('style') || '')) return;
+      const t = textNodes(p).find((n) => n.data.trim());
+      const m = t && t.data.match(/^(\s*)([“"‘'«„‚(\[])/);
+      if (!m || t.parentNode.closest?.('sup, a')) return;
+      const span = doc.createElement('span');
+      span.className = 'bk-hang';
+      span.textContent = m[2];
+      const rest = t.data.slice(m[0].length);
+      t.data = '';
+      t.parentNode.insertBefore(span, t.nextSibling);
+      span.parentNode.insertBefore(doc.createTextNode(rest), span.nextSibling);
+      t.remove();
+    });
   }
 
   // Number the top-level blocks so print pages can be mapped to ebook positions (EPUB page-list).

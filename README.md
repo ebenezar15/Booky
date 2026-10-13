@@ -180,6 +180,17 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
 - **Trim sizes**: 18 presets (5×8, 5.5×8.5, 6×9, A5, A4, B-format, square, landscape…) plus custom sizes.
 - **Margins**: mirrored margins with gutter guidance, optional bleed and crop marks.
 - **Body text and spacing**: font, size, line spacing, letter spacing, word spacing, justified or left-aligned, hyphenation, first-line indent or block paragraphs, extra space between paragraphs, and widow/orphan control.
+- **Fine typography**:
+  - *Keep headings with the next paragraph* (on by default), so a subheading never ends a page.
+  - *Hanging punctuation*: an opening quote at the start of a flush-left paragraph sits in the margin, so the letters line up.
+  - *Numbers*: switch to lining figures (the height of capitals) in fonts that have them, such as Cormorant Garamond, Alegreya, Playfair Display and Sorts Mill Goudy. Booky tells you when your font has only one style.
+  - *Hyphenated lines in a row* (at most 2 or 3). Browsers can't enforce this yet, so the Layout check reports pages that go over it.
+- **Layout check** (Format → Layout check, and Publish → pre-flight) reads the typeset pages and lists, with buttons to show the page and edit the text:
+  - widows and orphans that slipped through;
+  - a heading or scene break left at the foot of a page;
+  - chapters whose last page has fewer than 4 lines;
+  - too many hyphenated lines in a row, and very loose justified lines;
+  - unexpected blank pages, and how many blank pages right-hand chapter starts added.
 - **Chapter headings**:
   - Number style (One / 1 / 01 / I / hidden), prefix, case, size and spacing.
   - Title font, size, weight, italic and case.

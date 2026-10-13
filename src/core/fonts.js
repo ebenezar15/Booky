@@ -8,6 +8,13 @@ export const FONT_CATALOG = catalog;
 export const BUNDLED_FONTS = catalog.map((f) => f.name);
 export const FONT_META = Object.fromEntries(catalog.map((f) => [f.name, f.category]));
 
+// Bundled fonts whose figures switch to lining with font-variant-numeric (checked by rendering both).
+// None of the bundled fonts include old-style figures (the 'onum' feature); fonts not listed have one style only.
+const LINING_SWITCHABLE = new Set(['Alegreya', 'Bitter', 'Cormorant Garamond', 'Gelasio', 'Playfair Display', 'Raleway', 'Roboto', 'Roboto Slab', 'Sorts Mill Goudy', 'Vollkorn',
+  'Tiro Tamil', 'Tiro Bangla', 'Tiro Devanagari Hindi', 'Tiro Kannada', 'Tiro Telugu', 'Tiro Devanagari Marathi', 'Tiro Devanagari Sanskrit']);
+/** 'lining' (default figures are old-style; lining available), 'single' (one style only), or 'unknown' (your own font). */
+export const figureSupport = (name) => (LINING_SWITCHABLE.has(name) ? 'lining' : FONT_META[name] ? 'single' : 'unknown');
+
 // Popular fonts that are usually already installed on Windows / Mac (used if present).
 export const SYSTEM_FONTS = ['Times New Roman', 'Georgia', 'Garamond', 'Palatino Linotype', 'Book Antiqua', 'Bookman Old Style', 'Baskerville', 'Cambria',
   'Calibri', 'Arial', 'Helvetica', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Century Gothic', 'Gill Sans', 'Futura', 'Segoe UI', 'Courier New',

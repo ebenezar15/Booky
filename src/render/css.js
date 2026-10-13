@@ -7,6 +7,11 @@ import { trimOf } from '../core/themes.js';
 
 const cssStr = (s) => `"${String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ')}"`;
 
+// Paragraphs that start flush left even when paragraphs are indented.
+const NO_INDENT = ['.bk-content > p:first-child', '.bk-content p.bk-first', '.bk-content p.bk-after-break', '.bk-content p.ps-noindent',
+  '.bk-content h2 + p', '.bk-content h3 + p', '.bk-content h4 + p', '.bk-content figure + p', '.bk-content blockquote + p',
+  '.bk-content ul + p', '.bk-content ol + p', '.bk-content .bk-scene + p', '.bk-content .bk-scene-line + p', '.bk-content .ps-verse + p:not(.ps-verse)'];
+
 export function typographyCss(book, target) {
   const L = langInfo(book.meta.language);
   const fontStack = (n) => baseStack(n, L.script !== 'latin' ? L.body : '');
@@ -23,23 +28,27 @@ export function typographyCss(book, target) {
   const sink = print ? `${h.sink}in` : `${(h.sink * 2.2).toFixed(2)}em`;
   const after = print ? `${h.afterSpace}in` : `${(h.afterSpace * 3).toFixed(2)}em`;
   const lines = fp.dropCapLines || 3;
+  const keep = b.keepWithNext === false ? '' : 'break-after: avoid; page-break-after: avoid;';
 
   return `
 .bk-sec { font-family: ${bodyFont}; font-size: ${print ? b.size + 'pt' : '1em'}; line-height: ${b.leading}; color: ${print ? b.color : 'inherit'};
   text-align: ${justify}; ${b.hyphenate ? 'hyphens: auto; -webkit-hyphens: auto;' : 'hyphens: manual;'} widows: ${f.layout.widows}; orphans: ${f.layout.orphans};
-  font-kerning: normal; font-variant-ligatures: common-ligatures; text-rendering: optimizeLegibility; letter-spacing: ${b.letterSpacing || 0}em; word-spacing: ${b.wordSpacing || 0}em; }
+  font-kerning: normal; font-variant-ligatures: common-ligatures; text-rendering: optimizeLegibility; letter-spacing: ${b.letterSpacing || 0}em; word-spacing: ${b.wordSpacing || 0}em;
+  ${b.figures === 'oldstyle' ? 'font-variant-numeric: oldstyle-nums;' : b.figures === 'lining' ? 'font-variant-numeric: lining-nums;' : ''}
+  ${b.hyphenate && +b.hyphenLimit > 0 ? `hyphenate-limit-lines: ${+b.hyphenLimit}; -webkit-hyphenate-limit-lines: ${+b.hyphenLimit};` : ''} }
+${print && b.hangPunct ? `/* hanging punctuation: an opening quote at the start of a flush-left paragraph sits in the margin */
+${(indent ? NO_INDENT : ['.bk-content p']).map((x) => `${x} .bk-hang`).join(', ')} { display: inline-block; width: 0; direction: rtl; unicode-bidi: isolate; text-indent: 0; }` : ''}
 .bk-content p { margin: 0; text-indent: ${indent ? b.indent + 'em' : '0'}; margin-bottom: ${indent ? (b.indentGap || 0) : b.paraGap}em; }
-.bk-content > p:first-child, .bk-content p.bk-first, .bk-content p.bk-after-break, .bk-content p.ps-noindent,
-.bk-content h2 + p, .bk-content h3 + p, .bk-content h4 + p, .bk-content figure + p, .bk-content blockquote + p,
-.bk-content ul + p, .bk-content ol + p, .bk-content .bk-scene + p, .bk-content .bk-scene-line + p, .bk-content .ps-verse + p:not(.ps-verse) { text-indent: 0; }
+${NO_INDENT.filter((x) => !x.includes('+')).join(', ')} { text-indent: 0; }
+${NO_INDENT.filter((x) => x.includes('+')).join(', ')} { text-indent: 0 !important; } /* Paged.js rewrites sibling selectors with low specificity */
 .bk-simple .bk-content p, .bk-front .bk-content p { hyphens: manual; }
 .bk-content strong { font-weight: 700; }
 .bk-content a { color: inherit; text-decoration: none; }
 .bk-content mark { background: none; color: inherit; }
 .bk-content sup, .bk-content sub { font-size: 0.7em; line-height: 0; }
-.bk-content h2 { font-family: ${subFont}; font-size: ${u(h.h2Size)}; font-weight: 700; line-height: 1.25; margin: 1.3em 0 0.5em; text-indent: 0; hyphens: manual; break-after: avoid; page-break-after: avoid; text-align: ${h.align === 'center' ? 'center' : 'left'}; }
-.bk-content h3 { font-family: ${subFont}; font-size: ${u(h.h3Size)}; font-weight: 700; font-style: italic; line-height: 1.3; margin: 1.1em 0 0.4em; text-indent: 0; hyphens: manual; break-after: avoid; page-break-after: avoid; }
-.bk-content h4 { font-family: ${subFont}; font-size: 1em; font-variant: small-caps; letter-spacing: .05em; margin: 1em 0 .3em; text-indent: 0; break-after: avoid; }
+.bk-content h2 { font-family: ${subFont}; font-size: ${u(h.h2Size)}; font-weight: 700; line-height: 1.25; margin: 1.3em 0 0.5em; text-indent: 0; hyphens: manual; ${keep} text-align: ${h.align === 'center' ? 'center' : 'left'}; }
+.bk-content h3 { font-family: ${subFont}; font-size: ${u(h.h3Size)}; font-weight: 700; font-style: italic; line-height: 1.3; margin: 1.1em 0 0.4em; text-indent: 0; hyphens: manual; ${keep} }
+.bk-content h4 { font-family: ${subFont}; font-size: 1em; font-variant: small-caps; letter-spacing: .05em; margin: 1em 0 .3em; text-indent: 0; ${keep} }
 .bk-content blockquote { margin: 0.9em 1.6em; font-size: 0.95em; }
 .bk-content blockquote p { text-indent: 0; margin-bottom: .4em; }
 .bk-content ul, .bk-content ol { margin: 0.6em 0 0.6em 1.4em; padding: 0; }
