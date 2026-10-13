@@ -6,6 +6,7 @@ import { removeFromDictionary } from '../lang/spell.js';
 import { appearancePanel } from './appearance.js';
 import { translationSettingsPanel } from './translate.js';
 import { cloudSettingsPanel } from './cloud-settings.js';
+import { backupSettingsPanel } from './backup-ui.js';
 
 export const SHORTCUTS = [
   ['Bold / Italic / Underline', 'Ctrl B / I / U'],
@@ -28,7 +29,7 @@ export const SHORTCUTS = [
 
 export function openSettings(tab = 'general') {
   const body = h('div');
-  const tabs = segmented([['general', 'General'], ['proofing', 'Proofing'], ['fonts', 'Fonts'], ['translate', 'Voice & translation'], ['cloud', 'Online sharing'], ['keys', 'Shortcuts'], ['about', 'About']], tab, (t) => draw(t));
+  const tabs = segmented([['general', 'General'], ['backups', 'Backups'], ['proofing', 'Proofing'], ['fonts', 'Fonts'], ['translate', 'Voice & translation'], ['cloud', 'Online sharing'], ['keys', 'Shortcuts'], ['about', 'About']], tab, (t) => draw(t));
   function draw(t) {
     clear(body);
     if (t === 'general') {
@@ -39,9 +40,10 @@ export function openSettings(tab = 'general') {
           toggle(state.app.smartQuotes !== false, (v) => setApp({ smartQuotes: v }), 'Smart quotes & dashes while typing (“ ” ‘ ’ —)'),
           toggle(state.app.animations !== false, (v) => setApp({ animations: v }), 'Animations (page turns, transitions, celebrations)'),
         ),
-        h('p.hint', { style: { marginTop: '16px' } }, 'Your books are saved automatically in this browser’s private storage. Use “Download backup” in the Publish tab to keep a copy elsewhere.'),
+        h('p.hint', { style: { marginTop: '16px' } }, 'Your books are saved automatically in this browser’s private storage. Set up automatic folder backups in the Backups tab, or use “Download backup” to keep a copy elsewhere.'),
       );
     }
+    if (t === 'backups') add(body, backupSettingsPanel());
     if (t === 'proofing') {
       const dict = h('div', { style: { maxHeight: '220px', overflow: 'auto', border: '1px solid var(--border)', borderRadius: '8px' } });
       const drawDict = () => {

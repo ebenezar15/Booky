@@ -11,6 +11,7 @@ const isMac = process.platform === 'darwin';
 const APP_HTML = path.join(__dirname, '..', 'dist', 'index.html');
 const stateFile = () => path.join(app.getPath('userData'), 'window-state.json');
 let win = null;
+let closeReady = false;
 const pendingFiles = [];
 
 app.setName('Booky');
@@ -39,6 +40,13 @@ function createWindow() {
   if (st.maximized) win.maximize();
   win.once('ready-to-show', () => win.show());
   win.on('close', saveState);
+  // Give the page a moment to save and write a folder backup before the window closes.
+  win.on('close', (e) => {
+    if (closeReady || !win.webContents || win.webContents.isDestroyed()) return;
+    e.preventDefault();
+    win.webContents.send('booky:before-close');
+    setTimeout(() => { closeReady = true; win?.close(); }, 4000);
+  });
   win.loadFile(APP_HTML);
 
   // Links: web pages and email open outside the app; the app itself never navigates away.
@@ -111,6 +119,25 @@ ipcMain.handle('booky:print-pdf', async (_e, { html, bytes, fileName }) => {
   return { filePath, bytes: pdf.length };
 });
 ipcMain.handle('booky:show-file', (_e, file) => { if (file) shell.showItemInFolder(file); });
+ipcMain.on('booky:ready-to-close', () => { closeReady = true; win?.close(); });
+
+// ---------- folder backups ----------
+ipcMain.handle('booky:backup-choose', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, { title: 'Choose a folder for Booky backups', properties: ['openDirectory', 'createDirectory'], defaultPath: app.getPath('documents') });
+  return canceled || !filePaths[0] ? null : filePaths[0];
+});
+ipcMain.handle('booky:backup-check', (_e, dir) => {
+  try { fs.accessSync(dir, fs.constants.W_OK); return true; } catch { return false; }
+});
+// Writes one backup and keeps only the newest `keep` for that book (same rule as src/core/backup.js).
+ipcMain.handle('booky:backup-write', (_e, { dir, name, data, prefix, keep }) => {
+  if (!dir || path.basename(name) !== name || /[\\/:*?"<>|]/.test(name) || !name.endsWith('.booky') || !prefix || !name.startsWith(prefix)) throw new Error('Bad backup name');
+  const file = path.join(dir, name);
+  fs.writeFileSync(file, data, 'utf8');
+  const mine = fs.readdirSync(dir).filter((n) => n.startsWith(prefix) && /\d{4}-\d\d-\d\d_\d{4}(-\d+)?\.booky$/.test(n)).sort();
+  for (const old of mine.slice(0, Math.max(0, mine.length - (keep || 10)))) { try { fs.unlinkSync(path.join(dir, old)); } catch { /* in use */ } }
+  return { file };
+});
 
 // ---------- menus ----------
 function buildMenu() {

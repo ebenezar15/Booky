@@ -81,9 +81,10 @@ export function iconBtn(ic, title, onClick, { cls = '', size = 18, active = fals
 }
 
 export function debounce(fn, ms = 300) {
-  let t;
-  const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
-  d.flush = (...a) => { clearTimeout(t); fn(...a); };
+  let t, pending = false;
+  const d = (...a) => { clearTimeout(t); pending = true; t = setTimeout(() => { pending = false; fn(...a); }, ms); };
+  // Runs a waiting call now; does nothing when no call is waiting (so it can't overwrite newer data with stale state).
+  d.flush = (...a) => { clearTimeout(t); if (pending) { pending = false; fn(...a); } };
   return d;
 }
 

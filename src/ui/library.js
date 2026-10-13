@@ -9,6 +9,9 @@ import { bookWords, createBook, createElement, normalizeBook, uid, applyCase, fo
 import { coverThumbnail } from '../render/cover.js';
 import { readManuscript, splitIntoChapters, chunksToElements, importSummary, IMPORT_ACCEPT } from '../import/importer.js';
 import { state, setApp } from '../core/store.js';
+import { backupPayload, backupAge, storageReport } from '../core/backup.js';
+import { lastBackupAt, recordBackup, milestonesFor } from '../core/backup-folder.js';
+import { storageStatus, requestPersistence } from '../core/db.js';
 import { openSettings } from './settings.js';
 import { appearanceButton } from './appearance.js';
 
@@ -87,7 +90,7 @@ export async function renderLibrary(root) {
     books.length ? null : h('section.lib-section', shelf),
     h('footer.lib-foot',
       h('span', icon('lock', 12), ' Everything is stored privately in this browser — nothing is uploaded.'),
-      h('span', 'Tip: export a .booky backup regularly to keep your work safe.')),
+      storageLine()),
   );
 
   add(root, top, lib);
@@ -110,7 +113,9 @@ function bookCard(book) {
       { divider: true },
       { label: 'Delete book', icon: 'trash', danger: true, onClick: async () => {
         if (await confirmDialog('Delete book?', `“${book.meta.title}” will be permanently removed from this browser. Download a backup first if you might need it.`, { okLabel: 'Delete', danger: true })) {
-          await db.deleteBook(book.id); toast('Book deleted'); rerender();
+          await db.deleteBook(book.id);
+          for (const ms of await milestonesFor(book.id)) await db.deleteMilestone(ms.id).catch(() => {});
+          toast('Book deleted'); rerender();
         }
       } },
     ], { align: 'right' });
@@ -119,7 +124,30 @@ function bookCard(book) {
     h('div.book-cover-thumb', coverThumbnail(book, 240)), more,
     h('h3', book.meta.title || 'Untitled'),
     h('p', `${book.meta.author || 'No author'} · ${words.toLocaleString()} words`),
-    h('p', `Edited ${timeAgo(book.updatedAt)}`));
+    h('p', `Edited ${timeAgo(book.updatedAt)}`),
+    backupLine(book));
+}
+
+function backupLine(book) {
+  const age = backupAge(lastBackupAt(book.id), Date.now(), { hasContent: bookWords(book) > 0, since: book.createdAt });
+  return h(`p.backup-age${age.stale ? '.stale' : ''}`, { title: age.stale ? 'Download a backup or set up automatic folder backups in Settings → Backups' : '' }, icon(age.stale ? 'triangle-alert' : 'shield-check', 12), ` ${age.label}`);
+}
+
+// Storage health in the library footer: space used and whether the browser promised to keep it.
+function storageLine() {
+  const el = h('span.storage-line', 'Checking storage…');
+  const draw = async () => {
+    const st = await storageStatus();
+    if (!st.supported) { el.textContent = 'Tip: download a .booky backup regularly to keep your work safe.'; return; }
+    const r = storageReport(st);
+    clear(el);
+    add(el, icon(r.level === 'ok' ? 'shield-check' : 'triangle-alert', 12), ` ${r.used} used${r.free ? ` · ${r.free} free` : ''} · ${st.persisted ? 'protected' : 'not protected'} `,
+      h('button.linkish', { type: 'button', on: { click: () => openSettings('backups') } }, 'Backups & storage'));
+    el.className = `storage-line ${r.level}`;
+    el.title = r.message;
+  };
+  draw();
+  return el;
 }
 
 function rerender() {
@@ -128,9 +156,10 @@ function rerender() {
   renderLibrary(root);
 }
 
-export function downloadBackup(book) {
-  const blob = new Blob([JSON.stringify({ booky: 1, exportedAt: new Date().toISOString(), book }, null, 1)], { type: 'application/json' });
+export async function downloadBackup(book) {
+  const blob = new Blob([backupPayload(book, await milestonesFor(book.id))], { type: 'application/json' });
   downloadBlob(blob, `${slugify(book.meta.title)}.booky`);
+  recordBackup(book.id);
 }
 
 const SAMPLES = {
@@ -288,6 +317,7 @@ export function importFlow(accept = IMPORT_ACCEPT, targetBook = null, onDone) {
       const existing = await db.getBook(book.id);
       if (existing) { book.id = uid('bk_'); book.meta.title += existing.meta.title === book.meta.title ? ' (restored)' : ''; }
       await db.putBook(book);
+      for (const ms of parsed.project.milestones || []) await db.putMilestone({ ...ms, id: uid('ms_'), bookId: book.id }).catch(() => {});
       m.close();
       toast('Backup restored', 'success');
       location.hash = `#/book/${book.id}`;

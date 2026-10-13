@@ -11,6 +11,7 @@ import { ensureReviews, orderedComments } from '../core/feedback.js';
 import { goNext } from './feedback-actions.js';
 import { commentCard } from './feedback.js';
 import { drawOriginalTab } from './translate.js';
+import { milestonesPanel } from './backup-ui.js';
 
 const TABS = [
   { id: 'page', label: 'Page', icon: 'sliders-horizontal' },
@@ -44,8 +45,11 @@ export function renderInspector(host) {
       t.id === 'comments' && openHere() ? h('span.badge.red', openHere()) : null)));
   };
 
+  let panelCleanup = [];
   function draw() {
     drawTabs();
+    panelCleanup.forEach((f) => f());
+    panelCleanup = [];
     clear(body);
     const el = currentElement();
     if (tab === 'page') drawPage(el);
@@ -191,6 +195,9 @@ export function renderInspector(host) {
         }),
         iconBtn('trash', 'Delete snapshot', () => { el.snapshots = el.snapshots.filter((x) => x.id !== s.id); touch('snapshots'); draw(); })));
     });
+    const ms = milestonesPanel(state.book, el);
+    body.appendChild(ms.el);
+    panelCleanup.push(ms.destroy);
   }
 
   function drawStats(el) {
@@ -240,7 +247,7 @@ export function renderInspector(host) {
     on('show-tab', (id) => { tab = lastTab = id; draw(); }),
     on('reviews', () => { if (tab === 'comments') draw(); else drawTabs(); }),
   ];
-  return () => offs.forEach((f) => f());
+  return () => { offs.forEach((f) => f()); panelCleanup.forEach((f) => f()); };
 }
 
 // Pomodoro-style sprint timer that counts words written.

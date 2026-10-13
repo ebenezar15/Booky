@@ -9,4 +9,9 @@ contextBridge.exposeInMainWorld('bookyDesktop', {
   showFile: (file) => ipcRenderer.invoke('booky:show-file', file),
   onOpenFile: (cb) => ipcRenderer.on('booky:open-file', (_e, f) => cb(f)),
   onMenu: (cb) => ipcRenderer.on('booky:menu', (_e, cmd) => cb(cmd)),
+  chooseBackupFolder: () => ipcRenderer.invoke('booky:backup-choose'),
+  checkBackupFolder: (dir) => ipcRenderer.invoke('booky:backup-check', dir),
+  writeBackup: (opts) => ipcRenderer.invoke('booky:backup-write', opts),
+  onBeforeClose: (cb) => ipcRenderer.on('booky:before-close', () => cb()),
+  readyToClose: () => ipcRenderer.send('booky:ready-to-close'),
 });

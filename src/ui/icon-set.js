@@ -176,6 +176,11 @@ import I_inbox from 'lucide/dist/esm/icons/inbox.mjs';
 import I_mic from 'lucide/dist/esm/icons/mic.mjs';
 import I_mic_off from 'lucide/dist/esm/icons/mic-off.mjs';
 import I_audio_lines from 'lucide/dist/esm/icons/audio-lines.mjs';
+import I_shield_check from 'lucide/dist/esm/icons/shield-check.mjs';
+import I_folder_sync from 'lucide/dist/esm/icons/folder-sync.mjs';
+import I_milestone from 'lucide/dist/esm/icons/milestone.mjs';
+import I_git_compare from 'lucide/dist/esm/icons/git-compare.mjs';
+import I_hard_drive from 'lucide/dist/esm/icons/hard-drive.mjs';
 
 export const ICONS = {
   'type': I_type,
@@ -355,4 +360,9 @@ export const ICONS = {
   'mic': I_mic,
   'mic-off': I_mic_off,
   'audio-lines': I_audio_lines,
+  'shield-check': I_shield_check,
+  'folder-sync': I_folder_sync,
+  'milestone': I_milestone,
+  'git-compare': I_git_compare,
+  'hard-drive': I_hard_drive,
 };

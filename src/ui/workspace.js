@@ -17,6 +17,7 @@ import { appearanceButton } from './appearance.js';
 import { exportPdfDialog } from './pdf-dialog.js';
 import { bookWords } from '../core/model.js';
 import { openTranslateDialog } from './translate.js';
+import { backupChip, backupBanner, saveMilestone } from './backup-ui.js';
 
 const MODES = [
   { id: 'write', label: 'Write', icon: 'pen-line' },
@@ -50,9 +51,11 @@ export function renderWorkspace(root) {
     on: { click: () => setMode(m.id) },
   }, icon(m.icon, 16), h('span', m.label)));
 
+  const chip = backupChip(book);
+  const banner = backupBanner(book);
   const top = h('header.topbar',
     brand(() => { save(); location.hash = ''; }),
-    h('div.topbar-title', titleEl, h('small', saveDot, saveText, '·', wordsText)),
+    h('div.topbar-title', titleEl, h('small', saveDot, saveText, '·', wordsText, chip.el)),
     h('nav.modes', { role: 'tablist' }, modeBtns),
     h('div.topbar-actions',
       btn('Export PDF', { icon: 'file-down', kind: 'primary', cls: 'btn-sm topbar-pdf', onClick: () => exportPdfDialog(book) }),
@@ -63,6 +66,8 @@ export function renderWorkspace(root) {
         { label: 'Book details…', icon: 'book-open-text', onClick: () => openDetails() },
         { label: 'Translate into another language…', icon: 'languages', onClick: () => { save(); openTranslateDialog(book); } },
         { label: 'Download backup (.booky)', icon: 'download', onClick: () => downloadBackup(book) },
+        { label: 'Save a milestone of the whole book…', icon: 'milestone', onClick: () => saveMilestone(book) },
+        { label: 'Backups & storage…', icon: 'folder-sync', onClick: () => openSettings('backups') },
         { label: 'Settings…', icon: 'settings', onClick: () => openSettings() },
         { label: 'Keyboard shortcuts', icon: 'keyboard', onClick: () => openSettings('keys') },
         { divider: true },
@@ -71,7 +76,8 @@ export function renderWorkspace(root) {
     ));
 
   const body = h('div.workspace');
-  add(root, top, body);
+  add(root, top, banner.el, body);
+  cleanup.push(chip.destroy, banner.destroy);
 
   let viewCleanup = [];
   const renderMode = () => {

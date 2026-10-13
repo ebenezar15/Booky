@@ -51,6 +51,15 @@ The app is that one file. Fonts, the English dictionary and every library are bu
   - A deep-colour or light sidebar.
   - Change them from the 🎨 button.
 
+### 🛟 Keep your work safe
+- **Automatic folder backups** (Settings → Backups): choose a folder — ideally one that is itself backed up, like Dropbox, OneDrive, iCloud Drive or a USB stick.
+  - Booky writes a dated `.booky` copy of each book you edit there every 30 minutes of editing and when you close it, and keeps the newest 10 per book (you can change the number).
+  - Works in the desktop app and in Chrome and Edge. Browsers ask you to allow the folder again after a restart; Booky shows a one-click *Allow* bar.
+  - Firefox and Safari can't write to folders, so Booky reminds you instead.
+- **Backup status**: each book card and the top bar show when the book was last backed up. A reminder bar appears when a book hasn't been backed up for 7 days.
+- **Milestones**: save a named copy of the whole book ("Sent to editor", "Proof 1") from the top-bar backup menu or the History tab. Compare any page with a milestone word by word, and restore one page (a snapshot of the current text is taken first, so it can be undone). Milestones are included in backups.
+- **Storage health** (Settings → Backups, and the library footer): space used and free, and whether the browser has promised not to clear your books. Booky warns when space runs low and if a save fails.
+
 ### ✍️ Write
 - **Binder** with front matter, body and back matter. Drag and drop to reorder, filter, set status labels (To Do → Final), and choose per page whether it appears in print, in the ebook, or both.
 - **Every standard book page**, each ready to fill in: half title, series page, *Also by*, frontispiece, title page, copyright, dedication, epigraph, table of contents (generated automatically), list of illustrations, foreword, preface, introduction, prologue, parts, chapters, interludes, epilogue, afterword, acknowledgments, appendix, glossary, notes, bibliography, index, about the author, reading-group guide, excerpt, newsletter / call to action, colophon, blank pages and custom pages.

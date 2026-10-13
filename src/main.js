@@ -3,6 +3,8 @@ import './styles/app.css';
 import { installFonts } from './core/fonts.js';
 import { state, loadAppSettings, on, openBook, closeBook } from './core/store.js';
 import { requestPersistence } from './core/db.js';
+import { startBackups } from './core/backup-folder.js';
+import { storageWarning } from './ui/backup-ui.js';
 import { renderLibrary } from './ui/library.js';
 import { renderWorkspace } from './ui/workspace.js';
 import { clear, toast } from './ui/dom.js';
@@ -40,6 +42,9 @@ async function boot() {
   on('app', (p) => { if (['theme', 'colorScheme', 'customPrimary', 'customAccent', 'animations'].some((k) => k in p)) applyTheme(); if ('sidebar' in p) document.querySelectorAll('.binder').forEach((b) => b.classList.toggle('deep', p.sidebar !== 'light')); });
   requestPersistence();
   initDesktop();
+  startBackups();
+  setTimeout(() => storageWarning(), 3000);
+  on('saving', (st) => { if (st === 'error') storageWarning(); });
   window.addEventListener('hashchange', route);
   await route();
   const splash = document.getElementById('splash');
