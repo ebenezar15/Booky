@@ -22,6 +22,7 @@ jobs:
             target: --win
             files: |
               release/desktop/*.exe
+              release/Booky.html
           - os: macos-latest
             target: --mac
             files: |
@@ -59,4 +60,4 @@ jobs:
             **Windows:** download `Booky-Setup-${{ steps.version.outputs.v }}.exe` (installer) or the `portable` .exe.
             **Mac:** `Booky-${{ steps.version.outputs.v }}-mac-arm64.dmg` for Apple Silicon (M1–M4), `…-mac-x64.dmg` for Intel Macs.
             First launch: Windows → “More info” → “Run anyway”. Mac → System Settings → Privacy & Security → “Open Anyway”.
-            Prefer no install? Use Booky in your browser: https://ebenezar15.github.io/Booky/
+            **No install:** download `Booky.html` and double-click it (works offline in Chrome, Edge, Firefox or Safari), or use Booky in your browser: https://ebenezar15.github.io/Booky/
