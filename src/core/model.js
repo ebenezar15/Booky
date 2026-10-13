@@ -3,6 +3,7 @@ import { PAGE_TEMPLATES } from './pages.js';
 import { defaultFormat } from './themes.js';
 import { defaultCover } from './cover-defaults.js';
 import { deepMerge } from './util-merge.js';
+import { normalizeStyleSheet } from './consistency.js';
 
 export { deepMerge };
 
@@ -144,6 +145,7 @@ export function normalizeBook(b) {
   book.goals = { ...base.goals, ...(b.goals || {}) };
   book.settings = { ...base.settings, ...(b.settings || {}) };
   book.bible = Array.isArray(b.bible) ? b.bible : [];
+  book.styleSheet = normalizeStyleSheet(b.styleSheet);
   book.reviews = b.reviews && typeof b.reviews === 'object' ? b.reviews : { reviewers: [], comments: [], overall: [], rounds: [] };
   book.elements = (b.elements || []).map((e) => {
     const fresh = createElement(e.type || 'custom');

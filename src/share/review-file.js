@@ -2,6 +2,7 @@
 import viewerJs from './viewer-runtime.js?raw';
 import viewerCss from './viewer.css?raw';
 import { renderSections } from '../render/book.js';
+import { normalizeStyleSheet, styleSheetHtml } from '../core/consistency.js';
 import { ebookCss } from '../render/css.js';
 import { fontFaceCss, fontsUsedBy } from '../core/fonts.js';
 import { escapeHtml, uid } from '../core/model.js';
@@ -32,6 +33,12 @@ export async function buildReviewHtml(book, reviewer, opts) {
       id: s.el.id, anchor: s.anchor, title: s.nav || s.title || '',
       html: s.html.replace('<section ', `<section data-title="${escapeHtml(s.nav || s.title || '')}" `),
     }));
+  // The house style sheet travels with the copy as a last page, so reviewers follow the same choices.
+  const sheet = normalizeStyleSheet(book.styleSheet);
+  if (sheet.words.length || book.styleSheet?.shared !== false) {
+    const body = styleSheetHtml(book, sheet).match(/<body>([\s\S]*)<\/body>/)[1];
+    sections.push({ id: 'style-sheet', anchor: 's-style-sheet', title: 'Style sheet', html: `<section class="bk-sec bk-style-sheet" id="s-style-sheet" data-el="style-sheet" data-title="Style sheet"><div class="bk-content">${body}</div></section>` });
+  }
   const payload = {
     bookId: book.id, bookTitle: book.meta.title, author: book.meta.author, authorName: opts.authorName || book.meta.author,
     authorEmail: opts.authorEmail || '', roundId, reviewer: { id: reviewer.id, name: reviewer.name, email: reviewer.email, color: reviewer.color },

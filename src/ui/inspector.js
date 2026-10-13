@@ -184,6 +184,7 @@ export function renderInspector(host) {
       body.appendChild(h('div.snap-item',
         icon('clock', 15),
         h('div', h('b', s.name), h('small', `${timeAgo(s.date)} · ${words.toLocaleString()} words`)),
+        iconBtn('git-compare', 'Compare with the current text', () => import('./editing-tools.js').then((m) => m.compareDialog(state.book, { title: s.name, oldHtml: s.content, el }))),
         iconBtn('rotate-ccw', 'Restore this version', async () => {
           if (!(await confirmDialog('Restore snapshot?', 'The current text will be replaced. A snapshot of the current version is taken first, so you can undo this.', { okLabel: 'Restore' }))) return;
           takeSnapshot(el, 'Before restore');

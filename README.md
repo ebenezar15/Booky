@@ -156,6 +156,23 @@ API keys are stored only on this computer (Settings → Voice & translation) and
 - **Repetition**: similar or duplicate sentences anywhere in the book, repeated phrases, runs of sentences that start the same way, and echo words used twice within a few lines.
 - **Originality (plagiarism check)**: compares your manuscript, 7+ words at a time, with famous passages and quotations, your other Booky projects, and any reference texts you add (paste or import .docx/.txt/.md/.html). It reports an originality percentage and every matching passage. This runs offline, so it cannot search the internet; a **Search online** button checks a suspicious passage on the web when you are connected.
 
+### 🧹 Editing and consistency (Review screen)
+- **Style sheet** — the record a copyeditor keeps for a book:
+  - US, UK or Indian English spelling (this also changes spell-check, so *colour* and *realised* are accepted in UK and Indian books);
+  - serial comma, dash style, quotation marks, ellipses, numbers, percentages and dates;
+  - a word list of chosen spellings, capitalisation and hyphenation, which can be filled from the story bible.
+  - Print it for your copyeditor. It also goes with review copies as a last page.
+- **Consistency**: finds variant spellings in the same book (*colour/color*, *e-mail/email*, *judgement/judgment*), forms that differ from the word list or from the first use, numbers, dashes, quotes, ellipses and serial commas that break the style sheet, and **character-name near-misses** (*Meenatchi* for the story-bible name *Meenakshi*). Each finding offers *Show*, *Fix this*, *Fix all* (a snapshot is taken first) and *Add to style sheet*.
+- **Typography**: one-click clean-up with a preview of every change:
+  - curly quotes and apostrophes (’90s too), one-character ellipses, single spaces, and no space before punctuation (French books get thin spaces);
+  - no-break spaces in “5 km”, “Dr. Rao”, “Chapter 12” and “page 4”.
+  - The same tidying happens when you paste.
+- **Clean paste from Word and Google Docs**: headings, quotes, bold, italic, underline, small caps and footnotes come through. Fonts, colours, sizes and stray spans are dropped. *Paste as plain text* is in the right-click menu (or Ctrl+Shift+V).
+- **Hand formatting**: lists text whose font, size or colour was set by hand (which wouldn't follow your design), with *Clear*, *Clear all* or *Use a style…*.
+- **Compare versions**: compare any snapshot or milestone with the current text, word by word, and *Restore this paragraph*.
+- **Script check** for Indian languages and Urdu: finds text not in standard (NFC) form, stray zero-width joiners, Latin letters or digits inside words, letters from another script, doubled vowel signs, and — in Urdu — Arabic look-alike letters (ي ك ه instead of ی ک ہ), with *Fix all*.
+- **Spelling for other languages**: Booky can't bundle Indian-language or Urdu dictionaries — the free ones are under licences (GPL, MPL) that don't fit Booky's. Import a Hunspell dictionary (.aff + .dic) in Settings → Proofing, and Booky checks spelling as you write.
+
 ### 💬 Feedback (private review copies)
 Share your book with editors, beta readers or friends. Only the people you invite can read it, and they can comment but not change it.
 1. **Invite**: Feedback → *Invite reviewer* → enter their name and email. Booky creates a **review copy** (one HTML file) that is **encrypted** and locked to that email address plus a passcode. You can set it to expire after 7, 14, 30 or 90 days.

@@ -17,7 +17,7 @@ import { Annotations } from '../editor/annotations.js';
 import { isEnglish, isRtl, langInfo } from '../core/languages.js';
 import { ensureReviews, COMMENT_TYPES } from '../core/feedback.js';
 import { reviewerById, setStatus, applySuggestion, goNext } from './feedback-actions.js';
-import { suggest, addToDictionary, ignoreWord, initSpell } from '../lang/spell.js';
+import { suggest, addToDictionary, ignoreWord, initSpell, applyBookSpelling } from '../lang/spell.js';
 import { synonymsFor } from '../lang/thesaurus.js';
 import { rephrase } from '../lang/rephrase.js';
 import { renderSections } from '../render/book.js';
@@ -25,6 +25,9 @@ import { toggleBinder, toggleInspector } from './workspace.js';
 import { originalPane } from './translate.js';
 import { suggestForSelection } from './translate-suggest.js';
 import { addToIndexDialog, crossRefDialog, openIndexPanel } from './index-panel.js';
+import { cleanPastedHtml } from '../editor/paste.js';
+import { cleanText } from '../core/typography.js';
+import { textToHtml } from '../import/text.js';
 import { startVoice, pickEngine, localesFor, shapeTranscript } from '../lang/voice.js';
 
 let editor = null;
@@ -35,7 +38,11 @@ const COLORS = ['#000000', '#444444', '#888888', '#b91c1c', '#c2410c', '#a16207'
 const HIGHLIGHTS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa', '#e9d5ff'];
 
 function proofSettings() {
-  if (!isEnglish(state.book?.meta.language)) return { spell: false, grammar: false, style: false, fiction: false };
+  if (!isEnglish(state.book?.meta.language)) {
+    // other languages: spelling only, and only with a dictionary the author imported (Settings → Proofing)
+    const lang = String(state.book?.meta.language || '').split('-')[0];
+    return { spell: state.app.spellcheck !== false && state.spellLang === lang, grammar: false, style: false, fiction: false };
+  }
   return { spell: state.app.spellcheck !== false, grammar: state.app.grammar !== false, style: state.app.styleHints !== false, fiction: state.app.fictionHints !== false };
 }
 
@@ -398,11 +405,10 @@ export function renderEditor(host) {
       ],
       editorProps: {
         // English is checked by Booky's own dictionary; other languages use the browser's spell checker if it has one.
-        attributes: { spellcheck: isEnglish(book.meta.language) ? 'false' : 'true', lang: book.meta.language || 'en', dir: isRtl(book.meta.language) ? 'rtl' : 'ltr', class: 'book-prose', 'aria-label': 'Manuscript text' },
-        transformPastedHTML: (html) => html
-          .replace(/<!--[\s\S]*?-->/g, '')
-          .replace(/\sstyle="([^"]*)"/gi, (m, s) => { const a = s.match(/text-align:\s*(center|right|justify)/i); return a ? ` style="text-align:${a[1]}"` : ''; })
-          .replace(/<\/?(font|o:p)[^>]*>/gi, ''),
+        attributes: { spellcheck: isEnglish(book.meta.language) || state.spellLang === String(book.meta.language).split('-')[0] ? 'false' : 'true', lang: book.meta.language || 'en', dir: isRtl(book.meta.language) ? 'rtl' : 'ltr', class: 'book-prose', 'aria-label': 'Manuscript text' },
+        // Word / Google Docs / web: keep structure and emphasis, drop fonts, colours and sizes; tidy typography
+        transformPastedHTML: (html) => cleanPastedHtml(html, { typography: state.app.smartQuotes !== false, lang: book.meta.language || 'en' }),
+        transformPastedText: (text) => (state.app.smartQuotes !== false ? text.split('\n').map((line) => cleanText(line, '', { lang: book.meta.language || 'en' })).join('\n') : text),
         handleClickOn: (view, pos, node, nodePos, event) => {
           if (node.type.name === 'footnote') { editFootnote(nodePos, node); return true; }
           if (node.type.name === 'indexMark') { toast(`Index: ${node.attrs.term}${node.attrs.sub ? ` › ${node.attrs.sub}` : ''} — right-click → Index terms… to rename or delete`, 'info', 3200); return false; }
@@ -534,6 +540,12 @@ export function renderEditor(host) {
     items.push({ label: 'Rephrase sentence…', icon: 'wand-sparkles', hint: 'Ctrl Alt R', onClick: () => openRephrase(posInfo && sel.empty ? { at: posInfo.pos } : null) });
     items.push({ label: 'Copy', icon: 'copy', disabled: sel.empty, onClick: () => document.execCommand('copy') });
     items.push({ label: 'Cut', icon: 'copy', disabled: sel.empty, onClick: () => document.execCommand('cut') });
+    items.push({ label: 'Paste as plain text', icon: 'text-quote', hint: 'Ctrl Shift V', onClick: async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) editor.chain().focus().insertContent(textToHtml(text)).run();
+      } catch { toast('The browser didn’t allow reading the clipboard — press Ctrl+Shift+V (⌘⇧V on Mac) instead.', 'warn', 5000); }
+    } });
     items.push({ divider: true });
     items.push({ label: 'Insert footnote', icon: 'sticky-note', onClick: () => insertFootnote() });
     items.push({ label: 'Insert scene break', icon: 'asterisk', onClick: () => editor.chain().focus().insertSceneBreak().run() });
@@ -741,7 +753,7 @@ export function renderEditor(host) {
   document.addEventListener('keydown', onKey);
 
   mount();
-  initSpell().then(() => editor?.storage.proofing.schedule(10));
+  initSpell().then(() => applyBookSpelling(book)).then(() => editor?.storage.proofing.schedule(10));
 
   const offs = [
     on('select', () => { if (findBar) { findBar.remove(); findBar = null; } mount(); }),

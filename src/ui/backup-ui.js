@@ -171,6 +171,11 @@ export function restoreChapter(book, milestone, elId) {
 export function compareDialog(book, milestone, elId) {
   const old = milestone.elements.find((e) => e.id === elId);
   const cur = book.elements.find((e) => e.id === elId);
+  // both exist: compare paragraph by paragraph, with "restore this paragraph"
+  if (old && cur) {
+    import('./editing-tools.js').then((m) => m.compareDialog(book, { title: milestone.name, oldHtml: old.content, el: cur, onRestoreAll: () => { restoreChapter(book, milestone, elId); toast('Page restored', 'success'); } }));
+    return;
+  }
   const a = htmlToText(old?.content || ''), b = htmlToText(cur?.content || '');
   const parts = diffWords(a, b);
   const stats = diffStats(parts);

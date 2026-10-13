@@ -7,6 +7,7 @@ import { appearancePanel } from './appearance.js';
 import { translationSettingsPanel } from './translate.js';
 import { cloudSettingsPanel } from './cloud-settings.js';
 import { backupSettingsPanel } from './backup-ui.js';
+import { dictionaryPanel } from './editing-tools.js';
 
 export const SHORTCUTS = [
   ['Bold / Italic / Underline', 'Ctrl B / I / U'],
@@ -62,6 +63,7 @@ export function openSettings(tab = 'general') {
           toggle(state.app.styleHints, (v) => setApp({ styleHints: v }), 'Style suggestions (wordiness, passive voice, clichés, weak words)'),
           toggle(state.app.fictionHints !== false, (v) => setApp({ fictionHints: v }), 'Fiction hints (filter words like “felt”, “saw”, “realized”)'),
         ),
+        h('div', { style: { marginTop: '18px' } }, dictionaryPanel()),
         h('div.section-title', { style: { marginTop: '22px' } }, 'Personal dictionary'),
         dict,
         state.app.ignored?.length ? btn(`Clear ${state.app.ignored.length} ignored word(s)`, { kind: 'ghost', cls: 'btn-sm', onClick: () => { setApp({ ignored: [] }); toast('Ignored words cleared'); } }) : null,
