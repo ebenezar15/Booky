@@ -132,6 +132,23 @@ export function renderWorkspace(root) {
     () => viewCleanup.forEach((f) => f && f()),
   );
 
+  // narrow screens: the side panels are drawers over the page; a tap outside closes them
+  const narrow = matchMedia('(max-width: 900px)');
+  const onOutside = (e) => {
+    if (!narrow.matches || e.target.closest('.modal-overlay, .menu, .popover, .toast')) return;
+    for (const [sel, key] of [['.binder', 'showBinder'], ['.inspector', 'showInspector']]) {
+      const panel = root.querySelector(`${sel}.open`);
+      if (panel && !panel.contains(e.target) && !e.target.closest('[title^="Toggle side panel"], [title^="Toggle manuscript panel"]')) togglePanel(sel, key);
+    }
+  };
+  const onEsc = (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented || !narrow.matches || document.querySelector('.modal-overlay:not(.closing), .menu')) return;
+    for (const [sel, key] of [['.binder', 'showBinder'], ['.inspector', 'showInspector']]) if (root.querySelector(`${sel}.open`)) { togglePanel(sel, key); e.preventDefault(); }
+  };
+  document.addEventListener('mousedown', onOutside);
+  document.addEventListener('keydown', onEsc);
+  cleanup.push(() => { document.removeEventListener('mousedown', onOutside); document.removeEventListener('keydown', onEsc); });
+
   const onKey = (e) => {
     const mod = e.ctrlKey || e.metaKey;
     if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'p') { e.preventDefault(); openQuickJump(book); }

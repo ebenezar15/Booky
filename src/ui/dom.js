@@ -120,19 +120,29 @@ export function celebrate(from) {
 
 // ---------- modals ----------
 export function modal({ title, body, footer, width = 560, onClose, cls = '' }) {
-  const close = () => { overlay.classList.remove('show'); setTimeout(() => overlay.remove(), 180); document.removeEventListener('keydown', onKey); onClose?.(); };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  // the same dialog asked for twice (a double click, a shortcut pressed twice) is shown once
+  const open = [...document.querySelectorAll('.modal-overlay')].find((o) => o.dataset.title === title && !o.classList.contains('closing'));
+  if (open?._handle) { open._handle.box.querySelector('input, textarea, select, button')?.focus(); return open._handle; }
+  let closed = false;
+  const close = () => { if (closed) return; closed = true; overlay.classList.add('closing'); overlay.classList.remove('show'); setTimeout(() => overlay.remove(), 180); document.removeEventListener('keydown', onKey); onClose?.(); };
+  // Escape closes only the dialog on top, and leaves it alone while a menu is open over it
+  const onKey = (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('.menu')) return;
+    const top = [...document.querySelectorAll('.modal-overlay:not(.closing)')].pop();
+    if (top === overlay) { e.preventDefault(); close(); }
+  };
   const box = h(`div.modal${cls ? '.' + cls : ''}`, { role: 'dialog', 'aria-modal': 'true', 'aria-label': title, style: { width: `min(${width}px, calc(100vw - 32px))` } },
     h('header.modal-head', h('h2', title), iconBtn('x', 'Close', close)),
     h('div.modal-body', body),
     footer ? h('footer.modal-foot', footer) : null,
   );
-  const overlay = h('div.modal-overlay', { on: { mousedown: (e) => { if (e.target === overlay) close(); } } }, box);
+  const overlay = h('div.modal-overlay', { dataset: { title }, on: { mousedown: (e) => { if (e.target === overlay) close(); } } }, box);
   document.body.appendChild(overlay);
   document.addEventListener('keydown', onKey);
   requestAnimationFrame(() => overlay.classList.add('show'));
   setTimeout(() => box.querySelector('input, textarea, select, button.btn-primary')?.focus(), 50);
-  return { close, box, overlay };
+  overlay._handle = { close, box, overlay };
+  return overlay._handle;
 }
 
 export function confirmDialog(title, message, { okLabel = 'OK', danger = false } = {}) {
@@ -170,7 +180,7 @@ export function promptDialog(title, label, value = '', { multiline = false, okLa
 let openMenu = null;
 export function closeMenu() { openMenu?.remove(); openMenu = null; }
 document.addEventListener('mousedown', (e) => { if (openMenu && !openMenu.contains(e.target)) closeMenu(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openMenu) { closeMenu(); e.preventDefault(); } });
 
 /** items: [{label, icon, onClick, danger, checked, sub:[], divider:true, hint}] */
 export function menu(anchorOrPoint, items, { align = 'left', cls = '' } = {}) {
