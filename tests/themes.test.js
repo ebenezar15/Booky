@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
+import { FONT_LIST } from '../scripts/font-list.mjs';
 import { THEMES, DESIGN_CATEGORIES, applyTheme, defaultFormat, findThemes, mixThemes } from '../src/core/themes.js';
 
-const fonts = new Set(JSON.parse(fs.readFileSync(new URL('../src/fonts/catalog.json', import.meta.url))).map((f) => f.name));
+// the bundled fonts (src/fonts/catalog.json is generated from this list at build time)
+const fonts = new Set(FONT_LIST.map((f) => f.name));
 
 test('at least 100 designs, every one unique, categorised and using built-in fonts', () => {
   const all = Object.entries(THEMES);
