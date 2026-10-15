@@ -71,7 +71,7 @@ export async function renderLibrary(root) {
         h('span.grow'),
         h('span.muted.small', `${books.length} project${books.length === 1 ? '' : 's'} · ${totalWords.toLocaleString()} words written`)),
       grid)
-    : h('div.empty-state', icon('feather', 34), h('h3', 'Your shelf is empty'), h('p', 'Start a new book from a template below, or import an existing manuscript (Word, Apple Pages, Markdown, text).'));
+    : h('div.empty-state', icon('feather', 34), h('h3', 'Your shelf is empty'), h('p', 'Start a new book from a template above, or import an existing manuscript (Word, Apple Pages, Markdown, text).'));
 
   const lib = h('main.library',
     h('section.lib-hero',

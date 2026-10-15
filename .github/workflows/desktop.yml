@@ -57,6 +57,8 @@ jobs:
           make_latest: true
           files: ${{ matrix.files }}
           body: |
+            **New in 2.1:** Writing assistant (paraphrase in 7 modes, grammar & punctuation fixes, summaries, QuillBot/Grammarly hand-off) · punctuation checker for every language · Avenir Next and all your computer's fonts, 142 built-in fonts · 124 design templates with mixing · Apple Pages and finished-cover import · Mac read-aloud and dictation with the Mac's own voices · smoother animations.
+
             **Windows:** download `Booky-Setup-${{ steps.version.outputs.v }}.exe` (installer) or the `portable` .exe.
             **Mac:** `Booky-${{ steps.version.outputs.v }}-mac-arm64.dmg` for Apple Silicon (M1–M4), `…-mac-x64.dmg` for Intel Macs.
             First launch: Windows → “More info” → “Run anyway”. Mac → System Settings → Privacy & Security → “Open Anyway”.

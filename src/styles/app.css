@@ -242,7 +242,7 @@ select.input { padding-right: 26px; appearance: none; background-image: linear-g
 .save-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; }
 .save-dot.pending, .save-dot.saving { background: var(--warning); }
 .save-dot.error { background: var(--danger); }
-.modes { display: flex; gap: 2px; background: var(--surface-3); padding: 4px; border-radius: 11px; margin: 0 auto; }
+.modes { display: flex; gap: 2px; background: var(--surface-3); padding: 4px; border-radius: 11px; margin: 0 auto; position: relative; }
 .mode-tab { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; border-radius: 8px; border: 0; background: transparent; cursor: pointer; font-weight: 600; color: var(--text-2); font-size: 13px; }
 .mode-tab:hover { color: var(--text); }
 .mode-tab.on { background: var(--surface); color: var(--primary); box-shadow: var(--shadow-sm); }
@@ -920,3 +920,33 @@ a.btn { text-decoration: none; }
 .imp-cover { display: flex; gap: 12px; align-items: flex-start; }
 .imp-cover img { width: 96px; border-radius: 6px; box-shadow: 0 6px 18px -8px rgba(0,0,0,.45); }
 .warn-text { color: var(--warn, #b45309); }
+
+/* ---------- polish & motion ---------- */
+.mode-pill { position: absolute; top: 4px; left: 4px; height: 32px; border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-sm); opacity: 0; pointer-events: none; }
+.mode-pill.ready { opacity: 1; transition: transform .38s var(--ease-spring), width .38s var(--ease-spring), opacity .2s; }
+.modes.has-pill .mode-tab { position: relative; z-index: 1; }
+.modes.has-pill .mode-tab.on { background: transparent; box-shadow: none; }
+.acc.open .acc-body { animation: acc-open .26s var(--ease-out) both; }
+@keyframes acc-open { from { opacity: 0; transform: translateY(-4px); } }
+.btn-primary { position: relative; overflow: hidden; isolation: isolate; }
+.btn-primary::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.28) 50%, transparent 70%); transform: translateX(-120%); transition: transform .7s var(--ease-out); pointer-events: none; }
+.btn-primary:hover:not(:disabled)::after { transform: translateX(120%); }
+.book-card:nth-child(2) { animation-delay: .04s; } .book-card:nth-child(3) { animation-delay: .08s; } .book-card:nth-child(4) { animation-delay: .12s; }
+.book-card:nth-child(5) { animation-delay: .16s; } .book-card:nth-child(6) { animation-delay: .2s; } .book-card:nth-child(n+7) { animation-delay: .24s; }
+.theme-grid .theme-card:nth-child(2n) { animation-delay: .03s; }
+.tpl-card { animation: card-in .45s var(--ease-out) both; }
+.tpl-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md, 0 10px 24px -12px rgba(0,0,0,.25)); }
+.toast .icon { animation: tab-pop .4s var(--ease-spring); }
+.check-item { animation: rise .3s var(--ease-out) both; }
+.check-item:nth-child(n+6) { animation-delay: .05s; } .check-item:nth-child(n+12) { animation-delay: .1s; }
+.export-card:hover, .platform:hover { transform: translateY(-2px); }
+.lib-hero h1 { background-size: 220% 100%; animation: rise .45s var(--ease-out) both, hero-shine 9s ease-in-out infinite alternate; }
+@keyframes hero-shine { to { background-position: 100% 0; } }
+.pf { transition: background-color .2s; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.icon-btn:hover .icon, .btn:hover .icon { transform: scale(1.08); }
+.icon-btn .icon, .btn .icon { transition: transform .2s var(--ease-spring); }
+/* people who ask their system for less motion get (almost) none */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

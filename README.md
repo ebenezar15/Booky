@@ -6,6 +6,15 @@ It takes ideas from Atticus, Reedsy Studio, Scrivener and InDesign and puts them
 
 ---
 
+## New in 2.1
+- **Writing assistant** (Ctrl Alt R): paraphrase in seven modes, fix grammar and punctuation, summarise, and send a passage to QuillBot, Grammarly, LanguageTool or DeepL Write and paste the result back. Runs on your device; no account or key.
+- **Punctuation checker for every language**, as you write and in Review → Punctuation (Urdu ، ؟ ۔, Hindi ।, Spanish ¿ ¡, French spacing, Chinese/Japanese full-width marks…).
+- **Your computer's fonts**: Avenir Next and every other Mac or Windows font, plus 30 more built-in fonts (142 in all).
+- **124 design templates** in 17 genres, searchable, and **Mix templates** to combine parts of several.
+- **Import Apple Pages documents** and **finished covers** (front cover and full print wrap).
+- **Mac voice**: read aloud with the Mac's own voices and dictate with Mac Dictation — no keys or accounts.
+- Smoother motion throughout, and the Booky name now set in Avenir Next.
+
 ## Install the desktop app (Windows & Mac)
 Booky is also an installable app with its own icon. It works the same on Windows and macOS: both use the same engine, so books, layouts and PDFs come out identical.
 
@@ -92,12 +101,12 @@ The app is that one file. Fonts, the English dictionary and every library are bu
   - local words for "Chapter", "Part" and "Contents" (e.g. அத்தியாயம், अध्याय), which you can edit;
   - comfortable line spacing and no hyphenation for Indian scripts;
   - right-to-left layout for Urdu and Arabic, in print and in the ebook.
-- **112 fonts are built in and work offline**, grouped by script in every font menu with the book's own script first:
-  - **English & European (56):** the classic book faces (EB Garamond, Caslon, Baskerville, Crimson, Lora, Merriweather, Source Serif, Literata, Vollkorn…), Times New Roman / Calibri / Cambria-compatible fonts (Tinos, Carlito, Caladea), popular sans-serifs (Inter, Open Sans, Roboto, Lato, Montserrat, Poppins…), display, script and typewriter fonts.
+- **142 fonts are built in and work offline**, grouped by script in every font menu with the book's own script first:
+  - **English & European (86):** the classic book faces (EB Garamond, Caslon, Baskerville, Bodoni, Crimson, Lora, Merriweather, Source Serif, Literata, Vollkorn…), Times New Roman / Calibri / Cambria-compatible fonts (Tinos, Carlito, Caladea), Avenir-style Urbanist, Nunito Sans and Mulish, Futura-style Jost, Didot-style Prata, popular sans-serifs (Inter, Open Sans, Roboto, Lato, Montserrat, Poppins, DM Sans, Manrope…), display, script, handwriting and typewriter fonts.
   - **Tamil (11):** Noto Serif/Sans Tamil, Tiro Tamil, Hind Madurai, Mukta Malar, Catamaran, Pavanam, Arima, Meera Inimai, Baloo Thambi 2, Kavivanar.
   - **Hindi, Marathi, Sanskrit & Nepali (11):** Noto Serif/Sans Devanagari, Tiro Devanagari (Hindi, Marathi, Sanskrit), Martel, Mukta, Hind, Laila, Kalam, Yatra One.
   - **Malayalam, Telugu, Kannada, Bengali, Gujarati, Punjabi, Odia (3–5 each),** plus Urdu (Noto Nastaliq, Gulzar), Arabic and Sinhala.
-  - Fonts installed on your computer (Times New Roman, Georgia, Nirmala UI, Latha, Mangal…) and your own font files can be used too.
+  - **Fonts on your computer**: every font menu has an *On this computer* group with the Mac and Windows fonts found on this machine — Avenir Next, Baskerville, Didot, Futura, Palatino, Hoefler Text, Segoe UI, Tamil Sangam MN, Kohinoor Devanagari, Nirmala UI and more. Settings → Fonts can list every font installed (Chrome, Edge and the desktop app). They print perfectly from your computer; ebooks can't carry them (their licences don't allow it), so each one has a free look-alike that ebooks use (Avenir Next → Urbanist, Futura → Jost, Didot → Prata…). Your own font files can be added too.
 - Only the fonts a book actually uses are embedded in its PDF, EPUB and review copies, so files stay small.
 - **Phonetic typing** for nine Indian scripts: type in English letters and each word turns into the script when you press space, e.g. `vaNakkam` → வணக்கம், `namaste` → नमस्ते. Switch it on and off with the அ button or Ctrl + Shift + Space; right-click the button for the key guide. Ctrl + Z restores the English letters. (Your computer's own Tamil/Hindi keyboards work as well.)
 - English spelling and grammar checks switch off automatically for other languages; the browser's own spell checker is used where it has a dictionary.
@@ -109,8 +118,9 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 - A floating bar shows that Booky is listening, with a live sound level and a Stop button.
 - **Where it works:**
   - In Chrome, Edge and Safari it uses the browser's free speech service.
-  - In the desktop app, add a Google Cloud key with the Speech-to-Text API enabled (Settings → Voice & translation).
-  - Your computer's own dictation also types straight into Booky everywhere: **Windows + H**, or **Fn (🌐) twice** on a Mac.
+  - In the desktop app the microphone turns on your computer's own dictation — **Mac Dictation** or **Windows voice typing** — which types straight into the editor. No account or key is needed, and on recent Macs it runs on the device.
+  - Optionally, a Google Cloud key with the Speech-to-Text API (Settings → Voice & translation) works everywhere.
+  - You can also start your computer's dictation yourself: **Windows + H**, or **Fn (🌐) twice** on a Mac.
 
 ### 🔤 Translate a book
 Turn any book into a **new project in another language**. The original stays untouched.
@@ -147,7 +157,13 @@ API keys are stored only on this computer (Settings → Voice & translation) and
   - Wordy phrases and redundancies.
   - Weak modifiers (with stronger words to use instead), clichés and passive voice.
   - Adverbs on dialogue tags, filter words ("she felt", "he saw") and very long sentences.
-- **Sentence reframing** (Ctrl Alt R or right-click) offers alternatives: simpler, active voice, stronger words, more concise, split in two, reordered, lead with the image or the setting, casual/formal, and varied word choice.
+- **Writing assistant** (Ctrl Alt R, the ✨ toolbar button, or right-click), on your device with no account:
+  - **Paraphrase** a sentence, paragraph or selection in seven modes — Standard, Fluency, Formal, Casual, Simple, Creative and Shorten — with a synonym slider and *Try again*. Changed words are highlighted; click one for other words.
+  - **Grammar & punctuation**: fixes everything that's clearly wrong in one go, in any language.
+  - **Summarize** a scene or chapter in any language, at the length you choose.
+  - **Sentence ideas**: active voice, split in two, reordered, lead with the image or the setting, and more.
+  - **Other apps**: copies the passage and opens QuillBot (paraphraser, grammar checker, summarizer), Grammarly, LanguageTool or DeepL Write; *Paste result back* replaces the passage with their version. In Chrome or Edge, the QuillBot, Grammarly and LanguageTool browser extensions also work right in the editor.
+- **Punctuation checker for every language**: spaces before or after marks, doubled marks, brackets and quotes without a partner, a hyphen used as a dash — plus each script's own marks: the Urdu/Arabic comma, question mark and full stop (، ؟ ؛ ۔), the danda in Hindi, Sanskrit, Nepali, Bengali, Punjabi and Odia (। ॥), Spanish ¿ ¡, French spacing before ; : ! ? and inside « », and full-width marks in Chinese and Japanese. It underlines as you write (turn it off in the editor view settings) and Review → Punctuation lists the whole book with *Fix all*.
 - **Synonyms** from the right-click menu, a **readability score** with grade level, a most-used-words list, and **Proofread whole book** in the Publish tab.
 
 ### 🔬 Review (whole book)
@@ -221,7 +237,8 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
 ### 🎨 Format (interior design)
 - **Customisable templates**: when you create a book you can choose the theme, trim size, body and heading fonts, text size, line spacing, paragraph style, alignment, chapter-number style and drop caps, with a live sample. **Save any book's design as your own template** (Format → My templates). It appears on the home screen and in New book, and you can apply it to other projects.
 - **Word count & statistics**: total words, printed pages, words per page, reading time, and each chapter's word count and starting page.
-- **12 design themes**: Classic, Literary, Modern, Romance, Fantasy, Thriller, Mystery, Non-fiction, Memoir, Children's, Poetry and Academic. Every setting can be fine-tuned.
+- **124 design templates** in 17 genres — Booky originals, literary, romance, fantasy & sci-fi, thriller & mystery, historical, young adult, children's, non-fiction, business, self-help, memoir, poetry, academic, faith, cookbook & lifestyle, classic reprint and modern minimal. Search them by name, mood or font (Format → Design templates). Every setting can be fine-tuned afterwards.
+- **Mix templates** (Format → Mix templates): take the body text, chapter openings, scene breaks, and running heads & page numbers from different templates — or press *Surprise me* — then save the result as your own template.
 - **Trim sizes**: 18 presets (5×8, 5.5×8.5, 6×9, A5, A4, B-format, square, landscape…) plus custom sizes.
 - **Margins**: mirrored margins with gutter guidance, optional bleed and crop marks.
 - **Body text and spacing**: font, size, line spacing, letter spacing, word spacing, justified or left-aligned, hyphenation, first-line indent or block paragraphs, extra space between paragraphs, and widow/orphan control.
@@ -258,6 +275,7 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
 - **Live paginated preview** (Paged.js) shown as spreads or single pages, with zoom and margin guides. For long books, the chapter you're working on appears in under a second while the whole book is typeset in the background. There is also an **ebook preview** on e-reader, phone and tablet frames with light, sepia and dark reading modes.
 
 ### 🖼️ Cover
+- **Use a finished cover** (Cover → Use a finished cover): import a front cover made by a designer or in Canva, Photoshop or Affinity, and optionally the full print cover (back, spine and front in one image). Booky uses them for the ebook and the printed book, and tells you if the shape or resolution doesn't fit the trim size and spine width.
 - **9 cover templates**, gradient, colour or image backgrounds with overlay, and text layers you drag into place. Each layer has its own font, size, colour, alignment, caps, shadow, outline and spacing, and you can add logo or image layers.
 - **Full print wrap**: back cover blurb, spine text, barcode area, and a **spine-width calculator** that uses page count and paper type (white, cream or colour). Bleed and safe-zone guides are shown.
 - Exports: an **ebook cover** (1600 × 2560 JPG and other sizes) and a **print cover** as a PDF or 300-DPI PNG.
@@ -314,7 +332,7 @@ Setup takes one step, described under [Online sharing setup](#online-sharing-set
   - your keywords, with warnings when you go over KDP's 7 keywords or 50 characters.
 
 ### 📥 Import
-Word (.docx), Markdown, plain text, HTML, RTF and Booky backups. Chapters are detected automatically from headings, from "Chapter …" lines or from a custom separator. *Prologue*, *Epilogue*, *Acknowledgments* and similar headings become the matching page types.
+Word (.docx), **Apple Pages (.pages)** — Pages 5 and later and Pages '09, with headings, quotes, bold, italic, underline and small caps — Markdown, plain text, HTML, RTF and Booky backups. Chapters are detected automatically from headings, from "Chapter …" lines or from a custom separator. *Prologue*, *Epilogue*, *Acknowledgments* and similar headings become the matching page types.
 
 ---
 

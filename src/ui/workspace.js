@@ -57,7 +57,7 @@ export function renderWorkspace(root) {
   const top = h('header.topbar',
     brand(() => { save(); location.hash = ''; }),
     h('div.topbar-title', titleEl, h('small', saveDot, saveText, '·', wordsText, chip.el)),
-    h('nav.modes', { role: 'tablist' }, modeBtns),
+    h('nav.modes.has-pill', { role: 'tablist' }, h('span.mode-pill', { 'aria-hidden': 'true' }), modeBtns),
     h('div.topbar-actions',
       btn('Export PDF', { icon: 'file-down', kind: 'primary', cls: 'btn-sm topbar-pdf', onClick: () => exportPdfDialog(book) }),
       iconBtn('book-open-text', 'Book details (title, author, ISBN…)', () => openDetails()),
@@ -83,12 +83,23 @@ export function renderWorkspace(root) {
   add(root, top, banner.el, body);
   cleanup.push(chip.destroy, banner.destroy);
 
+  // the highlight glides to the chosen mode
+  const movePill = () => requestAnimationFrame(() => {
+    const nav = top.querySelector('.modes'), pill = nav?.querySelector('.mode-pill'), on = nav?.querySelector('.mode-tab.on');
+    if (!pill || !on) return;
+    pill.style.width = `${on.offsetWidth}px`;
+    pill.style.transform = `translateX(${on.offsetLeft - 4}px)`;
+    pill.classList.add('ready');
+  });
+  window.addEventListener('resize', movePill);
+  cleanup.push(() => window.removeEventListener('resize', movePill));
   let viewCleanup = [];
   const renderMode = () => {
     viewCleanup.forEach((f) => f && f());
     viewCleanup = [];
     clear(body);
     modeBtns.forEach((b) => b.classList.toggle('on', b.dataset.mode === state.mode));
+    movePill();
     const m = state.mode;
     if (m === 'write') {
       viewCleanup.push(renderBinder(body));
