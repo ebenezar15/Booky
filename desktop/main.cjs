@@ -231,9 +231,10 @@ function buildMenu() {
 }
 
 app.whenReady().then(() => {
-  // Voice typing needs the microphone; nothing else is requested.
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(['media', 'clipboard-sanitized-write', 'clipboard-read'].includes(permission)));
-  session.defaultSession.setPermissionCheckHandler((_wc, permission) => ['media', 'clipboard-sanitized-write', 'clipboard-read'].includes(permission));
+  // Voice typing needs the microphone; "Show all fonts on this computer" needs local-fonts.
+  const allowed = ['media', 'clipboard-sanitized-write', 'clipboard-read', 'local-fonts'];
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(allowed.includes(permission)));
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed.includes(permission));
   buildMenu();
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

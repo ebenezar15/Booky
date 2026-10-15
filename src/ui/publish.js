@@ -7,6 +7,7 @@ import { h, icon, btn, clear, modal, toast, downloadBlob, slugify, add, celebrat
 import { exportPdfDialog } from './pdf-dialog.js';
 import { confirmNoPlaceholders, openMarkersPanel } from './writing-tools.js';
 import { state, setMode, save, selectElement, touch } from '../core/store.js';
+import { fontsUsedBy, BUNDLED_FONTS, lookalikeFor } from '../core/fonts.js';
 import { bookWords, elementWords, displayTitle, htmlToText, ELEMENT_TYPES, orderedElements } from '../core/model.js';
 import { findPlaceholders } from '../core/writing.js';
 import { countChanges } from '../core/track.js';
@@ -152,6 +153,8 @@ function preflight(book) {
   check(ph.length ? 'bad' : 'ok', 'Placeholders (TK, XX, [[…]], ???)', ph.length ? `${ph.length} left to fill in — exports ask before going ahead` : `None${notes ? ` · ${notes} note${notes === 1 ? '' : 's'} to self (never exported)` : ''}`, ph.length || notes ? () => openMarkersPanel(book) : null);
   const marks = collectIndexMarks(els);
   if (marks.length && !has('index')) check('warn', 'Index', `${marks.length} index entries but no Index page — add one from the left-hand panel`, null);
+  const computer = [...fontsUsedBy(book)].filter((f) => !BUNDLED_FONTS.includes(f) && !state.app.customFonts.some((c) => c.name === f));
+  if (computer.length) check('warn', 'Fonts from this computer', `${computer.join(', ')} — print exports from this computer are fine; ebooks use ${computer.map((f) => lookalikeFor(f) || 'the reader’s own font').join(', ')} instead`, () => setMode('format'));
   check(book.cover.background.type === 'image' && book.cover.background.image ? 'ok' : 'warn', 'Cover artwork', book.cover.background.type === 'image' ? 'Custom artwork' : 'Using a typographic cover — fine, or add artwork', () => setMode('cover'));
 
   const list = h('div.checklist');

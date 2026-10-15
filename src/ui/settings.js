@@ -1,7 +1,7 @@
 // App-wide settings: appearance, proofing, personal dictionary, custom fonts, shortcuts.
 import { h, btn, icon, iconBtn, modal, toggle, field, pickFile, toast, segmented, clear, add, input } from './dom.js';
 import { state, setApp } from '../core/store.js';
-import { addCustomFont, removeCustomFont, BUNDLED_FONTS, fontStack } from '../core/fonts.js';
+import { addCustomFont, removeCustomFont, BUNDLED_FONTS, fontStack, SYSTEM_FONTS, isInstalled, scanComputerFonts, canScanFonts, lookalikeFor } from '../core/fonts.js';
 import { removeFromDictionary } from '../lang/spell.js';
 import { appearancePanel } from './appearance.js';
 import { translationSettingsPanel } from './translate.js';
@@ -87,6 +87,12 @@ export function openSettings(tab = 'general') {
           drawFonts();
         } }),
         h('div.section-title', { style: { marginTop: '18px' } }, 'Your fonts'), list,
+        h('div.section-title', { style: { marginTop: '18px' } }, 'Fonts on this computer'),
+        h('p.muted.small', 'Fonts that came with your Mac or Windows PC (Avenir Next, Baskerville, Didot, Futura, Palatino, Segoe UI…) appear in every font menu under “On this computer”. They print perfectly from this computer. Ebooks can’t carry them (their licence doesn’t allow it), so ebooks use the free look-alike shown in brackets.'),
+        h('div.sys-fonts', SYSTEM_FONTS.filter(isInstalled).map((f) => h('div', { style: { fontFamily: fontStack(f) }, title: lookalikeFor(f) ? `Ebooks use ${lookalikeFor(f)}` : '' }, f, lookalikeFor(f) ? h('small.muted', ` → ${lookalikeFor(f)}`) : null))),
+        canScanFonts() ? btn(state.app.computerFonts?.length ? `Rescan all fonts (${state.app.computerFonts.length} found)` : 'Show every font on this computer…', { icon: 'search', onClick: async () => {
+          try { const n = await scanComputerFonts(); toast(n ? `${n.length} fonts found — they’re now in every font menu` : 'This browser can’t list fonts', n ? 'success' : 'warn'); } catch { toast('Font access was blocked. Allow it when the browser asks, then try again.', 'warn', 6000); }
+        } }) : null,
         h('div.section-title', { style: { marginTop: '18px' } }, 'Built-in fonts'),
         h('div', { style: { columns: 2, fontSize: '15px' } }, BUNDLED_FONTS.map((f) => h('div', { style: { fontFamily: fontStack(f), padding: '3px 0' } }, f))),
       );
@@ -99,7 +105,7 @@ export function openSettings(tab = 'general') {
     if (t === 'about') {
       add(body, 
         h('div.row', { style: { gap: '14px', marginBottom: '12px' } }, h('span.brand-mark', { style: { width: '48px', height: '48px' } }, icon('book-open', 26)),
-          h('div', h('h3', { style: { margin: 0 } }, 'Booky'), h('span.muted', 'Offline book writing, formatting & publishing studio'))),
+          h('div', h('h3.logo-word', { style: { margin: 0, fontSize: '22px' } }, 'Booky'), h('span.muted', 'Offline book writing, formatting & publishing studio'))),
         h('p', 'Write your manuscript, organise chapters, check spelling and grammar, design a professional interior, create a cover and export print-ready PDF, EPUB, DOCX and more — completely offline.'),
         h('p.muted.small', 'Built with TipTap / ProseMirror, Paged.js, nspell + Hunspell English dictionary, Mammoth, JSZip and open-licence fonts (SIL OFL).'),
       );

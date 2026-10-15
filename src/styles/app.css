@@ -8,6 +8,7 @@
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-serif: 'Lora', Georgia, serif;
   --font-display: 'Playfair Display', Georgia, serif;
+  --font-logo: 'Avenir Next', 'Avenir', 'Urbanist', 'Nunito Sans', system-ui, sans-serif;
 
   --primary: var(--primary-base, #7c3aed);
   --primary-2: color-mix(in srgb, var(--primary-base, #7c3aed) 85%, #000);
@@ -233,7 +234,7 @@ select.input { padding-right: 26px; appearance: none; background-image: linear-g
   height: 56px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 14px;
   background: var(--surface); border-bottom: 1px solid var(--border); position: relative; z-index: 20;
 }
-.brand { display: flex; align-items: center; gap: 9px; font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: -.01em; cursor: pointer; user-select: none; color: var(--text); }
+.brand { display: flex; align-items: center; gap: 9px; font-family: var(--font-logo); font-weight: 600; font-size: 21px; letter-spacing: -.015em; cursor: pointer; user-select: none; color: var(--text); }
 .brand-mark { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: var(--grad); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--primary) 70%, transparent); }
 .topbar-title { display: flex; flex-direction: column; min-width: 0; padding-left: 12px; border-left: 1px solid var(--border); }
 .topbar-title b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; cursor: pointer; }
@@ -906,3 +907,7 @@ a.btn { text-decoration: none; }
 .tc-item { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
 .tc-text { font-family: var(--font-serif); font-size: 15px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .tc-text ins { color: #047857; text-decoration: underline; } .tc-text del { color: #b91c1c; }
+
+.sys-fonts { columns: 2; font-size: 15px; margin: 8px 0 12px; }
+.sys-fonts > div { padding: 3px 0; break-inside: avoid; }
+.logo-word { font-family: var(--font-logo); font-weight: 600; letter-spacing: -.015em; }
