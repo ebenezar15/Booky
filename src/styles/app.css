@@ -917,3 +917,6 @@ a.btn { text-decoration: none; }
 .sys-fonts { columns: 2; font-size: 15px; margin: 8px 0 12px; }
 .sys-fonts > div { padding: 3px 0; break-inside: avoid; }
 .logo-word { font-family: var(--font-logo); font-weight: 600; letter-spacing: -.015em; }
+.imp-cover { display: flex; gap: 12px; align-items: flex-start; }
+.imp-cover img { width: 96px; border-radius: 6px; box-shadow: 0 6px 18px -8px rgba(0,0,0,.45); }
+.warn-text { color: var(--warn, #b45309); }

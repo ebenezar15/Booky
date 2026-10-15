@@ -3,9 +3,10 @@ import { h, icon, btn, iconBtn, clear, field, input, textarea, select, toggle, s
 import { state, touch } from '../core/store.js';
 import { allFonts, fontStack, ensureFontsLoaded, fontOptions } from '../core/fonts.js';
 import { uid } from '../core/model.js';
-import { drawFront, drawWrap, drawGuides, wrapDims } from '../render/cover.js';
+import { drawFront, drawWrap, drawGuides, wrapDims, preloadCover, loadImage, importFit } from '../render/cover.js';
 import { parseIsbn, priceAddon } from '../core/isbn.js';
 import { COVER_TEMPLATES, coverText as T } from '../core/cover-templates.js';
+import { trimOf } from '../core/themes.js';
 
 let selectedLayer = 'title';
 
@@ -103,7 +104,83 @@ export function renderCover(host) {
     const cov = c();
     const bg = cov.background;
     const layer = cov.layers.find((l) => l.id === selectedLayer) || cov.layers[0];
+    const imp = cov.imported || (cov.imported = { front: '', wrap: '' });
+    const readImage = async (accept = 'image/*') => {
+      const f = await pickFile(accept);
+      if (!f) return null;
+      if (!/^image\//.test(f.type)) { toast('Choose a JPG, PNG or WebP image. (Export a PDF cover from your design app as a PNG or JPG first.)', 'warn', 6000); return null; }
+      let data = await compressImage(f, 9000, 0.95);
+      let img = await new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = data; });
+      if (!img) { toast('That image couldn’t be read.', 'error'); return null; }
+      // a big PNG becomes a high-quality JPEG so the book file stays small (covers have no transparency)
+      if (data.startsWith('data:image/png') && data.length > 3e6) {
+        const cv = document.createElement('canvas');
+        cv.width = img.width; cv.height = img.height;
+        const cx = cv.getContext('2d');
+        cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0);
+        data = cv.toDataURL('image/jpeg', 0.95);
+      }
+      return { data, img };
+    };
+    const t = trimOf(book.format);
+    const fitNote = (img, wIn, hIn, what) => {
+      const fit = importFit(img, wIn, hIn);
+      const needW = Math.round(wIn * 300);
+      const notes = [];
+      if (fit.off > 0.03) notes.push(`its shape (${img.width} × ${img.height}) doesn’t match ${what} (${wIn.toFixed(2)} × ${hIn.toFixed(2)} in) — the edges will be ${fit.ratio > fit.want ? 'trimmed at the sides' : 'trimmed top and bottom'}${what.includes('wrap') ? ' or stretched' : ''}`);
+      if (img.width < needW * 0.95) notes.push(`it is ${img.width} px wide; print needs about ${needW} px (300 DPI)`);
+      return notes;
+    };
+    const importedSection = ['imported', 'upload', 'Use a finished cover', [
+      h('p.hint', { style: { marginTop: 0 } }, 'Already have a cover from a designer, Canva, Photoshop or Affinity? Import it here and Booky uses it for the ebook and the printed book instead of designing one.'),
+      imp.front
+        ? h('div.imp-cover', h('img', { src: imp.front, alt: 'Imported front cover' }),
+          h('div.col', { style: { gap: '6px' } },
+            h('b', 'Front cover imported'),
+            ...(() => { const img = loadImage(imp.front, () => drawPane()); return img ? fitNote(img, t.w, t.h, 'the trim size').map((n) => h('span.small.warn-text', `⚠ ${n}`)) : []; })(),
+            btn('Replace front cover…', { cls: 'btn-sm', icon: 'upload', onClick: async () => { const r = await readImage(); if (r) { imp.front = r.data; change(true); toast('Front cover replaced', 'success'); } } }),
+            btn('Design in Booky instead', { cls: 'btn-sm', kind: 'ghost', icon: 'brush', onClick: () => { imp.front = ''; imp.wrap = ''; change(true); } })))
+        : btn('Import front cover image…', { icon: 'upload', kind: 'primary', cls: 'btn-block', onClick: async () => {
+          const r = await readImage();
+          if (!r) return;
+          imp.front = r.data;
+          change(true);
+          const notes = fitNote(r.img, t.w, t.h, 'the trim size');
+          toast(notes.length ? `Imported — but ${notes.join('; ')}` : 'Front cover imported', notes.length ? 'warn' : 'success', notes.length ? 9000 : 2500);
+        } }),
+      imp.front ? h('div', { style: { marginTop: '12px' } },
+        h('div.field-label', 'Full print cover (optional)'),
+        h('p.hint', `A single image with back, spine and front together. At ${wrapDims(book).pages} pages it should be ${wrapDims(book).totalW.toFixed(3)} × ${wrapDims(book).totalH.toFixed(3)} in with bleed (${Math.round(wrapDims(book).totalW * 300)} × ${Math.round(wrapDims(book).totalH * 300)} px at 300 DPI). Without one, Booky builds the back and spine around your front cover.`),
+        imp.wrap ? h('div.row', { style: { gap: '8px', alignItems: 'center' } }, h('img', { src: imp.wrap, alt: 'Imported full cover', style: { height: '60px', borderRadius: '4px', border: '1px solid var(--border)' } }),
+          btn('Replace', { cls: 'btn-sm', onClick: async () => { const r = await readImage(); if (r) { imp.wrap = r.data; change(true); } } }),
+          btn('Remove', { cls: 'btn-sm', kind: 'ghost', onClick: () => { imp.wrap = ''; change(true); } })) : null,
+        imp.wrap ? h('div', ...(() => { const img = loadImage(imp.wrap, () => drawPane()); const d = wrapDims(book); return img ? fitNote(img, d.totalW, d.totalH, 'the full wrap').map((n) => h('p.small.warn-text', `⚠ ${n}`)) : []; })())
+          : btn('Import full print cover…', { icon: 'upload', cls: 'btn-sm', onClick: async () => {
+            const r = await readImage();
+            if (!r) return;
+            imp.wrap = r.data;
+            change(true);
+            const d = wrapDims(book);
+            const notes = fitNote(r.img, d.totalW, d.totalH, 'the full wrap');
+            toast(notes.length ? `Imported — but ${notes.join('; ')}` : 'Full print cover imported', notes.length ? 'warn' : 'success', notes.length ? 9000 : 2500);
+          } })) : null,
+    ]];
+    if (imp.front) {
+      const s0 = acc('imported', 'upload', 'Use a finished cover', importedSection[3], true);
+      s0.dataset.id = 'imported';
+      pane.appendChild(s0);
+      add(pane, h('p.hint', { style: { padding: '0 16px' } }, 'You are using an imported cover. The designer tools come back if you choose “Design in Booky instead”.'));
+      const exp = acc('export', 'download', 'Export sizes', [
+        field('Ebook cover size', select([['1600x2560', '1600 × 2560 (Kindle recommended)'], ['1563x2500', '1563 × 2500'], ['2048x3072', '2048 × 3072 (high-res)'], ['1400x2100', '1400 × 2100 (2:3)'], ['3000x3000', '3000 × 3000 (audiobook square)']], `${cov.ebookSize.w}x${cov.ebookSize.h}`, (v) => { const [w, hh] = v.split('x').map(Number); cov.ebookSize = { w, h: hh }; change(); })),
+        btn('Download print wrap as PNG (300 DPI)', { icon: 'download', cls: 'btn-sm', onClick: () => exportWrapPng() }),
+      ], opened.has('export'));
+      exp.dataset.id = 'export';
+      pane.appendChild(exp);
+      pane.scrollTop = scroll;
+      return;
+    }
     const sections = [
+      importedSection,
       ['templates', 'layout-template', 'Templates', [
         h('div.cover-tpls', Object.entries(COVER_TEMPLATES).map(([id, t]) => {
           const cv = h('canvas', { width: 120, height: 180 });
@@ -210,6 +287,7 @@ export function renderCover(host) {
   async function exportFront() {
     const cov = c();
     await ensureFontsLoaded(cov.layers.map((l) => l.font));
+    await preloadCover(book);
     const cv = document.createElement('canvas');
     cv.width = cov.ebookSize.w; cv.height = cov.ebookSize.h;
     drawFront(cv.getContext('2d'), book, 0, 0, cv.width, cv.height);
@@ -220,6 +298,7 @@ export function renderCover(host) {
   async function wrapCanvas(dpi = 300) {
     const cov = c();
     await ensureFontsLoaded([...cov.layers.map((l) => l.font), cov.back.font, cov.spine.font]);
+    await preloadCover(book);
     const d = wrapDims(book);
     const cv = document.createElement('canvas');
     cv.width = Math.round(d.totalW * dpi); cv.height = Math.round(d.totalH * dpi);

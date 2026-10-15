@@ -3,7 +3,7 @@ import JSZip from 'jszip';
 import { renderSections } from '../render/book.js';
 import { ebookCss } from '../render/css.js';
 import { escapeHtml, uid } from '../core/model.js';
-import { frontCoverDataURL } from '../render/cover.js';
+import { frontCoverDataURL, preloadCover } from '../render/cover.js';
 import { fontFaceCss, ensureFontsLoaded } from '../core/fonts.js';
 import { isRtl } from '../core/languages.js';
 import { fixHeadingLevels, accessibilityMetadata } from './a11y.js';
@@ -98,6 +98,7 @@ export async function buildEpub(book, { pageList = null } = {}) {
 
   // Cover
   await ensureFontsLoaded(book.cover.layers.map((l) => l.font));
+  await preloadCover(book);
   const coverUrl = frontCoverDataURL(book, 'image/jpeg');
   put('OEBPS/images/cover.jpg', coverUrl.split(',')[1], { base64: true });
   manifest.push('<item id="cover-image" href="images/cover.jpg" media-type="image/jpeg" properties="cover-image"/>');

@@ -71,7 +71,7 @@ export async function renderLibrary(root) {
         h('span.grow'),
         h('span.muted.small', `${books.length} project${books.length === 1 ? '' : 's'} · ${totalWords.toLocaleString()} words written`)),
       grid)
-    : h('div.empty-state', icon('feather', 34), h('h3', 'Your shelf is empty'), h('p', 'Start a new book from a template below, or import an existing manuscript (Word, Markdown, text).'));
+    : h('div.empty-state', icon('feather', 34), h('h3', 'Your shelf is empty'), h('p', 'Start a new book from a template below, or import an existing manuscript (Word, Apple Pages, Markdown, text).'));
 
   const lib = h('main.library',
     h('section.lib-hero',
@@ -355,7 +355,7 @@ export function importFlow(accept = IMPORT_ACCEPT, targetBook = null, onDone) {
       dragleave: () => zone.classList.remove('over'),
       drop: (e) => { e.preventDefault(); zone.classList.remove('over'); handle(e.dataTransfer.files[0]); },
     },
-  }, icon('file-up', 30), h('div', h('b', 'Drop a file here or click to browse')), h('small', 'Word (.docx), Markdown (.md), Text (.txt), HTML, RTF or a Booky backup (.booky)'));
+  }, icon('file-up', 30), h('div', h('b', 'Drop a file here or click to browse')), h('small', 'Word (.docx), Apple Pages (.pages), Markdown (.md), Text (.txt), HTML, RTF or a Booky backup (.booky)'));
 
   const m = modal({
     title: targetBook ? 'Import into this book' : 'Import a manuscript', width: 640,

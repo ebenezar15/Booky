@@ -5,7 +5,7 @@ import { normalizeHtml } from '../editor/schema.js';
 import { readAsArrayBuffer, readAsText } from '../ui/dom.js';
 import { markdownToHtml, textToHtml } from './text.js';
 
-export const IMPORT_ACCEPT = '.docx,.md,.markdown,.txt,.text,.html,.htm,.booky,.json,.fountain,.rtf';
+export const IMPORT_ACCEPT = '.docx,.pages,.md,.markdown,.txt,.text,.html,.htm,.booky,.json,.fountain,.rtf';
 
 export async function readManuscript(file) {
   const name = file.name.toLowerCase();
@@ -29,6 +29,17 @@ export async function readManuscript(file) {
       ],
     });
     return { title, html: res.value, warnings: res.messages };
+  }
+  if (name.endsWith('.pages')) {
+    const JSZip = (await import('jszip')).default;
+    let zip;
+    try { zip = await JSZip.loadAsync(await readAsArrayBuffer(file)); } catch {
+      throw new Error('This Pages document is saved as a package folder, which browsers can’t open. In Pages choose File → Save As… and untick “Save as package”, or File → Export To → Word, then import that.');
+    }
+    const { readPagesZip } = await import('./pages.js');
+    try { return { title, html: await readPagesZip(zip) }; } catch (e) {
+      throw new Error(`${e.message} In Pages choose File → Export To → Word and import the .docx instead.`);
+    }
   }
   const text = await readAsText(file);
   if (name.endsWith('.booky') || name.endsWith('.json')) return { title, project: JSON.parse(text) };

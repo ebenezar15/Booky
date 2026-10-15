@@ -8,7 +8,7 @@ import { parseIsbn } from '../core/isbn.js';
 import { keywordReport, contributorList, KDP_KEYWORD_LIMIT, KEYWORD_MAX_CHARS } from '../core/metadata.js';
 import { trimOf } from '../core/themes.js';
 import { createElement, bookWords } from '../core/model.js';
-import { estimatePages, drawFront, drawWrap, wrapDims } from '../render/cover.js';
+import { estimatePages, drawFront, drawWrap, wrapDims, preloadCover } from '../render/cover.js';
 import { ensureFontsLoaded } from '../core/fonts.js';
 import { PrintPreview } from '../render/preview.js';
 import { PDF_QUALITY } from '../export/pdf.js';
@@ -230,6 +230,7 @@ async function buildPackage(book, p, { pv, pages, quality, interiorMode = 'raste
       ].join('\n'));
     }
     onProgress(85, 'Rendering cover…');
+    await preloadCover(book);
     const opts = { paper: p.paper, wrap: p.wrap || 0, isbn: book.meta[isbnKey(p, book.meta)] };
     const d = wrapDims(book, opts);
     const dpi = 300;

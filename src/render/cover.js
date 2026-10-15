@@ -18,6 +18,20 @@ export function loadImage(src, onReady) {
   return rec.ready ? rec.img : null;
 }
 
+/** Wait until every image a cover uses has loaded (exports draw synchronously). */
+export function preloadCover(book) {
+  const c = book.cover || {};
+  const srcs = [c.imported?.front, c.imported?.wrap, c.background?.type === 'image' ? c.background.image : '', ...(c.layers || []).filter((l) => l.kind === 'image').map((l) => l.src)].filter(Boolean);
+  return Promise.all(srcs.map((src) => new Promise((resolve) => { if (loadImage(src, resolve)) resolve(); setTimeout(resolve, 8000); })));
+}
+
+/** Draw an image to fill a box, cropping the overflow (like CSS object-fit: cover). */
+function drawCoverFit(ctx, img, x, y, w, h) {
+  const s = Math.max(w / img.width, h / img.height);
+  const sw = w / s, sh = h / s;
+  ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, w, h);
+}
+
 function wrapLines(ctx, text, maxW) {
   const out = [];
   for (const para of String(text).split('\n')) {
@@ -126,6 +140,13 @@ function drawOrnament(ctx, orn, x, y, w, h) {
 /** Draws the front cover into rect (x,y,w,h). Returns layer hit-boxes. */
 export function drawFront(ctx, book, x, y, w, h, onReady) {
   const c = book.cover;
+  // a finished cover made elsewhere: just the artwork
+  if (c.imported?.front) {
+    const img = loadImage(c.imported.front, onReady);
+    if (img) drawCoverFit(ctx, img, x, y, w, h);
+    else { ctx.fillStyle = '#ddd'; ctx.fillRect(x, y, w, h); }
+    return {};
+  }
   paintBackground(ctx, c.background, x, y, w, h, onReady);
   if (c.ornament?.style === 'band') drawOrnament(ctx, c.ornament, x, y, w, h);
   const boxes = {};
@@ -177,6 +198,12 @@ export function drawWrap(ctx, book, dpi, onReady, opts) {
   const c = book.cover;
   const px = (inch) => inch * dpi;
   const W = px(d.totalW), H = px(d.totalH);
+  // a finished full wrap (back + spine + front) made elsewhere is used as it is
+  if (c.imported?.wrap) {
+    const img = loadImage(c.imported.wrap, onReady);
+    if (img) ctx.drawImage(img, 0, 0, W, H); else { ctx.fillStyle = '#ddd'; ctx.fillRect(0, 0, W, H); }
+    return { W, H, d };
+  }
   const backColor = c.back.color || c.background.color;
   ctx.fillStyle = backColor;
   ctx.fillRect(0, 0, W, H);
@@ -305,6 +332,12 @@ export function coverThumbnail(book, w = 300) {
   const redraw = () => drawFront(ctx, book, 0, 0, w, h, redraw);
   redraw();
   return c;
+}
+
+/** How well an imported image fits the shape it is used for: { ratio, want, off } — off is the difference as a share. */
+export function importFit(img, wantW, wantH) {
+  const ratio = img.width / img.height, want = wantW / wantH;
+  return { ratio, want, off: Math.abs(ratio - want) / want };
 }
 
 export function frontCoverDataURL(book, type = 'image/jpeg') {

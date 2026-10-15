@@ -34,5 +34,7 @@ export function defaultCover() {
     paper: 'cream', // white | cream | color
     ebookSize: { w: 1600, h: 2560 },
     pageCountOverride: 0,
+    // a finished cover designed elsewhere: front (ebook + print front) and an optional full print wrap
+    imported: { front: '', wrap: '' },
   };
 }
