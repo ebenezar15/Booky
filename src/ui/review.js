@@ -9,7 +9,7 @@ import { similarSentences, repeatedPhrases, sentenceOpeners, echoes, textMetrics
 import { findMatches } from '../editor/find.js';
 import { db } from '../core/db.js';
 import { readManuscript } from '../import/importer.js';
-import { consistencyTab, scriptCheckTab, typographyTab, directFormattingTab, styleSheetTab } from './editing-tools.js';
+import { consistencyTab, scriptCheckTab, punctuationTab, typographyTab, directFormattingTab, styleSheetTab } from './editing-tools.js';
 import { supportsIndicChecks } from '../core/typography.js';
 
 let lastTab = 'proof';
@@ -59,7 +59,7 @@ export function renderReview(host) {
 
   const head = h('div.plan-head',
     h('h2', 'Review'),
-    segmented([['proof', 'Proofread'], ['consist', 'Consistency'], ...(supportsIndicChecks(book.meta.language) ? [['script', 'Script check']] : []), ['typo', 'Typography'], ['format', 'Hand formatting'], ['sheet', 'Style sheet'], ['read', 'Readability'], ['repeat', 'Repetition'], ['orig', 'Originality']], tab, (v) => { tab = lastTab = v; run(); }),
+    segmented([['proof', 'Proofread'], ['punct', 'Punctuation'], ['consist', 'Consistency'], ...(supportsIndicChecks(book.meta.language) ? [['script', 'Script check']] : []), ['typo', 'Typography'], ['format', 'Hand formatting'], ['sheet', 'Style sheet'], ['read', 'Readability'], ['repeat', 'Repetition'], ['orig', 'Originality']], tab, (v) => { tab = lastTab = v; run(); }),
     h('span.grow'),
     btn('Re-run', { icon: 'refresh-cw', kind: 'ghost', onClick: () => run() }));
   add(wrap, head, body);
@@ -70,6 +70,7 @@ export function renderReview(host) {
     if (tab === 'script' && !supportsIndicChecks(book.meta.language)) tab = 'proof';
     if (tab === 'consist') consistencyTab(body, book, run);
     if (tab === 'script') scriptCheckTab(body, book, run);
+    if (tab === 'punct') punctuationTab(body, book, run);
     if (tab === 'typo') typographyTab(body, book, run);
     if (tab === 'format') directFormattingTab(body, book, run);
     if (tab === 'sheet') styleSheetTab(body, book);

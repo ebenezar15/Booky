@@ -12,6 +12,7 @@ import { findMatches } from '../editor/find.js';
 import { withEditor } from './feedback-actions.js';
 import { getEditor } from './editor-view.js';
 import { PARAGRAPH_STYLES } from '../editor/extensions.js';
+import { punctuationFindings, fixPunctuation } from '../lang/punctuation.js';
 
 const SKIP = new Set(['toc', 'index', 'blank', 'copyright', 'title', 'half-title']);
 const units = (book) => orderedElements(book).filter((e) => !SKIP.has(e.type) && !ELEMENT_TYPES[e.type]?.generated)
@@ -114,6 +115,21 @@ export function scriptCheckTab(body, book, rerun) {
     empty: 'No script problems found',
     replacement: (f) => (f.fix ? (m) => applyIndicFix(m, f) : null),
     fixAll: (f) => (f.fix ? (t) => applyIndicFix(t, f) : null),
+    rerun,
+  });
+}
+
+export function punctuationTab(body, book, rerun) {
+  clear(body);
+  syncEditor(book);
+  const lang = book.meta.language || 'en';
+  const findings = punctuationFindings(units(book), lang);
+  add(body, h('div.notice', icon('info', 16), h('span', `Punctuation checks for ${langInfo(lang).name || lang}: spaces before or after marks, doubled marks, brackets and quotation marks without a partner${{ ur: ', the Urdu ، ؟ ؛ ۔', ar: ', the Arabic ، ؟ ؛', fa: ', the Persian ، ؟ ؛', hi: ', the danda । and ॥', sa: ', the danda । and ॥', ne: ', the danda । and ॥', bn: ', the danda ।', pa: ', the danda ।', or: ', the danda ।', es: ', the opening ¿ and ¡', fr: ', the spaces French puts before ; : ! ? and inside « »', zh: ', full-width marks', ja: ', full-width marks' }[String(lang).split('-')[0]] || ''}.`)));
+  findingList(body, book, findings.map((f) => ({ ...f, title: `${f.title} (${f.hits.length})` })), {
+    empty: 'No punctuation problems found',
+    replacement: (f) => (f.fix ? (m) => f.hits.find((x) => x.match === m)?.replacement ?? fixPunctuation(m, f.id, lang) : null),
+    // leave HTML entities such as &lt; and &amp; alone
+    fixAll: (f) => (f.fix ? (t) => t.split(/(&#?\w+;)/).map((part, i) => (i % 2 ? part : fixPunctuation(part, f.id, lang))).join('') : null),
     rerun,
   });
 }

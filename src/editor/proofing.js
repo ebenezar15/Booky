@@ -3,6 +3,7 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { checkText } from '../lang/grammar.js';
+import { checkPunctuation } from '../lang/punctuation.js';
 import { findMisspelled, WORD_RE, shouldSkip } from '../lang/spell.js';
 
 export const proofKey = new PluginKey('proofing');
@@ -62,8 +63,10 @@ async function analyze(doc, settings) {
         spellHits.push({ w, from: b.map[m.index], to: b.map[m.index + w.length - 1] + 1 });
       }
     }
-    if (settings.grammar || settings.style) {
-      for (const is of cachedCheck(b.text, { grammar: settings.grammar, style: settings.style, fiction: settings.fiction })) {
+    const found = settings.grammar || settings.style ? [...cachedCheck(b.text, { grammar: settings.grammar, style: settings.style, fiction: settings.fiction })] : [];
+    if (settings.punct) found.push(...checkPunctuation(b.text, settings.lang, { skipEnglish: settings.grammar }).filter((is) => settings.punctStyle || is.kind !== 'style'));
+    if (found.length) {
+      for (const is of found) {
         if (dismissed.has(`${is.rule}:${b.text.slice(is.start, is.end)}`)) continue;
         const [from, to] = range(is.start, is.end);
         if (from == null || to == null || from >= to) continue;

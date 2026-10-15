@@ -21,7 +21,7 @@ import { ensureReviews, COMMENT_TYPES } from '../core/feedback.js';
 import { reviewerById, setStatus, applySuggestion, goNext } from './feedback-actions.js';
 import { suggest, addToDictionary, ignoreWord, initSpell, applyBookSpelling } from '../lang/spell.js';
 import { synonymsFor } from '../lang/thesaurus.js';
-import { rephrase } from '../lang/rephrase.js';
+import { openAssistant } from './assistant-ui.js';
 import { renderSections } from '../render/book.js';
 import { toggleBinder, toggleInspector } from './workspace.js';
 import { originalPane } from './translate.js';
@@ -43,9 +43,9 @@ function proofSettings() {
   if (!isEnglish(state.book?.meta.language)) {
     // other languages: spelling only, and only with a dictionary the author imported (Settings → Proofing)
     const lang = String(state.book?.meta.language || '').split('-')[0];
-    return { spell: state.app.spellcheck !== false && state.spellLang === lang, grammar: false, style: false, fiction: false };
+    return { spell: state.app.spellcheck !== false && state.spellLang === lang, grammar: false, style: false, fiction: false, punct: state.app.punctuation !== false, punctStyle: state.app.styleHints !== false, lang: state.book?.meta.language };
   }
-  return { spell: state.app.spellcheck !== false, grammar: state.app.grammar !== false, style: state.app.styleHints !== false, fiction: state.app.fictionHints !== false };
+  return { spell: state.app.spellcheck !== false, grammar: state.app.grammar !== false, style: state.app.styleHints !== false, fiction: state.app.fictionHints !== false, punct: state.app.punctuation !== false, punctStyle: state.app.styleHints !== false, lang: 'en' };
 }
 
 export function renderEditor(host) {
@@ -283,7 +283,7 @@ export function renderEditor(host) {
     phoneticBtn,
     micBtn,
     iconBtn('languages', 'Translate / suggest wording for the selection (Ctrl Alt T)', () => suggestForSelection(editor, book)),
-    iconBtn('wand-sparkles', 'Rephrase sentence (Ctrl Alt R)', () => openRephrase()),
+    iconBtn('wand-sparkles', 'Writing assistant: paraphrase, fix grammar & punctuation, summarize (Ctrl Alt R)', () => openRephrase()),
     iconBtn('search', 'Find & replace (Ctrl F)', () => openFind()),
     tb.trackBtn = iconBtn('file-diff', 'Track changes: suggest edits that can be accepted or rejected (Ctrl Shift E)', () => toggleTrack()),
     iconBtn('audio-lines', 'Read aloud from the cursor (Ctrl Alt A)', () => editor && readAloud(editor, book)),
@@ -313,6 +313,7 @@ export function renderEditor(host) {
           toggle(state.app.typewriter, (v) => setApp({ typewriter: v }), 'Typewriter scrolling'),
           toggle(state.app.styleHints !== false, (v) => { setApp({ styleHints: v }); applyView(); editor?.storage.proofing.schedule(10); }, 'Show style suggestions'),
           toggle(state.app.spellcheck !== false, (v) => { setApp({ spellcheck: v }); editor?.storage.proofing.schedule(10); }, 'Check spelling'),
+          toggle(state.app.punctuation !== false, (v) => { setApp({ punctuation: v }); editor?.storage.proofing.schedule(10); }, 'Check punctuation'),
           toggle(state.app.grammar !== false, (v) => { setApp({ grammar: v }); editor?.storage.proofing.schedule(10); }, 'Check grammar'),
         )) },
     ], { align: 'right' });
@@ -584,7 +585,9 @@ export function renderEditor(host) {
         items.push({ label: `Synonyms for “${word}”`, icon: 'book-a', sub: syns.map((s) => ({ label: s, onClick: () => editor.chain().focus().insertContentAt({ from: $p.start() + a, to: $p.start() + b }, s).run() })) });
       }
     }
-    items.push({ label: 'Rephrase sentence…', icon: 'wand-sparkles', hint: 'Ctrl Alt R', onClick: () => openRephrase(posInfo && sel.empty ? { at: posInfo.pos } : null) });
+    items.push({ label: 'Paraphrase…', icon: 'wand-sparkles', hint: 'Ctrl Alt R', onClick: () => openRephrase(posInfo && sel.empty ? { at: posInfo.pos } : null) });
+    items.push({ label: 'Fix grammar & punctuation…', icon: 'spell-check', onClick: () => openRephrase(posInfo && sel.empty ? { at: posInfo.pos } : null, 'grammar') });
+    if (!sel.empty) items.push({ label: 'Summarize selection…', icon: 'list', onClick: () => openRephrase(null, 'summary') });
     items.push({ label: 'Copy', icon: 'copy', disabled: sel.empty, onClick: () => document.execCommand('copy') });
     items.push({ label: 'Cut', icon: 'copy', disabled: sel.empty, onClick: () => document.execCommand('cut') });
     items.push({ label: 'Paste as plain text', icon: 'text-quote', hint: 'Ctrl Shift V', onClick: async () => {
@@ -634,38 +637,10 @@ export function renderEditor(host) {
   }
 
   // ---------- rephrase ----------
-  function sentenceRange(at) {
-    const pos = at ?? editor.state.selection.from;
-    const $p = editor.state.doc.resolve(pos);
-    if (!$p.parent.isTextblock) return null;
-    const text = $p.parent.textContent;
-    const s = sentenceAround(text, Math.max(0, Math.min(text.length - 1, pos - $p.start())));
-    return { from: $p.start() + s.start, to: $p.start() + s.end, text: s.text };
-  }
-
-  function openRephrase(range) {
+  function openRephrase(range, tab = 'paraphrase') {
     if (!editor) return;
-    let r;
-    const sel = editor.state.selection;
-    if (range?.from != null) r = { ...range, text: editor.state.doc.textBetween(range.from, range.to) };
-    else if (!sel.empty && !range?.at) r = { from: sel.from, to: sel.to, text: editor.state.doc.textBetween(sel.from, sel.to, ' ') };
-    else r = sentenceRange(range?.at);
-    if (!r || !r.text.trim()) { toast('Place the cursor in a sentence or select text to rephrase', 'warn'); return; }
-    const opts = rephrase(r.text);
-    const list = h('div.rephrase-list');
-    const m = modal({
-      title: 'Rephrase', width: 600,
-      body: [
-        h('div.card', { style: { marginBottom: '14px', fontFamily: 'var(--font-serif)', fontSize: '15px', background: 'var(--surface-2)' } }, r.text),
-        opts.length ? list : h('p.muted', 'This sentence already reads cleanly — no alternatives found. Try selecting a longer passage.'),
-        h('p.hint', { style: { marginTop: '12px' } }, 'Suggestions are generated on your device by Booky’s writing rules (no internet, no AI service). Always check that the meaning is preserved.'),
-      ],
-    });
-    opts.forEach((o) => list.appendChild(h('button.rephrase-opt', { type: 'button', on: { click: () => {
-      editor.chain().focus().insertContentAt({ from: r.from, to: r.to }, o.text).run();
-      m.close();
-      toast('Sentence replaced — Ctrl Z to undo', 'success');
-    } } }, h('small', o.label), h('span', o.text))));
+    // a range, a point (that paragraph), or nothing (the selection, else the paragraph at the cursor)
+    openAssistant(editor, book, range, tab);
   }
 
   // ---------- find & replace ----------
@@ -835,7 +810,7 @@ export function renderEditor(host) {
   const offs = [
     on('select', () => { if (findBar) { findBar.remove(); findBar = null; } mount(); }),
     on('elements', () => { if (!currentElement() || !editor) mount(); }),
-    on('app', (p) => { if ('styleHints' in p || 'spellcheck' in p || 'grammar' in p || 'fictionHints' in p) { applyView(); editor?.storage.proofing.schedule(10); } }),
+    on('app', (p) => { if ('styleHints' in p || 'spellcheck' in p || 'grammar' in p || 'fictionHints' in p || 'punctuation' in p) { applyView(); editor?.storage.proofing.schedule(10); } }),
     on('app', (p) => { if ('showOriginal' in p) mount(); }),
     on('spell-changed', () => editor?.storage.proofing.schedule(10)),
     on('format', applyView),
