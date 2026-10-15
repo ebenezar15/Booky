@@ -17,7 +17,7 @@ export function translationSettingsPanel() {
   const desktop = !!globalThis.bookyDesktop;
   return h('div.col', { style: { gap: '12px' } },
     h('div.section-title', 'Voice typing'),
-    field('Speech recognition', select([['auto', 'Automatic'], ['browser', 'Browser (free — Chrome, Edge, Safari)'], ['google', 'Google Cloud Speech-to-Text (paid, needs the Google key below)']], state.app.voiceEngine || 'auto', (v) => setApp({ voiceEngine: v })),
+    field('Speech recognition', select([['auto', 'Automatic'], ['browser', 'Browser (free — Chrome, Edge, Safari)'], ['system', 'Computer’s own dictation (free — Booky desktop app on Mac and Windows)'], ['google', 'Google Cloud Speech-to-Text (paid, needs the Google key below)']], state.app.voiceEngine || 'auto', (v) => setApp({ voiceEngine: v })),
       desktop ? 'In the desktop app, voice typing uses Google Cloud Speech-to-Text. Without a key you can still use your computer’s dictation: Windows + H on Windows, or press Fn (🌐) twice on a Mac.'
         : 'The browser engine is free and supports Tamil, Hindi and the other Indian languages in Chrome and Edge. Your computer’s own dictation (Windows + H, or Fn twice on a Mac) works too.'),
     h('div.section-title', { style: { marginTop: '8px' } }, 'Translation'),

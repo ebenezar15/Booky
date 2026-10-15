@@ -244,79 +244,126 @@ export function stopReading() {
   reader.stop();
 }
 
-export function readAloud(editor, book) {
-  if (reader) { reader.stop(); return; }
+/**
+ * The voice that reads: the browser's speech (Chrome, Edge, Safari, Windows app) or, in the Mac app,
+ * the Mac's own voices through the system `say` command. Both are free and need no account.
+ */
+function speechEngine() {
+  const d = globalThis.bookyDesktop;
+  if (d?.platform === 'darwin' && d.ttsSpeak) {
+    return {
+      name: 'mac',
+      voices: async () => d.ttsVoices().catch(() => []),
+      speak: (text, voice, rate) => d.ttsSpeak(text, voice?.name, rate),
+      cancel: () => d.ttsStop(),
+      pause: () => d.ttsPause(true),
+      resume: () => d.ttsPause(false),
+    };
+  }
   const synth = window.speechSynthesis;
-  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') { toast('This browser can’t read aloud.', 'warn'); return; }
+  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') return null;
+  let current = null;
+  return {
+    name: 'web',
+    voices: () => new Promise((resolve) => {
+      const v = synth.getVoices();
+      if (v.length) return resolve(v);
+      let done = false;
+      const go = () => { if (!done) { done = true; resolve(synth.getVoices()); } };
+      synth.addEventListener?.('voiceschanged', go, { once: true });
+      setTimeout(go, 1500);
+    }),
+    speak: (text, voice, rate) => new Promise((resolve) => {
+      const u = new SpeechSynthesisUtterance(text);
+      if (voice) { u.voice = voice; u.lang = voice.lang; }
+      u.rate = rate;
+      current = u;
+      // Chrome on some systems stops speaking long passages after ~15 s; keep it awake
+      const keepAlive = setInterval(() => { if (synth.speaking && !synth.paused) { synth.pause(); synth.resume(); } }, 10000);
+      const end = (ok) => { clearInterval(keepAlive); if (current === u) current = null; resolve({ ok, cancelled: !ok }); };
+      u.onend = () => end(true);
+      u.onerror = (e) => end(e.error !== 'interrupted' && e.error !== 'canceled');
+      synth.speak(u);
+    }),
+    cancel: () => synth.cancel(),
+    pause: () => synth.pause(),
+    resume: () => synth.resume(),
+  };
+}
+
+export async function readAloud(editor, book) {
+  if (reader) { reader.stop(); return; }
+  const engine = speechEngine();
+  if (!engine) { toast('This browser can’t read aloud. Open Booky in Chrome, Edge or Safari, or use the desktop app.', 'warn'); return; }
   const lang = book.meta.language || 'en';
-  const start = () => {
-    const voices = synth.getVoices();
-    const voice = pickVoice(voices, lang, state.app.readVoice || '');
-    if (!voice) {
-      toast(`No ${langInfo(lang).name || lang} voice is installed on this computer, so Booky can’t read this book aloud. Add one in your system’s speech settings (Windows: Settings → Time & language → Speech; Mac: System Settings → Accessibility → Spoken Content).`, 'warn', 9000);
-      return;
+  const voices = await engine.voices();
+  const voice = pickVoice(voices, lang, state.app.readVoice || '');
+  if (!voice) {
+    toast(`No ${langInfo(lang).name || lang} voice is installed on this computer, so Booky can’t read this book aloud. Add one in your system’s speech settings (Windows: Settings → Time & language → Speech; Mac: System Settings → Accessibility → Spoken Content → System voice → Manage Voices).`, 'warn', 9000);
+    return;
+  }
+  // sentences from the cursor onward, mapped to document positions
+  const from = editor.state.selection.from;
+  const queue = [];
+  editor.state.doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
+    if (pos + node.nodeSize < from) return false;
+    let text = '';
+    const map = [];
+    node.forEach((child, off) => { if (child.isText) { for (let i = 0; i < child.text.length; i++) map.push(pos + 1 + off + i); text += child.text; } else { text += ' '; map.push(pos + 1 + off); } });
+    for (const s of splitSentences(text, lang)) {
+      const a = map[s.start], b = map[s.end - 1] + 1;
+      if (b > from) queue.push({ from: a, to: b, text: s.text });
     }
-    // sentences from the cursor onward, mapped to document positions
-    const from = editor.state.selection.from;
-    const queue = [];
-    editor.state.doc.descendants((node, pos) => {
-      if (!node.isTextblock) return true;
-      if (pos + node.nodeSize < from) return false;
-      let text = '';
-      const map = [];
-      node.forEach((child, off) => { if (child.isText) { for (let i = 0; i < child.text.length; i++) map.push(pos + 1 + off + i); text += child.text; } else { text += ' '; map.push(pos + 1 + off); } });
-      for (const s of splitSentences(text, lang)) {
-        const a = map[s.start], b = map[s.end - 1] + 1;
-        if (b > from) queue.push({ from: a, to: b, text: s.text });
-      }
-      return false;
-    });
-    if (!queue.length) { toast('Nothing to read after the cursor.', 'info'); return; }
-    let i = 0, paused = false, stopped = false;
-    const rate = () => +state.app.readRate || 1;
-    const bar = h('div.read-bar', { role: 'toolbar', 'aria-label': 'Read aloud' });
-    const pauseBtn = iconBtn('pause', 'Pause', () => {
-      if (paused) { synth.resume(); paused = false; } else { synth.pause(); paused = true; }
-      clear(pauseBtn).appendChild(icon(paused ? 'play' : 'pause', 16));
-      pauseBtn.title = paused ? 'Resume' : 'Pause';
-    });
-    const voiceSel = select(voices.filter((v) => String(v.lang).toLowerCase().startsWith(lang.split('-')[0].toLowerCase())).map((v) => [v.name, `${v.name}${v.localService ? '' : ' (online)'}`]), voice.name, (v) => { setApp({ readVoice: v }); restart(); }, { style: { width: '180px' } });
-    const speed = slider(rate(), 0.6, 2, 0.1, (v) => { setApp({ readRate: v }); }, (v) => `${(+v).toFixed(1)}×`);
-    speed.addEventListener('change', () => restart());
-    add(bar, icon('audio-lines', 16), h('b', 'Reading aloud'), pauseBtn, iconBtn('x', 'Stop (or just start typing)', () => stop()), h('span.small', 'Speed'), speed, voiceSel);
-    document.body.appendChild(bar);
-    const say = () => {
-      if (stopped || i >= queue.length) { stop(); return; }
+    return false;
+  });
+  if (!queue.length) { toast('Nothing to read after the cursor.', 'info'); return; }
+  let i = 0, paused = false, stopped = false, run = 0;
+  const rate = () => +state.app.readRate || 1;
+  const chosen = () => voices.find((v) => v.name === state.app.readVoice) || voice;
+  const bar = h('div.read-bar', { role: 'toolbar', 'aria-label': 'Read aloud' });
+  const pauseBtn = iconBtn('pause', 'Pause', () => {
+    if (paused) { engine.resume(); paused = false; } else { engine.pause(); paused = true; }
+    clear(pauseBtn).appendChild(icon(paused ? 'play' : 'pause', 16));
+    pauseBtn.title = paused ? 'Resume' : 'Pause';
+    bar.classList.toggle('paused', paused);
+  });
+  const base = lang.split('-')[0].toLowerCase();
+  const mine = voices.filter((v) => String(v.lang).toLowerCase().replace('_', '-').startsWith(base));
+  const voiceSel = select(mine.map((v) => [v.name, `${v.name}${v.localService === false ? ' (online)' : ''}`]), voice.name, (v) => { setApp({ readVoice: v }); restart(); }, { style: { width: '180px' } });
+  const speed = slider(rate(), 0.6, 2, 0.1, (v) => { setApp({ readRate: v }); }, (v) => `${(+v).toFixed(1)}×`);
+  speed.addEventListener('change', () => restart());
+  add(bar, h('span.read-wave', h('i'), h('i'), h('i'), h('i')), h('b', 'Reading aloud'), pauseBtn, iconBtn('x', 'Stop (or just start typing)', () => stop()), h('span.small', 'Speed'), speed, voiceSel);
+  document.body.appendChild(bar);
+  const say = async () => {
+    const my = ++run;
+    while (!stopped && my === run && i < queue.length) {
       const s = queue[i];
       editor.commands.setReadAloudRange({ from: s.from, to: s.to });
       editor.view.domAtPos(s.from)?.node?.parentElement?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      const u = new SpeechSynthesisUtterance(s.text);
-      u.voice = synth.getVoices().find((v) => v.name === (state.app.readVoice || voice.name)) || voice;
-      u.lang = u.voice.lang;
-      u.rate = rate();
-      u.onend = () => { if (!stopped && reader?.u === u) { i++; say(); } };
-      u.onerror = () => { if (!stopped && reader?.u === u) { i++; say(); } };
-      reader.u = u;
-      synth.speak(u);
-    };
-    const restart = () => { if (stopped) return; synth.cancel(); paused = false; setTimeout(say, 50); };
-    const onType = ({ transaction }) => { if (transaction.docChanged) stop(); };
-    const stop = () => {
-      if (stopped) return;
-      stopped = true;
-      synth.cancel();
-      bar.remove();
-      if (!editor.isDestroyed) editor.commands.setReadAloudRange(null);
-      editor.off('update', onType);
-      reader = null;
-    };
-    editor.on('update', onType);
-    reader = { stop, u: null };
-    say();
+      const r = await engine.speak(s.text, chosen(), rate());
+      if (stopped || my !== run) return;
+      if (r?.ok === false && !r.cancelled && engine.name === 'mac') { toast('The Mac voice couldn’t start. Check System Settings → Accessibility → Spoken Content.', 'warn', 7000); stop(); return; }
+      i++;
+    }
+    if (!stopped && my === run) stop();
   };
-  // voices load asynchronously in some browsers
-  if (synth.getVoices().length) start();
-  else { let ran = false; const go = () => { if (!ran) { ran = true; start(); } }; synth.addEventListener?.('voiceschanged', go, { once: true }); setTimeout(go, 800); }
+  const restart = () => { if (stopped) return; run++; engine.cancel(); paused = false; bar.classList.remove('paused'); clear(pauseBtn).appendChild(icon('pause', 16)); setTimeout(say, 80); };
+  const onType = ({ transaction }) => { if (transaction.docChanged) stop(); };
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    run++;
+    engine.cancel();
+    bar.classList.add('leaving');
+    setTimeout(() => bar.remove(), 200);
+    if (!editor.isDestroyed) editor.commands.setReadAloudRange(null);
+    editor.off('update', onType);
+    reader = null;
+  };
+  editor.on('update', onType);
+  reader = { stop };
+  say();
 }
 
 // ---------- special characters ----------

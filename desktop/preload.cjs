@@ -13,5 +13,11 @@ contextBridge.exposeInMainWorld('bookyDesktop', {
   checkBackupFolder: (dir) => ipcRenderer.invoke('booky:backup-check', dir),
   writeBackup: (opts) => ipcRenderer.invoke('booky:backup-write', opts),
   onBeforeClose: (cb) => ipcRenderer.on('booky:before-close', () => cb()),
+  ttsVoices: () => ipcRenderer.invoke('booky:tts-voices'),
+  ttsSpeak: (text, voice, rate) => ipcRenderer.invoke('booky:tts-speak', { text, voice, rate }),
+  ttsStop: () => ipcRenderer.invoke('booky:tts-stop'),
+  ttsPause: (pause) => ipcRenderer.invoke('booky:tts-pause', pause),
+  dictate: () => ipcRenderer.invoke('booky:dictate'),
+  micAccess: () => ipcRenderer.invoke('booky:mic-access'),
   readyToClose: () => ipcRenderer.send('booky:ready-to-close'),
 });

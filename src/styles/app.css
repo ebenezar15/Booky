@@ -836,6 +836,15 @@ a.btn { text-decoration: none; }
 .read-aloud-now { background: color-mix(in srgb, var(--primary) 18%, transparent); border-radius: 3px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent); }
 .read-bar { position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 8px 28px rgba(0,0,0,.18); font-size: 13px; }
 .read-bar .slider { width: 120px; }
+.read-bar { animation: bar-in .28s cubic-bezier(.2,.9,.3,1.2) both; }
+.read-bar.leaving { animation: bar-out .2s ease both; }
+@keyframes bar-in { from { opacity: 0; transform: translate(-50%, 16px) scale(.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes bar-out { to { opacity: 0; transform: translate(-50%, 12px) scale(.97); } }
+.read-wave { display: inline-flex; align-items: center; gap: 2px; height: 16px; color: var(--accent); }
+.read-wave i { width: 3px; height: 100%; border-radius: 2px; background: currentColor; animation: wave 1s ease-in-out infinite; transform-origin: center; }
+.read-wave i:nth-child(2) { animation-delay: -.8s; } .read-wave i:nth-child(3) { animation-delay: -.55s; } .read-wave i:nth-child(4) { animation-delay: -.3s; }
+.read-bar.paused .read-wave i { animation-play-state: paused; }
+@keyframes wave { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
 .quick-jump .modal-body { padding-top: 6px; }
 .qj-input { width: 100%; font-size: 16px; padding: 10px 12px; margin-bottom: 8px; }
 .qj-list { max-height: 50vh; overflow: auto; display: flex; flex-direction: column; }

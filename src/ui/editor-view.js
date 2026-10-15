@@ -145,7 +145,7 @@ export function renderEditor(host) {
     const m = modal({
       title: 'Voice typing', width: 500,
       body: h('div.col', { style: { gap: '10px' } },
-        h('p', desktop ? 'To dictate inside the Booky app, add a Google Cloud key with the Speech-to-Text API enabled (Settings → Voice & translation).' : 'This browser has no speech recognition. Open Booky in Chrome, Edge or Safari — or add a Google Cloud key with the Speech-to-Text API (Settings → Voice & translation).'),
+        h('p', desktop ? 'Booky uses your computer’s own dictation — no account or key needed.' : 'This browser has no speech recognition. Open Booky in Chrome, Edge or Safari — or add a Google Cloud key with the Speech-to-Text API (Settings → Voice & translation).'),
         h('p.muted', 'You can also use your computer’s built-in dictation, which types straight into Booky:'),
         h('ul', h('li', h('b', 'Windows: '), 'press Windows + H'), h('li', h('b', 'Mac: '), 'press Fn (🌐) twice, or Edit → Start Dictation'))),
       footer: [btn('Open settings', { onClick: () => { m.close(); import('./settings.js').then((x) => x.openSettings('translate')); } }), btn('OK', { kind: 'primary', onClick: () => m.close() })],
@@ -156,6 +156,15 @@ export function renderEditor(host) {
     const keys = state.app.translate || {};
     const engine = pickEngine(state.app.voiceEngine, keys);
     if (!engine) { voiceHelp(); return; }
+    if (engine === 'system') {
+      editor?.commands.focus();
+      const mac = globalThis.bookyDesktop.platform === 'darwin';
+      // give the editor focus first: dictation types into whatever has focus
+      setTimeout(() => startVoice({ engine, locale: voiceLocale(), keys, onError: (msg) => toast(msg, 'error', 7000) }), 60);
+      toast(mac ? `Mac Dictation is on — speak now (set its language with the Fn/🌐 key menu). Press Fn or Esc to stop.` : 'Windows voice typing is on — speak now. Press Windows + H again to stop.', 'info', 6000);
+      return;
+    }
+    if (engine === 'google' && globalThis.bookyDesktop?.micAccess) globalThis.bookyDesktop.micAccess();
     try {
       voice = startVoice({
         engine, locale: voiceLocale(), keys,

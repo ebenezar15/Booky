@@ -2,7 +2,8 @@
 // so books, layouts and exports are identical on both systems (Electron ships the same
 // Chromium engine everywhere). Adds: native menus, vector PDF export, .booky file opening,
 // microphone access for voice typing, and links that open in the default browser / mail app.
-const { app, BrowserWindow, Menu, shell, dialog, ipcMain, session, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain, session, nativeTheme, systemPreferences } = require('electron');
+const { execFile, spawn } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -139,6 +140,54 @@ ipcMain.handle('booky:backup-write', (_e, { dir, name, data, prefix, keep }) => 
   return { file };
 });
 
+// ---------- the computer's own voices (read aloud) and dictation — no accounts or keys ----------
+// macOS: the `say` command speaks with every voice in System Settings → Accessibility → Spoken Content.
+// Windows: Chromium's built-in speech already uses the Windows voices, so the page handles it.
+let speaking = null;
+const sayVoices = () => new Promise((resolve) => {
+  if (!isMac) return resolve([]);
+  execFile('/usr/bin/say', ['-v', '?'], { maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
+    if (err) return resolve([]);
+    // "Samantha            en_US    # Hello! My name is Samantha."  ·  "Eddy (English (UK))  en_GB    # …"
+    resolve(String(out).split('\n').map((l) => l.match(/^(.+?)\s+([a-z]{2,3}[_-][A-Za-z0-9]+)\s+#/)).filter(Boolean)
+      .map((m) => ({ name: m[1].trim(), lang: m[2].replace('_', '-'), localService: true })));
+  });
+});
+ipcMain.handle('booky:tts-voices', () => sayVoices());
+ipcMain.handle('booky:tts-speak', (_e, { text, voice, rate }) => new Promise((resolve) => {
+  if (!isMac) return resolve({ ok: false });
+  if (speaking) { try { speaking.kill(); } catch { /* gone */ } }
+  const args = ['-r', String(Math.round(180 * (+rate || 1)))];
+  if (voice) args.push('-v', String(voice));
+  args.push('-f', '-');
+  const p = spawn('/usr/bin/say', args, { stdio: ['pipe', 'ignore', 'ignore'] });
+  speaking = p;
+  p.on('error', () => resolve({ ok: false }));
+  p.on('exit', (code, signal) => { if (speaking === p) speaking = null; resolve({ ok: code === 0, cancelled: !!signal }); });
+  p.stdin.end(String(text || ''));
+}));
+ipcMain.handle('booky:tts-stop', () => { if (speaking) { try { speaking.kill(); } catch { /* gone */ } speaking = null; } return true; });
+ipcMain.handle('booky:tts-pause', (_e, pause) => { if (speaking && isMac) { try { speaking.kill(pause ? 'SIGSTOP' : 'SIGCONT'); } catch { /* gone */ } } return true; });
+
+// Starts the system's own dictation in the focused text box (Mac: Dictation, Windows: Voice typing).
+ipcMain.handle('booky:dictate', async () => {
+  if (isMac) {
+    try { await systemPreferences.askForMediaAccess('microphone'); } catch { /* older macOS */ }
+    Menu.sendActionToFirstResponder('startDictation:');
+    return { ok: true };
+  }
+  if (process.platform === 'win32') {
+    // Windows + H opens Windows voice typing for the focused field.
+    const ps = "Add-Type -Name K -Namespace W -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void keybd_event(byte v, byte s, uint f, System.UIntPtr e);'; [W.K]::keybd_event(0x5B,0,0,[UIntPtr]::Zero); [W.K]::keybd_event(0x48,0,0,[UIntPtr]::Zero); [W.K]::keybd_event(0x48,0,2,[UIntPtr]::Zero); [W.K]::keybd_event(0x5B,0,2,[UIntPtr]::Zero)";
+    return new Promise((resolve) => execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true }, (err) => resolve({ ok: !err })));
+  }
+  return { ok: false };
+});
+ipcMain.handle('booky:mic-access', async () => {
+  if (!isMac) return true;
+  try { return systemPreferences.getMediaAccessStatus('microphone') === 'granted' || await systemPreferences.askForMediaAccess('microphone'); } catch { return false; }
+});
+
 // ---------- menus ----------
 function buildMenu() {
   const send = (cmd) => () => win?.webContents.send('booky:menu', cmd);
@@ -158,7 +207,10 @@ function buildMenu() {
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
     },
-    { role: 'editMenu' },
+    isMac ? { label: 'Edit', submenu: [
+      { role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'pasteAndMatchStyle' }, { role: 'selectAll' }, { type: 'separator' },
+      { label: 'Speech', submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] },
+    ] } : { role: 'editMenu' },
     {
       label: 'View',
       submenu: [

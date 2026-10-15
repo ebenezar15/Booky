@@ -1,6 +1,8 @@
 // Voice typing (speech to text).
 // Engines:
 //   browser — the Web Speech API (Chrome, Edge, Safari). Free; audio is processed by the browser maker's service.
+//   system  — the desktop app turns on the computer's own dictation (Mac: Dictation, Windows: Voice typing),
+//             which types straight into the editor. Free, no account; on newer Macs it runs on the device.
 //   google  — Google Cloud Speech-to-Text with your API key. Works everywhere, including the desktop app.
 // Every Indian language Booky supports has a speech locale (ta-IN, hi-IN, ml-IN …).
 
@@ -25,6 +27,7 @@ const isDesktopShell = () => !!globalThis.bookyDesktop; // Electron has no built
 export function availableEngines(keys = {}) {
   const out = [];
   if (SR() && !isDesktopShell()) out.push('browser');
+  if (isDesktopShell() && globalThis.bookyDesktop.dictate && /darwin|win32/.test(globalThis.bookyDesktop.platform)) out.push('system');
   if (keys.googleKey && globalThis.MediaRecorder && navigator.mediaDevices?.getUserMedia) out.push('google');
   return out;
 }
@@ -68,6 +71,7 @@ export function shapeTranscript(text, before = '', { english = true } = {}) {
 export function startVoice({ engine, locale, keys = {}, ...handlers }) {
   if (engine === 'browser') return browserSession(locale, handlers);
   if (engine === 'google') return googleSession(locale, keys, handlers);
+  if (engine === 'system') return systemSession(handlers);
   throw new Error('Voice typing isn’t available here. Use Chrome, Edge or Safari, or add a Google Cloud key in Settings → Voice & translation.');
 }
 
@@ -96,6 +100,16 @@ function browserSession(locale, h) {
   rec.start();
   h.onState?.('listening');
   return { stop() { active = false; h.onInterim?.(''); try { rec.stop(); } catch { /* ignore */ } } };
+}
+
+// The computer's own dictation types into the focused editor by itself; Booky only switches it on.
+function systemSession(h) {
+  const mac = globalThis.bookyDesktop.platform === 'darwin';
+  globalThis.bookyDesktop.dictate().then((r) => {
+    if (!r?.ok) h.onError?.(mac ? 'Mac Dictation didn’t start. Turn it on in System Settings → Keyboard → Dictation, then try again.' : 'Windows voice typing didn’t start. Press Windows + H to start it.');
+  });
+  h.onState?.('system');
+  return { system: true, stop() { h.onState?.('stopped'); } };
 }
 
 // Records phrases between pauses and sends each one to Google Cloud Speech-to-Text.
