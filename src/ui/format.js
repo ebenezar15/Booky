@@ -2,7 +2,7 @@
 import { h, icon, btn, iconBtn, clear, field, input, select, toggle, slider, color, segmented, pickFile, compressImage, debounce, toast, add, promptDialog, confirmDialog } from './dom.js';
 import { state, on, touch, setApp } from '../core/store.js';
 import { templateFromBook } from '../core/templates.js';
-import { THEMES, TRIM_SIZES, SCENE_BREAKS, ORNAMENTS, applyTheme, trimOf } from '../core/themes.js';
+import { THEMES, TRIM_SIZES, SCENE_BREAKS, ORNAMENTS, applyTheme, trimOf, DESIGN_CATEGORIES, findThemes, MIX_PARTS, mixThemes } from '../core/themes.js';
 import { allFonts, fontStack, fontOptions, figureSupport } from '../core/fonts.js';
 import { orderedElements, displayTitle, bookWords, elementWords, formatNumber, applyCase } from '../core/model.js';
 import { PrintPreview, ebookPreviewHtml } from '../render/preview.js';
@@ -12,6 +12,7 @@ import { checkLayout, drawLayoutReport } from './layout-report.js';
 import { charStylesPanel, paraStylesPanel, linksNotesPanel, captionsPanel, versePanel, openersPanel, overridesPanel, customCssPanel } from './format-styles.js';
 
 const openSections = new Set(['theme']);
+let themeQuery = '', themeCat = '';
 
 export function renderFormat(host) {
   const book = state.book;
@@ -179,18 +180,58 @@ export function renderFormat(host) {
     clear(pane);
     const F = f();
     add(pane, 
-      acc('theme', 'swatch-book', 'Design theme', (b) => {
-        add(b, h('p.hint', { style: { marginTop: 0 } }, 'A theme sets fonts, headings, ornaments and spacing. Fine-tune anything below.'),
-          h('div.theme-grid', Object.entries(THEMES).map(([id, t]) => {
-            const tf = applyTheme(structuredClone(F), id);
-            const n = formatNumber(1, tf.headings.numberStyle === 'none' ? 'word' : tf.headings.numberStyle);
-            return h(`button.theme-card${F.theme === id ? '.on' : ''}`, { type: 'button', on: { click: () => { book.format = applyTheme(F, id); change(true); toast(`Theme “${t.label}” applied`, 'success', 1400); } } },
-              h('div.tc-sample',
-                h('div.tc-num', { style: { fontFamily: fontStack(tf.headings.numberFont || tf.headings.font) } }, applyCase(`${tf.headings.numberPrefix ? tf.headings.numberPrefix + ' ' : ''}${n}`, tf.headings.numberCase)),
-                h('div.tc-title', { style: { fontFamily: fontStack(tf.headings.font), fontStyle: tf.headings.titleItalic ? 'italic' : '', fontWeight: tf.headings.titleWeight, textTransform: tf.headings.titleCase === 'upper' ? 'uppercase' : '' } }, 'The Beginning'),
-                h('div', { style: { fontFamily: fontStack(tf.body.font), fontSize: '9px', marginTop: '3px', opacity: .7 } }, 'It was a quiet morning…')),
-              h('b', t.label), h('small', t.desc));
-          })));
+      acc('theme', 'swatch-book', `Design templates (${Object.keys(THEMES).length})`, (b) => {
+        const grid = h('div.theme-grid');
+        const count = h('span.small.muted');
+        const card = ([id, t]) => {
+          const tf = applyTheme(structuredClone(F), id);
+          const n = formatNumber(1, tf.headings.numberStyle === 'none' ? 'word' : tf.headings.numberStyle);
+          return h(`button.theme-card${F.theme === id && !F.mix ? '.on' : ''}`, { type: 'button', title: `${t.label} — ${t.desc}`, on: { click: () => { book.format = applyTheme(F, id); change(true); toast(`Template “${t.label}” applied — fine-tune anything below`, 'success', 1800); } } },
+            h('div.tc-sample',
+              tf.headings.numberStyle === 'none' ? null : h('div.tc-num', { style: { fontFamily: fontStack(tf.headings.numberFont || tf.headings.font) } }, applyCase(`${tf.headings.numberPrefix ? tf.headings.numberPrefix + ' ' : ''}${n}`, tf.headings.numberCase)),
+              h('div.tc-title', { style: { fontFamily: fontStack(tf.headings.font), fontStyle: tf.headings.titleItalic ? 'italic' : '', fontWeight: tf.headings.titleWeight, textTransform: tf.headings.titleCase === 'upper' ? 'uppercase' : '', letterSpacing: tf.headings.titleSpacing ? `${Math.min(0.2, tf.headings.titleSpacing)}em` : '', color: tf.headings.titleColor && tf.headings.titleColor !== '#111111' ? tf.headings.titleColor : '', textAlign: tf.headings.align === 'left' ? 'left' : '', alignSelf: tf.headings.align === 'left' ? 'flex-start' : '' } }, 'The Beginning'),
+              h('div', { style: { fontFamily: fontStack(tf.body.font), fontSize: '9px', marginTop: '3px', opacity: 0.7 } }, 'It was a quiet morning…')),
+            h('b', t.label), h('small', t.desc));
+        };
+        // cards are drawn in batches so the panel opens instantly
+        let token = 0;
+        const draw = () => {
+          const my = ++token;
+          clear(grid);
+          const list = findThemes(themeQuery, themeCat);
+          count.textContent = `${list.length} design${list.length === 1 ? '' : 's'}`;
+          if (!list.length) { grid.appendChild(h('p.muted.small', 'No design matches — try another word.')); return; }
+          let i = 0;
+          const step = () => {
+            if (my !== token) return;
+            const frag = document.createDocumentFragment();
+            for (const e of list.slice(i, i + 16)) frag.appendChild(card(e));
+            grid.appendChild(frag);
+            i += 16;
+            if (i < list.length) requestAnimationFrame(step);
+          };
+          step();
+        };
+        const search = h('input.input', { type: 'search', placeholder: 'Search designs: romance, Avenir, poetry, bold…', value: themeQuery, 'aria-label': 'Search designs', on: { input: (e) => { themeQuery = e.target.value; draw(); } } });
+        const chips = h('div.cat-chips', ['', ...DESIGN_CATEGORIES].map((c) => h(`button.cat-chip${c === themeCat ? '.on' : ''}`, { type: 'button', on: { click: (e) => { themeCat = c; chips.querySelectorAll('.cat-chip').forEach((x) => x.classList.toggle('on', x === e.currentTarget)); draw(); } } }, c || 'All')));
+        add(b, h('p.hint', { style: { marginTop: 0 } }, 'A template sets fonts, chapter openings, ornaments and spacing. Everything stays editable in the sections below — or mix parts of different templates.'),
+          search, chips, h('div.row', { style: { margin: '6px 0' } }, count), grid);
+        draw();
+      }),
+      acc('mix', 'layers', 'Mix templates', (b) => {
+        const opts = Object.entries(THEMES).map(([id, t]) => [id, `${t.label} · ${t.cat}`]);
+        const cur = F.mix || {};
+        const parts = Object.fromEntries(MIX_PARTS.map((p) => [p.id, cur[p.id] || F.theme]));
+        add(b, h('p.hint', { style: { marginTop: 0 } }, 'Take each part of the design from a different template — say the text of one, the chapter openings of another. Then fine-tune anything in the sections below.'),
+          ...MIX_PARTS.map((p) => field(p.label, select(opts, parts[p.id], (v) => { parts[p.id] = v; }), p.hint)),
+          h('div.row', { style: { gap: '8px' } },
+            btn('Apply mix', { kind: 'primary', icon: 'check', onClick: () => { book.format = mixThemes(F, parts); change(true); toast('Mixed design applied', 'success'); } }),
+            btn('Surprise me', { icon: 'sparkles', kind: 'ghost', onClick: () => {
+              const ids = Object.keys(THEMES);
+              for (const p of MIX_PARTS) parts[p.id] = ids[Math.floor(Math.random() * ids.length)];
+              book.format = mixThemes(F, parts); change(true); toast('A random mix — keep it, or press again', 'success');
+            } })),
+          F.mix ? h('p.small.muted', { style: { marginTop: '8px' } }, 'Current mix: ', MIX_PARTS.map((p) => `${p.label} — ${THEMES[F.mix[p.id]]?.label || F.mix[p.id]}`).join(' · ')) : null);
       }),
       acc('mine', 'star', 'My templates', (b) => {
         const list = state.app.customTemplates || [];

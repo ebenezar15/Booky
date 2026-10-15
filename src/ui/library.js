@@ -3,7 +3,7 @@ import { h, icon, btn, iconBtn, menu, modal, toast, confirmDialog, field, pickFi
 import { db } from '../core/db.js';
 import { LANGUAGES, langInfo, applyLanguageDesign } from '../core/languages.js';
 import { BOOK_TEMPLATES, bookFromTemplate } from '../core/templates.js';
-import { THEMES, TRIM_SIZES, defaultFormat, applyTheme } from '../core/themes.js';
+import { THEMES, DESIGN_CATEGORIES, TRIM_SIZES, defaultFormat, applyTheme } from '../core/themes.js';
 import { allFonts, fontStack, fontOptions } from '../core/fonts.js';
 import { bookWords, createBook, createElement, normalizeBook, uid, applyCase, formatNumber } from '../core/model.js';
 import { coverThumbnail } from '../render/cover.js';
@@ -217,7 +217,7 @@ export function newBookDialog(tplId = 'novel') {
     const ch = () => drawSample();
     add(designBox,
       h('div.grid-2',
-        field('Design theme', select(Object.entries(THEMES).map(([id, t]) => [id, t.label]), f.theme, (v) => { design = applyTheme(design, v); drawDesign(); })),
+        field(`Design template (${Object.keys(THEMES).length})`, select(DESIGN_CATEGORIES.flatMap((c) => [{ value: `__${c}`, label: `── ${c} ──`, disabled: true }, ...Object.entries(THEMES).filter(([, t]) => t.cat === c).map(([id, t]) => ({ value: id, label: t.label }))]), f.theme, (v) => { design = applyTheme(design, v); drawDesign(); })),
         field('Trim size', select(TRIM_SIZES.filter((t) => t.id !== 'custom').map((t) => [t.id, t.label]), f.trim, (v) => { f.trim = v; }))),
       h('div.grid-2',
         field('Body font', select(fonts, f.body.font, (v) => { f.body.font = v; ch(); })),

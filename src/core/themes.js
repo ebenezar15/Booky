@@ -1,6 +1,7 @@
 // Interior formatting: trim sizes, design themes and the default settings.
 import { deepMerge } from './util-merge.js';
 import { FORMAT_DEFAULTS } from './formatting.js';
+import { THEME_LIBRARY, THEME_CATEGORIES, ORIGINAL_CATEGORY } from './theme-library.js';
 
 export const TRIM_SIZES = [
   { id: '4.25x6.87', label: 'Mass-market paperback', w: 4.25, h: 6.87 },
@@ -84,7 +85,7 @@ const BASE = {
   ...structuredClone(FORMAT_DEFAULTS),
 };
 
-export const THEMES = {
+const ORIGINALS = {
   classic: { label: 'Classic', desc: 'Timeless Garamond with small-caps openings', o: {} },
   literary: {
     label: 'Literary', desc: 'Elegant Cormorant, airy chapter openings',
@@ -199,6 +200,40 @@ export const THEMES = {
     },
   },
 };
+
+for (const t of Object.values(ORIGINALS)) t.cat = ORIGINAL_CATEGORY;
+export const THEMES = { ...ORIGINALS, ...THEME_LIBRARY };
+export const DESIGN_CATEGORIES = [ORIGINAL_CATEGORY, ...THEME_CATEGORIES];
+
+/** Designs matching a search and/or category, in library order. */
+export function findThemes(query = '', category = '') {
+  const q = String(query).trim().toLowerCase();
+  return Object.entries(THEMES).filter(([id, t]) => (!category || t.cat === category)
+    && (!q || `${t.label} ${t.desc} ${t.cat} ${t.o.body?.font || ''} ${t.o.headings?.font || ''}`.toLowerCase().includes(q)));
+}
+
+// The parts of a design that can come from different templates.
+export const MIX_PARTS = [
+  { id: 'text', label: 'Body text', keys: ['body'], hint: 'Font, size, line spacing, paragraphs' },
+  { id: 'openings', label: 'Chapter openings', keys: ['headings', 'firstPara'], hint: 'Chapter numbers and titles, ornaments, drop caps' },
+  { id: 'breaks', label: 'Scene breaks', keys: ['sceneBreak'], hint: 'The mark between scenes' },
+  { id: 'pages', label: 'Running heads & page numbers', keys: ['header', 'pageNumbers'], hint: 'Top and bottom of every page' },
+];
+
+/**
+ * Build a design from parts of several templates, e.g. { text: 'classic', openings: 'fan-saga', breaks: 'romance', pages: 'modern' }.
+ * Trim, margins and the author's own styles are kept, as with applyTheme.
+ */
+export function mixThemes(format, parts) {
+  const out = applyTheme(format, parts.text || format.theme);
+  for (const part of MIX_PARTS) {
+    const id = parts[part.id];
+    if (!id || part.id === 'text' || !THEMES[id]) continue;
+    for (const k of part.keys) out[k] = deepMerge(structuredClone(BASE[k]), THEMES[id].o[k] || {});
+  }
+  out.mix = Object.fromEntries(MIX_PARTS.map((p) => [p.id, parts[p.id] || parts.text || format.theme]));
+  return out;
+}
 
 export function defaultFormat(theme = 'classic') {
   return applyTheme(structuredClone(BASE), theme);
