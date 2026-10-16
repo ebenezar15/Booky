@@ -245,11 +245,28 @@ export function field(label, control, hint) {
   return h('label.field', h('span.field-label', label), control, hint ? h('small.hint', hint) : null);
 }
 
+// Options can carry an action (e.g. "＋ Import font files…"): choosing one runs it instead of changing the value.
+const selectActions = {};
+export const registerSelectAction = (name, fn) => { selectActions[name] = fn; };
+
 export function select(options, value, onChange, attrs = {}) {
-  const s = h('select.input', { ...attrs, on: { change: () => onChange(s.value) } },
+  let prev = value;
+  const s = h('select.input', { ...attrs, on: { change: () => {
+    const action = s.selectedOptions[0]?.dataset.action;
+    if (action) {
+      s.value = prev ?? '';
+      selectActions[action]?.((v) => {
+        if (![...s.options].some((o) => o.value === v)) s.insertBefore(h('option', { value: v }, v), s.querySelector('[data-action]'));
+        s.value = v; prev = v; onChange(v);
+      });
+      return;
+    }
+    prev = s.value;
+    onChange(s.value);
+  } } },
     options.map((o) => {
-      const [v, l, style, disabled] = Array.isArray(o) ? o : typeof o === 'object' ? [o.value ?? o.id, o.label, o.style, o.disabled] : [o, o];
-      return h('option', { value: v, selected: String(v) === String(value), style, disabled }, l);
+      const [v, l, style, disabled, action] = Array.isArray(o) ? o : typeof o === 'object' ? [o.value ?? o.id, o.label, o.style, o.disabled, o.action] : [o, o];
+      return h('option', { value: v, selected: String(v) === String(value), style, disabled, dataset: action ? { action } : undefined }, l);
     }));
   return s;
 }

@@ -19,5 +19,11 @@ contextBridge.exposeInMainWorld('bookyDesktop', {
   ttsPause: (pause) => ipcRenderer.invoke('booky:tts-pause', pause),
   dictate: () => ipcRenderer.invoke('booky:dictate'),
   micAccess: () => ipcRenderer.invoke('booky:mic-access'),
+  sttStatus: () => ipcRenderer.invoke('booky:stt-status'),
+  sttDownload: (id) => ipcRenderer.invoke('booky:stt-download', id),
+  sttDelete: (id) => ipcRenderer.invoke('booky:stt-delete', id),
+  sttRecognize: (req) => ipcRenderer.invoke('booky:stt-recognize', req),
+  onSttProgress: (cb) => { const f = (_e, p) => cb(p); ipcRenderer.on('booky:stt-progress', f); return () => ipcRenderer.removeListener('booky:stt-progress', f); },
+  readAsset: (name) => ipcRenderer.invoke('booky:read-asset', name),
   readyToClose: () => ipcRenderer.send('booky:ready-to-close'),
 });

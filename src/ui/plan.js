@@ -33,6 +33,7 @@ export function renderPlan(host) {
   function draw() {
     clear(wrap);
     wrap.appendChild(h('div.plan-head',
+      iconBtn('panel-left', 'Toggle manuscript panel (Ctrl \\)', () => import('./workspace.js').then((m) => m.toggleBinder()), { cls: 'narrow-only' }),
       h('h2', { cork: 'Corkboard', outline: 'Outline', bible: 'Story Bible', goals: 'Goals & Progress' }[view]),
       segmented([['cork', 'Corkboard'], ['outline', 'Outline'], ['bible', 'Story Bible'], ['goals', 'Goals']], view, (v) => { view = lastView = v; draw(); }),
       h('span.grow'),

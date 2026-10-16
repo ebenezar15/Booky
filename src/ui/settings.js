@@ -1,7 +1,9 @@
 // App-wide settings: appearance, proofing, personal dictionary, custom fonts, shortcuts.
 import { h, btn, icon, iconBtn, modal, toggle, field, pickFile, toast, segmented, clear, add, input } from './dom.js';
 import { state, setApp } from '../core/store.js';
-import { addCustomFont, removeCustomFont, BUNDLED_FONTS, fontStack, SYSTEM_FONTS, isInstalled, scanComputerFonts, canScanFonts, lookalikeFor } from '../core/fonts.js';
+import { yourFontsPanel } from './font-import.js';
+import { loadHarper, harperStatus } from '../lang/harper.js';
+import { BUNDLED_FONTS, fontStack, SYSTEM_FONTS, isInstalled, scanComputerFonts, canScanFonts, lookalikeFor } from '../core/fonts.js';
 import { removeFromDictionary } from '../lang/spell.js';
 import { appearancePanel } from './appearance.js';
 import { translationSettingsPanel } from './translate.js';
@@ -61,6 +63,14 @@ export function openSettings(tab = 'general') {
         h('div.col', { style: { gap: '12px' } },
           toggle(state.app.spellcheck, (v) => setApp({ spellcheck: v }), 'Check spelling (offline English dictionary)'),
           toggle(state.app.grammar, (v) => setApp({ grammar: v }), 'Check grammar & punctuation'),
+          (() => {
+            const st = h('span.small.muted');
+            const show = () => { st.textContent = { idle: '', loading: ' — loading…', ready: ' — ready', unavailable: ' — not available offline yet: it downloads once (16 MB) the next time you are online', off: '' }[harperStatus()] || ''; };
+            show();
+            if (state.app.harper !== false) loadHarper().then(show);
+            return h('div', toggle(state.app.harper !== false, (v) => { setApp({ harper: v }); if (v) loadHarper().then(show); show(); }, 'Advanced English grammar engine (Harper)'),
+              h('p.hint', { style: { margin: '4px 0 0 44px' } }, 'Catches agreement (“I has”), word choice (“could of”, “their/there”, “its/it’s”, “too/to”), articles and more, on your device. ', st));
+          })(),
           toggle(state.app.styleHints, (v) => setApp({ styleHints: v }), 'Style suggestions (wordiness, passive voice, clichés, weak words)'),
           toggle(state.app.fictionHints !== false, (v) => setApp({ fictionHints: v }), 'Fiction hints (filter words like “felt”, “saw”, “realized”)'),
         ),
@@ -71,22 +81,9 @@ export function openSettings(tab = 'general') {
       );
     }
     if (t === 'fonts') {
-      const list = h('div.col', { style: { gap: '6px' } });
-      const drawFonts = () => {
-        clear(list);
-        state.app.customFonts.forEach((f) => list.appendChild(h('div.row.card', { style: { padding: '8px 12px' } },
-          h('span.grow.font-sample', { style: { fontFamily: fontStack(f.name) } }, f.name), iconBtn('trash', 'Remove font', () => { removeCustomFont(f.name); drawFonts(); }))));
-        if (!state.app.customFonts.length) list.appendChild(h('p.muted', 'No custom fonts yet.'));
-      };
-      drawFonts();
-      add(body, 
-        h('p.muted', `${BUNDLED_FONTS.length} professional book fonts are built in and work offline. You can also add your own (.ttf, .otf, .woff, .woff2) — make sure the licence allows embedding in books.`),
-        btn('Add font file…', { icon: 'plus', kind: 'primary', onClick: async () => {
-          const files = await pickFile('.ttf,.otf,.woff,.woff2', { multiple: true });
-          for (const f of files || []) { const n = await addCustomFont(f); toast(`Added “${n}”`, 'success'); }
-          drawFonts();
-        } }),
-        h('div.section-title', { style: { marginTop: '18px' } }, 'Your fonts'), list,
+      add(body,
+        h('p.muted', `${BUNDLED_FONTS.length} professional book fonts are built in and work offline. You can also import your own — font files, a folder, or a .zip — and they appear in every font menu. Make sure the licence allows embedding in books.`),
+        h('div.section-title', { style: { marginTop: '12px' } }, 'Your fonts'), yourFontsPanel(),
         h('div.section-title', { style: { marginTop: '18px' } }, 'Fonts on this computer'),
         h('p.muted.small', 'Fonts that came with your Mac or Windows PC (Avenir Next, Baskerville, Didot, Futura, Palatino, Segoe UI…) appear in every font menu under “On this computer”. They print perfectly from this computer. Ebooks can’t carry them (their licence doesn’t allow it), so ebooks use the free look-alike shown in brackets.'),
         h('div.sys-fonts', SYSTEM_FONTS.filter(isInstalled).map((f) => h('div', { style: { fontFamily: fontStack(f) }, title: lookalikeFor(f) ? `Ebooks use ${lookalikeFor(f)}` : '' }, f, lookalikeFor(f) ? h('small.muted', ` → ${lookalikeFor(f)}`) : null))),

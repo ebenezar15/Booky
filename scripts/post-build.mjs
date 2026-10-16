@@ -4,6 +4,8 @@ const src = 'dist/app.html';
 if (fs.existsSync(src)) {
   fs.copyFileSync(src, 'dist/Booky.html');
   fs.copyFileSync(src, 'dist/index.html'); // the desktop app loads this one
+  // the Harper grammar engine stays a separate file (16 MB): the desktop app and the website load it from here
+  fs.copyFileSync('node_modules/harper.js/dist/harper_wasm_bg.wasm', 'dist/harper.wasm');
   const kb = Math.round(fs.statSync(src).size / 1024);
   console.log(`\n  Standalone app: dist/Booky.html (${kb} KB) — double-click to open, works offline.\n`);
 }

@@ -38,7 +38,7 @@ jobs:
         run: |
           mkdir -p _site/release _site/public
           cp index.html review.html .nojekyll _site/
-          cp release/Booky.html _site/release/
+          cp release/Booky.html release/harper.wasm _site/release/
           cp public/* _site/public/
       - if: steps.mode.outputs.type == 'workflow'
         uses: actions/upload-pages-artifact@v3

@@ -4,7 +4,7 @@ import { renderSections } from '../render/book.js';
 import { ebookCss } from '../render/css.js';
 import { escapeHtml, uid } from '../core/model.js';
 import { frontCoverDataURL, preloadCover } from '../render/cover.js';
-import { fontFaceCss, ensureFontsLoaded } from '../core/fonts.js';
+import { fontFaceCss, ensureFontsLoaded, lookalikeFor } from '../core/fonts.js';
 import { isRtl } from '../core/languages.js';
 import { fixHeadingLevels, accessibilityMetadata } from './a11y.js';
 import { parseIsbn } from '../core/isbn.js';
@@ -45,6 +45,8 @@ ${body}
 
 async function fontFiles(book) {
   const used = new Set([book.format.body.font, book.format.headings.font, book.format.headings.numberFont, book.format.firstPara.dropCapFont, book.format.headings.subheadFont].filter(Boolean));
+  // a computer font (Avenir Next…) can't be embedded; its free look-alike is
+  for (const f of [...used]) { const alike = lookalikeFor(f); if (alike) used.add(alike); }
   const css = fontFaceCss();
   const out = [];
   let faceCss = '';

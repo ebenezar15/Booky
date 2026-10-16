@@ -4,6 +4,8 @@ import { state, setMode, selectElement, emit, touch, setApp } from '../core/stor
 import { includedElements } from '../render/book.js';
 import { htmlToText, fillPlaceholders, displayTitle, uid, normalizeBook } from '../core/model.js';
 import { checkText } from '../lang/grammar.js';
+import { harperIssues, mergeIssues, loadHarper } from '../lang/harper.js';
+import { isEnglish } from '../core/languages.js';
 import { findMisspelled, WORD_RE, shouldSkip, suggest } from '../lang/spell.js';
 import { similarSentences, repeatedPhrases, sentenceOpeners, echoes, textMetrics, readabilityAdvice, originalityCheck, FAMOUS_PASSAGES } from '../lang/analysis.js';
 import { findMatches } from '../editor/find.js';
@@ -58,6 +60,7 @@ export function renderReview(host) {
   let alive = true;
 
   const head = h('div.plan-head',
+      iconBtn('panel-left', 'Toggle manuscript panel (Ctrl \\)', () => import('./workspace.js').then((m) => m.toggleBinder()), { cls: 'narrow-only' }),
     h('h2', 'Review'),
     segmented([['proof', 'Proofread'], ['punct', 'Punctuation'], ['consist', 'Consistency'], ...(supportsIndicChecks(book.meta.language) ? [['script', 'Script check']] : []), ['typo', 'Typography'], ['format', 'Hand formatting'], ['sheet', 'Style sheet'], ['read', 'Readability'], ['repeat', 'Repetition'], ['orig', 'Originality']], tab, (v) => { tab = lastTab = v; run(); }),
     h('span.grow'),
@@ -84,6 +87,7 @@ export function renderReview(host) {
   let filter = 'all';
   async function proofread() {
     loading('Proofreading every chapter…');
+    const useHarper = state.app.harper !== false && isEnglish(book.meta.language) && await loadHarper(book.styleSheet?.variety);
     const units = bookUnits(book);
     const all = [];
     for (const u of units) {
@@ -96,7 +100,9 @@ export function renderReview(host) {
           if (bad.has(w) && !seen.has(w)) { seen.add(w); all.push({ unit: u, kind: 'spelling', title: 'Spelling', message: `“${w}” is not in the dictionary.`, word: w, context: para.slice(Math.max(0, m.index - 40), m.index + w.length + 40), needle: w }); }
         }
         if (BOILERPLATE.has(u.type)) continue; // spelling only on boilerplate pages
-        for (const is of checkText(para, { grammar: true, style: true, fiction: state.app.fictionHints !== false })) {
+        let found = checkText(para, { grammar: true, style: true, fiction: state.app.fictionHints !== false });
+        if (useHarper) found = mergeIssues(found, (await harperIssues(para)) || []);
+        for (const is of found) {
           all.push({ unit: u, ...is, needle: para.slice(is.start, is.end), context: para.slice(Math.max(0, is.start - 40), is.end + 40) });
         }
       }

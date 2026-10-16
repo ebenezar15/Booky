@@ -7,7 +7,7 @@ import { startBackups } from './core/backup-folder.js';
 import { storageWarning } from './ui/backup-ui.js';
 import { renderLibrary } from './ui/library.js';
 import { renderWorkspace } from './ui/workspace.js';
-import { clear, toast } from './ui/dom.js';
+import { clear, toast, registerSelectAction } from './ui/dom.js';
 import { initSpell } from './lang/spell.js';
 import { applyColors } from './core/colors.js';
 import { initDesktop } from './desktop.js';
@@ -37,6 +37,12 @@ async function route() {
 
 async function boot() {
   installFonts();
+  // "＋ Import font files…" in any font menu
+  registerSelectAction('import-font', async (apply) => {
+    const { importFontsFlow } = await import('./ui/font-import.js');
+    const name = await importFontsFlow();
+    if (name) apply(name);
+  });
   await loadAppSettings();
   applyTheme();
   on('app', (p) => { if (['theme', 'colorScheme', 'customPrimary', 'customAccent', 'animations'].some((k) => k in p)) applyTheme(); if ('sidebar' in p) document.querySelectorAll('.binder').forEach((b) => b.classList.toggle('deep', p.sidebar !== 'light')); });

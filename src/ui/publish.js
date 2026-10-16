@@ -42,7 +42,7 @@ export function renderPublish(host) {
   add(wrap, 
     h('h2', 'Publish your book'),
     h('p.muted', `${book.meta.title || 'Untitled'} · ${bookWords(book).toLocaleString()} words · approx. ${pages} printed pages at ${w} × ${hh} in`),
-    h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 380px)', gap: '22px', alignItems: 'start', marginTop: '8px' } },
+    h('div.publish-cols',
       h('div',
         h('div.card.platform-card',
           h('h3', { style: { margin: '0 0 2px' } }, 'Publish to a platform'),

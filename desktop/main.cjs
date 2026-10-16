@@ -188,6 +188,21 @@ ipcMain.handle('booky:mic-access', async () => {
   try { return systemPreferences.getMediaAccessStatus('microphone') === 'granted' || await systemPreferences.askForMediaAccess('microphone'); } catch { return false; }
 });
 
+// ---------- speech recognition on this computer (Whisper; any language, detected automatically) ----------
+const stt = require('./stt.cjs');
+ipcMain.handle('booky:stt-status', () => stt.status());
+ipcMain.handle('booky:stt-download', (e, id) => stt.download(id, (p) => { if (!e.sender.isDestroyed()) e.sender.send('booky:stt-progress', p); }));
+ipcMain.handle('booky:stt-delete', (_e, id) => stt.remove(id));
+ipcMain.handle('booky:stt-recognize', (_e, req) => stt.recognize(req));
+app.on('before-quit', () => stt.stopWorker());
+
+// ---------- app files the page asks for (the grammar engine) ----------
+const ASSETS = new Set(['harper.wasm']);
+ipcMain.handle('booky:read-asset', (_e, name) => {
+  if (!ASSETS.has(name)) return null;
+  try { return fs.readFileSync(path.join(__dirname, '..', 'dist', name)); } catch { return null; }
+});
+
 // ---------- menus ----------
 function buildMenu() {
   const send = (cmd) => () => win?.webContents.send('booky:menu', cmd);

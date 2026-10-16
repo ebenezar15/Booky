@@ -4,6 +4,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { checkText } from '../lang/grammar.js';
 import { checkPunctuation } from '../lang/punctuation.js';
+import { harperIssues, mergeIssues, loadHarper, onHarperReady, harperStatus } from '../lang/harper.js';
 import { findMisspelled, WORD_RE, shouldSkip } from '../lang/spell.js';
 
 export const proofKey = new PluginKey('proofing');
@@ -63,7 +64,12 @@ async function analyze(doc, settings) {
         spellHits.push({ w, from: b.map[m.index], to: b.map[m.index + w.length - 1] + 1 });
       }
     }
-    const found = settings.grammar || settings.style ? [...cachedCheck(b.text, { grammar: settings.grammar, style: settings.style, fiction: settings.fiction })] : [];
+    let found = settings.grammar || settings.style ? [...cachedCheck(b.text, { grammar: settings.grammar, style: settings.style, fiction: settings.fiction })] : [];
+    // the Harper engine, when it's loaded (English only)
+    if (settings.grammar && settings.harper && settings.lang === 'en') {
+      const hi = await harperIssues(b.text);
+      if (hi) found = mergeIssues(found, hi.filter((x) => settings.style || x.kind !== 'style'));
+    }
     if (settings.punct) found.push(...checkPunctuation(b.text, settings.lang, { skipEnglish: settings.grammar }).filter((is) => settings.punctStyle || is.kind !== 'style'));
     if (found.length) {
       for (const is of found) {
@@ -137,10 +143,16 @@ export const Proofing = Extension.create({
         };
         const schedule = (ms = 600) => { clearTimeout(timer); timer = setTimeout(run, ms); };
         ext.storage.schedule = schedule;
+        const st = ext.options.getSettings();
+        let offReady = () => {};
+        if (st.grammar && st.harper && st.lang === 'en' && harperStatus() !== 'ready') {
+          offReady = onHarperReady(() => schedule(50));
+          loadHarper(st.variety);
+        }
         schedule(50);
         return {
           update(v, prev) { if (!prev.doc.eq(v.state.doc)) schedule(); },
-          destroy() { clearTimeout(timer); },
+          destroy() { clearTimeout(timer); offReady(); },
         };
       },
     })];

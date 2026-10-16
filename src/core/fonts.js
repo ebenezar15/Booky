@@ -89,7 +89,7 @@ export async function scanComputerFonts() {
 export const canScanFonts = () => typeof globalThis.queryLocalFonts === 'function';
 
 export function allFonts() {
-  return [...BUNDLED_FONTS, ...state.app.customFonts.map((f) => f.name), ...SYSTEM_FONTS, ...(state.app.computerFonts || [])];
+  return [...BUNDLED_FONTS, ...customFamilies(), ...SYSTEM_FONTS, ...(state.app.computerFonts || [])];
 }
 
 /** Font choices for a select, with the book's own script first and groups labelled. */
@@ -105,10 +105,9 @@ export function fontOptions(langCode) {
     groups.push({ value: `__${sc}`, label: `── ${SCRIPT_LABELS[sc]} ──`, disabled: true });
     for (const f of list) groups.push(opt(f.name, f.note ? `  (${f.note})` : ''));
   }
-  if (state.app.customFonts.length) {
-    groups.push({ value: '__custom', label: '── Your fonts ──', disabled: true });
-    state.app.customFonts.forEach((f) => groups.push(opt(f.name)));
-  }
+  groups.push({ value: '__custom', label: '── Your fonts ──', disabled: true });
+  customFamilies().forEach((n) => groups.push(opt(n)));
+  groups.push({ value: '__import-font', label: '＋ Import font files…', action: 'import-font' });
   const here = SYSTEM_FONTS.filter(isInstalled);
   const scanned = (state.app.computerFonts || []).filter((n) => !SYSTEM_KIND[n]);
   if (here.length || scanned.length) {
@@ -131,7 +130,7 @@ export function fontStack(name, langFont) {
 
 export function customFontCss() {
   return state.app.customFonts
-    .map((f) => `@font-face{font-family:'${f.name}';src:url(${f.data});font-display:swap;}`)
+    .map((f) => `@font-face{font-family:'${f.name}';src:url(${f.data});font-weight:${f.weight || 400};font-style:${f.style || 'normal'};font-display:swap;}`)
     .join('\n');
 }
 
@@ -172,24 +171,53 @@ export function installFonts() {
   styleEl.textContent = fontFaceCss();
 }
 
-export async function addCustomFont(file) {
-  const data = await new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-  const name = file.name.replace(/\.(ttf|otf|woff2?)$/i, '').replace(/[-_]+/g, ' ').replace(/\b(regular|normal)\b/i, '').trim();
-  const fonts = state.app.customFonts.filter((f) => f.name !== name).concat({ name, data });
-  setApp({ customFonts: fonts });
-  installFonts();
-  return name;
+/**
+ * Add font files — .ttf, .otf, .woff, .woff2, or a .zip of them. Each file's own family name, weight and style are read,
+ * so Regular, Bold and Italic files of one family become one font. Returns the family names added.
+ */
+export async function addCustomFonts(files) {
+  const { readFontInfo, FONT_FILE_RE, fontMime } = await import('./font-file.js');
+  const entries = [];
+  for (const file of files) {
+    if (/\.zip$/i.test(file.name)) {
+      const JSZip = (await import('jszip')).default;
+      const zip = await JSZip.loadAsync(await file.arrayBuffer());
+      for (const [path, zf] of Object.entries(zip.files)) {
+        if (zf.dir || !FONT_FILE_RE.test(path) || /(^|\/)(__MACOSX|\.)/.test(path)) continue;
+        entries.push({ name: path.split('/').pop(), bytes: await zf.async('uint8array') });
+      }
+    } else if (FONT_FILE_RE.test(file.name)) entries.push({ name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) });
+  }
+  const added = new Set();
+  let fonts = [...state.app.customFonts];
+  for (const e of entries) {
+    const info = await readFontInfo(e.bytes, e.name);
+    let bin = '';
+    for (let i = 0; i < e.bytes.length; i += 0x8000) bin += String.fromCharCode(...e.bytes.subarray(i, i + 0x8000));
+    const data = `data:${fontMime(e.name)};base64,${btoa(bin)}`;
+    fonts = fonts.filter((f) => !(f.name === info.family && (f.weight || 400) === info.weight && (f.style || 'normal') === info.style));
+    fonts.push({ name: info.family, weight: info.weight, style: info.style, data, file: e.name });
+    added.add(info.family);
+  }
+  if (added.size) { setApp({ customFonts: fonts }); installFonts(); }
+  return [...added];
 }
+
+/** Older single-file entry point. */
+export async function addCustomFont(file) { return (await addCustomFonts([file]))[0]; }
 
 export function removeCustomFont(name) {
   setApp({ customFonts: state.app.customFonts.filter((f) => f.name !== name) });
   installFonts();
 }
+
+/** The styles a custom family has, e.g. ['Regular', 'Bold', 'Bold Italic']. */
+export function customFontStyles(name) {
+  const W = { 100: 'Thin', 200: 'Extra Light', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semibold', 700: 'Bold', 800: 'Extra Bold', 900: 'Black' };
+  return state.app.customFonts.filter((f) => f.name === name).sort((a, b) => (a.weight || 400) - (b.weight || 400) || (a.style === 'italic') - (b.style === 'italic'))
+    .map((f) => `${W[f.weight || 400] || f.weight}${f.style === 'italic' ? ' Italic' : ''}`.replace('Regular Italic', 'Italic'));
+}
+export const customFamilies = () => [...new Set(state.app.customFonts.map((f) => f.name))];
 
 export async function ensureFontsLoaded(names) {
   if (!document.fonts) return;

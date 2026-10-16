@@ -90,6 +90,7 @@ export function renderWorkspace(root) {
     pill.style.width = `${on.offsetWidth}px`;
     pill.style.transform = `translateX(${on.offsetLeft - 4}px)`;
     pill.classList.add('ready');
+    if (nav.scrollWidth > nav.clientWidth) on.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   });
   window.addEventListener('resize', movePill);
   cleanup.push(() => window.removeEventListener('resize', movePill));

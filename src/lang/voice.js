@@ -1,6 +1,8 @@
 // Voice typing (speech to text).
 // Engines:
 //   browser — the Web Speech API (Chrome, Edge, Safari). Free; audio is processed by the browser maker's service.
+//   local   — the desktop app recognises speech on this computer with Whisper (downloaded once). Any language,
+//             detected automatically, or one you choose. No account; offline after the download.
 //   system  — the desktop app turns on the computer's own dictation (Mac: Dictation, Windows: Voice typing),
 //             which types straight into the editor. Free, no account; on newer Macs it runs on the device.
 //   google  — Google Cloud Speech-to-Text with your API key. Works everywhere, including the desktop app.
@@ -19,6 +21,27 @@ export const VOICE_LOCALES = {
   sv: [['sv-SE', 'Svenska']], pl: [['pl-PL', 'Polski']], id: [['id-ID', 'Bahasa Indonesia']], sw: [['sw-KE', 'Kiswahili']], tr: [['tr-TR', 'Türkçe']], vi: [['vi-VN', 'Tiếng Việt']],
 };
 
+// more spoken languages anyone can pick, whatever the book's language
+const MORE_LOCALES = [
+  ['zh-CN', '中文 (普通话)'], ['zh-TW', '中文 (台灣)'], ['yue-Hant-HK', '粵語'], ['ja-JP', '日本語'], ['ko-KR', '한국어'], ['ru-RU', 'Русский'], ['uk-UA', 'Українська'],
+  ['el-GR', 'Ελληνικά'], ['he-IL', 'עברית'], ['fa-IR', 'فارسی'], ['th-TH', 'ไทย'], ['ms-MY', 'Bahasa Melayu'], ['fil-PH', 'Filipino'], ['da-DK', 'Dansk'],
+  ['nb-NO', 'Norsk'], ['fi-FI', 'Suomi'], ['cs-CZ', 'Čeština'], ['hu-HU', 'Magyar'], ['ro-RO', 'Română'], ['bg-BG', 'Български'], ['hr-HR', 'Hrvatski'],
+  ['sr-RS', 'Српски'], ['sk-SK', 'Slovenčina'], ['sl-SI', 'Slovenščina'], ['ca-ES', 'Català'], ['eu-ES', 'Euskara'], ['gl-ES', 'Galego'], ['af-ZA', 'Afrikaans'],
+  ['zu-ZA', 'isiZulu'], ['am-ET', 'አማርኛ'], ['yo-NG', 'Yorùbá'], ['ha-NG', 'Hausa'], ['my-MM', 'မြန်မာ'], ['km-KH', 'ខ្មែរ'], ['lo-LA', 'ລາວ'], ['mn-MN', 'Монгол'],
+  ['ka-GE', 'ქართული'], ['hy-AM', 'Հայերեն'], ['az-AZ', 'Azərbaycan'], ['kk-KZ', 'Қазақ'], ['uz-UZ', 'Oʻzbek'], ['lt-LT', 'Lietuvių'], ['lv-LV', 'Latviešu'], ['et-EE', 'Eesti'], ['is-IS', 'Íslenska'],
+];
+/** Every spoken language Booky offers: [locale, name], the book's own first. */
+export function allLocales(lang) {
+  const seen = new Set();
+  const out = [];
+  for (const [l, n] of [...localesFor(lang), ...Object.values(VOICE_LOCALES).flat(), ...MORE_LOCALES]) if (!seen.has(l)) { seen.add(l); out.push([l, n]); }
+  return out;
+}
+/** A language's name from a Whisper / BCP-47 code, in English: 'ta' → 'Tamil'. */
+export function languageName(code) {
+  try { return new Intl.DisplayNames(['en'], { type: 'language' }).of(code) || code; } catch { return code; }
+}
+
 export const localesFor = (lang) => VOICE_LOCALES[lang] || VOICE_LOCALES[String(lang || 'en').split('-')[0]] || VOICE_LOCALES.en;
 
 const SR = () => globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
@@ -26,6 +49,7 @@ const isDesktopShell = () => !!globalThis.bookyDesktop; // Electron has no built
 
 export function availableEngines(keys = {}) {
   const out = [];
+  if (isDesktopShell() && keys.localModel && globalThis.bookyDesktop.sttRecognize) out.push('local');
   if (SR() && !isDesktopShell()) out.push('browser');
   if (isDesktopShell() && globalThis.bookyDesktop.dictate && /darwin|win32/.test(globalThis.bookyDesktop.platform)) out.push('system');
   if (keys.googleKey && globalThis.MediaRecorder && navigator.mediaDevices?.getUserMedia) out.push('google');
@@ -72,6 +96,7 @@ export function startVoice({ engine, locale, keys = {}, ...handlers }) {
   if (engine === 'browser') return browserSession(locale, handlers);
   if (engine === 'google') return googleSession(locale, keys, handlers);
   if (engine === 'system') return systemSession(handlers);
+  if (engine === 'local') return localSession(locale, keys, handlers);
   throw new Error('Voice typing isn’t available here. Use Chrome, Edge or Safari, or add a Google Cloud key in Settings → Voice & translation.');
 }
 
@@ -100,6 +125,78 @@ function browserSession(locale, h) {
   rec.start();
   h.onState?.('listening');
   return { stop() { active = false; h.onInterim?.(''); try { rec.stop(); } catch { /* ignore */ } } };
+}
+
+// Whisper on this computer: phrases between pauses, recognised in the desktop app's background worker.
+function localSession(locale, keys, h) {
+  let stopped = false, stream, ctx, proc, src;
+  let chunks = [], speaking = false, silentFor = 0, phraseLen = 0, quietLen = 0;
+  const RATE = 16000;
+  const queue = [];
+  let busy = false;
+  const language = !locale || locale === 'auto' ? '' : String(locale).split('-')[0];
+  const flush = async () => {
+    if (busy) return;
+    busy = true;
+    while (queue.length) {
+      const samples = queue.shift();
+      h.onState?.('processing');
+      try {
+        const r = await globalThis.bookyDesktop.sttRecognize({ samples, sampleRate: RATE, language, model: keys.localModel });
+        if (r?.text) { h.onLang?.(r.lang); h.onFinal?.(r.text, r.lang); }
+      } catch (e) { h.onError?.(e.message); }
+    }
+    busy = false;
+    h.onState?.(stopped ? 'stopped' : 'listening');
+  };
+  const endPhrase = () => {
+    if (chunks.length && phraseLen > RATE * 0.4) {
+      const all = new Float32Array(chunks.reduce((n, c) => n + c.length, 0));
+      let o = 0;
+      for (const c of chunks) { all.set(c, o); o += c.length; }
+      queue.push(all);
+      flush();
+    }
+    chunks = []; speaking = false; silentFor = 0; phraseLen = 0;
+    h.onInterim?.('');
+  };
+  (async () => {
+    try {
+      if (globalThis.bookyDesktop.micAccess) await globalThis.bookyDesktop.micAccess();
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+    } catch { h.onError?.('Microphone access was blocked. Allow the microphone for Booky and try again.'); return; }
+    if (stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
+    ctx = new AudioContext({ sampleRate: RATE });
+    src = ctx.createMediaStreamSource(stream);
+    proc = ctx.createScriptProcessor(4096, 1, 1);
+    proc.onaudioprocess = (e) => {
+      if (stopped) return;
+      const data = new Float32Array(e.inputBuffer.getChannelData(0));
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+      const rms = Math.sqrt(sum / data.length);
+      h.onLevel?.(Math.min(1, rms * 8));
+      if (rms > 0.015) { if (!speaking) { speaking = true; h.onInterim?.('…'); } silentFor = 0; quietLen = 0; }
+      else if (speaking) silentFor += data.length;
+      if (speaking) { chunks.push(data); phraseLen += data.length; }
+      else { quietLen += data.length; chunks = [data]; } // keep a little lead-in
+      // a phrase ends after 0.8 s of quiet, or at 25 s (Whisper hears 30 s at a time)
+      if (speaking && (silentFor > RATE * 0.8 || phraseLen > RATE * 25)) endPhrase();
+    };
+    src.connect(proc);
+    proc.connect(ctx.destination);
+    h.onState?.('listening');
+  })();
+  return {
+    stop() {
+      stopped = true;
+      if (speaking) { stopped = false; endPhrase(); stopped = true; }
+      try { proc?.disconnect(); src?.disconnect(); } catch { /* ignore */ }
+      setTimeout(() => { stream?.getTracks().forEach((t) => t.stop()); ctx?.close(); }, 200);
+      h.onInterim?.('');
+      if (!busy) h.onState?.('stopped');
+    },
+  };
 }
 
 // The computer's own dictation types into the focused editor by itself; Booky only switches it on.

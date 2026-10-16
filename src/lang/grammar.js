@@ -78,6 +78,17 @@ const IRREGULAR_PP = 'been|born|beaten|become|begun|bent|bitten|blown|broken|bro
 const CONFUSED = [
   [/\b(could|would|should|must|might) of\b/gi, (m) => [m.replace(/ of$/i, ' have')], 'grammar', 'Modal + “of”', 'After could/would/should, use “have”, not “of”.'],
   [/\balot\b/gi, () => ['a lot'], 'grammar', 'Spelling', '“Alot” is not a word; write “a lot”.'],
+  [/\b(I|we|they|you|he|she) seen\b/gi, (m) => { const p = m.split(' ')[0]; return [`${p} saw`, `${p} ${/^(he|she)$/i.test(p) ? 'has' : 'have'} seen`]; }, 'grammar', 'Seen / saw', '“Seen” needs “have” or “has”; or use “saw”.'],
+  [/\bbetween you and I\b/gi, (m) => [matchCase(m, 'between you and me')], 'grammar', 'Pronoun', 'After “between”, use “me”.'],
+  [/(?:^|(?<=[.!?]\s))(Me|Him|Her|Them) and (I|me|him|her|them|\p{Lu}\p{Ll}+) (go|goes|went|are|were|was|is|have|had|did|do|will|can)\b/gu, (m) => {
+    const subj = { me: 'I', him: 'he', her: 'she', them: 'they' };
+    const [, a, b, v] = m.match(/^(\S+) and (\S+) (\S+)$/);
+    const fix = (w) => subj[w.toLowerCase()] || w;
+    const first = fix(a) === 'I' ? fix(b) : fix(a), second = fix(a) === 'I' ? 'I' : fix(b);
+    const verb = { goes: 'go', is: 'are', was: 'were', has: 'have' }[v] || v;
+    return [`${first[0].toUpperCase()}${first.slice(1)} and ${second} ${verb}`];
+  }, 'grammar', 'Subject pronouns', 'As the subject, use “he/she/they and I”, not “me and him”.'],
+  [/\bit['’]s (own|tail|name|way|body|head|eyes|wings|place|paws|legs|shape|colou?r|size|purpose|best|edge|surface|roots|leaves)\b/gi, (m) => [m.replace(/it['’]s/i, (x) => matchCase(x, 'its'))], 'grammar', 'Its / it’s', 'For “belonging to it”, use “its” (no apostrophe).'],
   [/\birregardless\b/gi, () => ['regardless'], 'grammar', 'Nonstandard word', 'Use “regardless”.'],
   [/\b(your|you're) welcome\b/gi, (m) => [matchCase(m, "you're welcome")], 'grammar', 'Your / you’re', 'Use “you’re” (you are) here.'],
   [/\byour (a|an|the|going|not|so|very|too|being|doing|right|wrong|welcome)\b/gi, (m) => [m.replace(/your/i, (x) => matchCase(x, "you're"))], 'grammar', 'Your / you’re', 'Did you mean “you’re” (you are)?'],

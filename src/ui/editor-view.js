@@ -30,7 +30,7 @@ import { addToIndexDialog, crossRefDialog, openIndexPanel } from './index-panel.
 import { cleanPastedHtml } from '../editor/paste.js';
 import { cleanText } from '../core/typography.js';
 import { textToHtml } from '../import/text.js';
-import { startVoice, pickEngine, localesFor, shapeTranscript } from '../lang/voice.js';
+import { startVoice, pickEngine, localesFor, shapeTranscript, allLocales, languageName } from '../lang/voice.js';
 
 let editor = null;
 export const getEditor = () => editor;
@@ -45,7 +45,7 @@ function proofSettings() {
     const lang = String(state.book?.meta.language || '').split('-')[0];
     return { spell: state.app.spellcheck !== false && state.spellLang === lang, grammar: false, style: false, fiction: false, punct: state.app.punctuation !== false, punctStyle: state.app.styleHints !== false, lang: state.book?.meta.language };
   }
-  return { spell: state.app.spellcheck !== false, grammar: state.app.grammar !== false, style: state.app.styleHints !== false, fiction: state.app.fictionHints !== false, punct: state.app.punctuation !== false, punctStyle: state.app.styleHints !== false, lang: 'en' };
+  return { spell: state.app.spellcheck !== false, grammar: state.app.grammar !== false, style: state.app.styleHints !== false, fiction: state.app.fictionHints !== false, punct: state.app.punctuation !== false, punctStyle: state.app.styleHints !== false, lang: 'en', harper: state.app.harper !== false, variety: state.book?.styleSheet?.variety || 'us' };
 }
 
 export function renderEditor(host) {
@@ -114,11 +114,32 @@ export function renderEditor(host) {
   const voicePill = h('div.voice-pill', { 'aria-live': 'polite' }, h('span.vp-dot'), voiceLevel, voiceText,
     h('button.vp-stop', { type: 'button', title: 'Stop (Ctrl Alt V)', on: { click: () => toggleVoice() } }, icon('square', 12), ' Stop'));
   center.appendChild(voicePill);
+  const voiceKeys = () => ({ ...(state.app.translate || {}), localModel: state.app.localSpeechModel || '' });
+  const localReady = () => pickEngine(state.app.voiceEngine, voiceKeys()) === 'local';
+  // any language can be chosen, not only the book's; "auto" lets Whisper detect it (desktop app)
   const voiceLocale = () => {
-    const list = localesFor(book.meta.language);
-    return list.some(([l]) => l === book.settings.voiceLocale) ? book.settings.voiceLocale : list[0][0];
+    const v = book.settings.voiceLocale;
+    if (v === 'auto') return localReady() ? 'auto' : localesFor(book.meta.language)[0][0];
+    return v && allLocales(book.meta.language).some(([l]) => l === v) ? v : localReady() ? 'auto' : localesFor(book.meta.language)[0][0];
   };
-  const localeLabel = () => localesFor(book.meta.language).find(([l]) => l === voiceLocale())?.[1] || voiceLocale();
+  const localeLabel = () => (voiceLocale() === 'auto' ? 'any language (auto-detect)' : allLocales(book.meta.language).find(([l]) => l === voiceLocale())?.[1] || voiceLocale());
+  const setVoiceLocale = (l) => { book.settings.voiceLocale = l; touch('settings'); if (voice) { toggleVoice(); toggleVoice(); } drawMic(); };
+  function moreLanguages() {
+    const q = h('input.input', { type: 'search', placeholder: 'Search languages…', 'aria-label': 'Search languages' });
+    const list = h('div.lang-list');
+    const draw = () => {
+      clear(list);
+      const t = q.value.trim().toLowerCase();
+      for (const [l, n] of allLocales(book.meta.language)) {
+        const en = languageName(l.split('-')[0]);
+        if (t && !`${n} ${en} ${l}`.toLowerCase().includes(t)) continue;
+        list.appendChild(h(`button.lang-item${l === voiceLocale() ? '.on' : ''}`, { type: 'button', on: { click: () => { m.close(); setVoiceLocale(l); } } }, h('span', n), h('small.muted', `${en} · ${l}`)));
+      }
+    };
+    q.addEventListener('input', draw);
+    const m = modal({ title: 'Speak in…', width: 460, body: [q, list, h('p.hint', { style: { marginTop: '10px' } }, localReady() ? 'Or choose “Any language (auto-detect)” from the microphone menu.' : 'Booky’s desktop app can also detect the language by itself — Settings → Voice & translation.')] });
+    draw();
+  }
   const drawMic = () => {
     micBtn.classList.toggle('active', !!voice);
     micBtn.title = voice ? 'Stop voice typing (Ctrl Alt V)' : `Voice typing — ${localeLabel()} (Ctrl Alt V). Right-click for language.`;
@@ -153,7 +174,7 @@ export function renderEditor(host) {
   }
   function toggleVoice() {
     if (voice) { voice.stop(); voice = null; drawMic(); return; }
-    const keys = state.app.translate || {};
+    const keys = voiceKeys();
     const engine = pickEngine(state.app.voiceEngine, keys);
     if (!engine) { voiceHelp(); return; }
     if (engine === 'system') {
@@ -169,7 +190,7 @@ export function renderEditor(host) {
       voice = startVoice({
         engine, locale: voiceLocale(), keys,
         onInterim: (t) => { voiceText.textContent = t === '…' ? `Hearing you… (${localeLabel()})` : t || `Listening — ${localeLabel()}`; },
-        onFinal: (t) => { insertSpoken(t); voiceText.textContent = `Listening — ${localeLabel()}`; },
+        onFinal: (t, lang) => { insertSpoken(t); voiceText.textContent = lang && voiceLocale() === 'auto' ? `Heard ${languageName(lang)} — listening…` : `Listening — ${localeLabel()}`; },
         onState: (st) => { voicePill.classList.toggle('busy', st === 'processing'); if (st === 'stopped' && voice) { voice = null; drawMic(); } },
         onLevel: (v) => voiceLevel.style.setProperty('--lv', v.toFixed(2)),
         onError: (msg) => { toast(msg, 'error', 6000); voice?.stop(); voice = null; drawMic(); },
@@ -182,7 +203,11 @@ export function renderEditor(host) {
   micBtn.addEventListener('click', toggleVoice);
   micBtn.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    menu(micBtn, [{ header: 'Speak in' }, ...localesFor(book.meta.language).map(([l, name]) => ({ label: name, checked: l === voiceLocale(), onClick: () => { book.settings.voiceLocale = l; touch('settings'); if (voice) { toggleVoice(); toggleVoice(); } drawMic(); } })),
+    menu(micBtn, [{ header: 'Speak in' },
+      ...(localReady() ? [{ label: 'Any language (auto-detect)', icon: 'languages', checked: voiceLocale() === 'auto', onClick: () => setVoiceLocale('auto') }] : []),
+      ...localesFor(book.meta.language).map(([l, name]) => ({ label: name, checked: l === voiceLocale(), onClick: () => setVoiceLocale(l) })),
+      ...(voiceLocale() !== 'auto' && !localesFor(book.meta.language).some(([l]) => l === voiceLocale()) ? [{ label: localeLabel(), checked: true, onClick: () => {} }] : []),
+      { label: 'More languages…', icon: 'globe', onClick: () => moreLanguages() },
       { divider: true }, { label: 'Voice settings…', icon: 'settings', onClick: () => import('./settings.js').then((x) => x.openSettings('translate')) },
       { custom: h('div.ph-help', h('span.small.muted', isEnglish(book.meta.language) ? 'Say “comma”, “full stop”, “question mark”, “new paragraph”, “open quote” / “close quote”.' : 'Speak naturally — punctuation is added automatically where the service supports it.')) }]);
   });

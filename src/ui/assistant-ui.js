@@ -5,6 +5,30 @@ import { h, icon, btn, clear, add, modal, toast, menu, slider, segmented } from 
 import { state, setApp } from '../core/store.js';
 import { langInfo, isEnglish, isRtl } from '../core/languages.js';
 import { paraphrase, fixGrammar, summarize, alternativesFor, MODES, OTHER_APPS } from '../lang/assistant.js';
+import { harperIssues, loadHarper } from '../lang/harper.js';
+
+/** Booky's rules plus, for English, the Harper engine's fixes (agreement, word choice, articles…). */
+async function deepFix(text, lang) {
+  let t = text;
+  if (isEnglish(lang) && state.app.harper !== false && await loadHarper()) {
+    for (let pass = 0; pass < 3; pass++) {
+      const paras = t.split('\n');
+      let changed = false;
+      for (let p = 0; p < paras.length; p++) {
+        const issues = ((await harperIssues(paras[p])) || []).filter((i) => i.kind === 'grammar' && i.replacements.length).sort((a, b) => b.start - a.start);
+        let last = Infinity;
+        for (const i of issues) {
+          if (i.end > last) continue;
+          paras[p] = paras[p].slice(0, i.start) + i.replacements[0] + paras[p].slice(i.end);
+          last = i.start; changed = true;
+        }
+      }
+      t = paras.join('\n');
+      if (!changed) break;
+    }
+  }
+  return fixGrammar(t, lang);
+}
 import { rephrase } from '../lang/rephrase.js';
 import { diffWords } from '../core/diff.js';
 
@@ -87,8 +111,13 @@ export function openAssistant(editor, book, range = null, startTab = 'paraphrase
       const mode = prefs().mode || 'standard';
       const strength = prefs().strength || 2;
       const out = h('div');
-      const run = () => {
-        const res = paraphrase(input.value, { mode: prefs().mode || 'standard', strength: prefs().strength || 2, seed, lang });
+      let token = 0;
+      const run = async () => {
+        const my = ++token;
+        const src = prefs().mode === 'casual' || prefs().mode === 'formal' ? input.value : await deepFix(input.value, lang);
+        if (my !== token) return;
+        const res = paraphrase(src, { mode: prefs().mode || 'standard', strength: prefs().strength || 2, seed, lang });
+        if (src !== input.value) res.changed = res.text !== input.value;
         result.value = res.text;
         clear(out);
         if (!res.changed) { add(out, h('div.as-out.muted', en ? 'Nothing to change in this mode — try another mode or “Try again”.' : 'No changes needed. (Rewording modes work in English; for this language Booky fixes punctuation and spacing.)')); return; }
@@ -108,8 +137,13 @@ export function openAssistant(editor, book, range = null, startTab = 'paraphrase
     },
     grammar() {
       const out = h('div');
-      const run = () => {
-        result.value = fixGrammar(input.value, lang);
+      let token = 0;
+      const run = async () => {
+        const my = ++token;
+        clear(out); add(out, h('div.as-out.muted', 'Checking…'));
+        const fixed = await deepFix(input.value, lang);
+        if (my !== token) return;
+        result.value = fixed;
         clear(out);
         if (result.value === input.value) { add(out, h('div.as-out.as-ok', icon('circle-check', 18), h('span', 'No grammar or punctuation errors found.'))); return; }
         add(out, diffView(input.value, result).box);
