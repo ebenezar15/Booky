@@ -1,6 +1,6 @@
 {
   "name": "booky",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Write, format and publish books — offline book writing studio.",
   "scripts": {
     "dev": "vite",

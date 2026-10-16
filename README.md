@@ -6,6 +6,14 @@ It takes ideas from Atticus, Reedsy Studio, Scrivener and InDesign and puts them
 
 ---
 
+## New in 2.2
+- **A real grammar engine**: Harper (offline, by Automattic) now checks English alongside Booky's own rules — agreement (“I has”), word choice (“could of”, “their/there”, “its/it’s”, “too/to”), articles, repeated words. It underlines as you write, runs in Review → Proofread, and powers the Writing assistant's fixes.
+- **AI rewrite (optional)**: with your own Anthropic key, Claude rewrites a passage in any language — eight modes plus your own instruction, three versions to choose from.
+- **Voice typing in any language, detected automatically** (desktop app): download a speech model once (Fast, Balanced or Accurate) and speak in Tamil, Hindi, Urdu, Spanish, English — or switch mid-session. It runs on your computer. In the browser, choose from 87 languages.
+- **Import your own fonts** from any font menu or Settings: font files, a whole folder or a .zip. Regular, Bold and Italic files become one font family.
+- **Command palette** (Ctrl/⌘ K): type to find any action, setting, export or chapter.
+- **Smoother everywhere**: no doubled dialogs, Escape closes only the top one, side panels behave on tablets and phones, and every screen fits a phone. The home page title is set in Avenir Next.
+
 ## New in 2.1
 - **Writing assistant** (Ctrl Alt R): paraphrase in seven modes, fix grammar and punctuation, summarise, and send a passage to QuillBot, Grammarly, LanguageTool or DeepL Write and paste the result back. Runs on your device; no account or key.
 - **Punctuation checker for every language**, as you write and in Review → Punctuation (Urdu ، ؟ ۔, Hindi ।, Spanish ¿ ¡, French spacing, Chinese/Japanese full-width marks…).
@@ -88,6 +96,7 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 - **Find & replace** in the current chapter or the whole book, with match case, whole word and regular-expression options.
 - **Snapshots**: save versions of a chapter and restore them at any time.
 - **Split, merge and move**: right-click → *Split chapter here* (a heading at the cursor becomes the new chapter's title), *Merge with next chapter* (also in the binder menu), and *Move selection to…* another chapter. A snapshot is taken first, so each can be undone from the History tab.
+- **Command palette** (Ctrl/⌘ K): type to find and run any action, Review check, Format section, export, setting or chapter.
 - **Quick jump** (Ctrl/⌘ P): type part of a chapter title, a heading, a story-bible name, or a print page number (“p 142”) and press Enter.
 - **Notes to self and placeholders**: add a note to self (toolbar or right-click) — a small marker with a tooltip that is never printed or exported. Booky also spots the placeholders `TK`, `XX`, `[[…]]` and `???`. *Notes to self & placeholders* (top-bar ⋮ menu) lists them all, and exports ask before going ahead while any placeholders remain (with *Export anyway*).
 - **Read aloud** (Ctrl Alt A, or right-click → *Read aloud from here*): uses your computer's own voices, highlights the sentence being read, with pause, speed and voice choice. It stops as soon as you start typing, and tells you plainly when no voice for the book's language is installed.
@@ -106,7 +115,7 @@ The app is that one file. Fonts, the English dictionary and every library are bu
   - **Tamil (11):** Noto Serif/Sans Tamil, Tiro Tamil, Hind Madurai, Mukta Malar, Catamaran, Pavanam, Arima, Meera Inimai, Baloo Thambi 2, Kavivanar.
   - **Hindi, Marathi, Sanskrit & Nepali (11):** Noto Serif/Sans Devanagari, Tiro Devanagari (Hindi, Marathi, Sanskrit), Martel, Mukta, Hind, Laila, Kalam, Yatra One.
   - **Malayalam, Telugu, Kannada, Bengali, Gujarati, Punjabi, Odia (3–5 each),** plus Urdu (Noto Nastaliq, Gulzar), Arabic and Sinhala.
-  - **Fonts on your computer**: every font menu has an *On this computer* group with the Mac and Windows fonts found on this machine — Avenir Next, Baskerville, Didot, Futura, Palatino, Hoefler Text, Segoe UI, Tamil Sangam MN, Kohinoor Devanagari, Nirmala UI and more. Settings → Fonts can list every font installed (Chrome, Edge and the desktop app). They print perfectly from your computer; ebooks can't carry them (their licences don't allow it), so each one has a free look-alike that ebooks use (Avenir Next → Urbanist, Futura → Jost, Didot → Prata…). Your own font files can be added too.
+  - **Fonts on your computer**: every font menu has an *On this computer* group with the Mac and Windows fonts found on this machine — Avenir Next, Baskerville, Didot, Futura, Palatino, Hoefler Text, Segoe UI, Tamil Sangam MN, Kohinoor Devanagari, Nirmala UI and more. Settings → Fonts can list every font installed (Chrome, Edge and the desktop app). They print perfectly from your computer; ebooks can't carry them (their licences don't allow it), so each one has a free look-alike that ebooks use (Avenir Next → Urbanist, Futura → Jost, Didot → Prata…). **Import your own fonts** from any font menu (*＋ Import font files…*) or Settings → Fonts: font files (.ttf, .otf, .woff, .woff2), a whole folder, or a .zip. Booky reads each file's family name, weight and style, so Regular, Bold, Italic and Bold Italic become one font and bold and italic text use the real designs.
 - Only the fonts a book actually uses are embedded in its PDF, EPUB and review copies, so files stay small.
 - **Phonetic typing** for nine Indian scripts: type in English letters and each word turns into the script when you press space, e.g. `vaNakkam` → வணக்கம், `namaste` → नमस्ते. Switch it on and off with the அ button or Ctrl + Shift + Space; right-click the button for the key guide. Ctrl + Z restores the English letters. (Your computer's own Tamil/Hindi keyboards work as well.)
 - English spelling and grammar checks switch off automatically for other languages; the browser's own spell checker is used where it has a dictionary.
@@ -118,7 +127,9 @@ The app is that one file. Fonts, the English dictionary and every library are bu
 - A floating bar shows that Booky is listening, with a live sound level and a Stop button.
 - **Where it works:**
   - In Chrome, Edge and Safari it uses the browser's free speech service.
-  - In the desktop app the microphone turns on your computer's own dictation — **Mac Dictation** or **Windows voice typing** — which types straight into the editor. No account or key is needed, and on recent Macs it runs on the device.
+  - **Any language, detected automatically (desktop app):** Settings → Voice & translation → *Speech model*: download Fast (116 MB), Balanced (208 MB) or Accurate (640 MB, best for Tamil, Hindi and Urdu) once. Then right-click the microphone → *Any language (auto-detect)* and speak; the bar shows which language it heard. It runs on your computer with Whisper — no account, and offline after the download.
+  - **Any of 87 languages** can be chosen from the microphone menu (*More languages…*), whatever the book's language.
+  - Without a speech model, the microphone in the desktop app turns on your computer's own dictation — **Mac Dictation** or **Windows voice typing** — which types straight into the editor. No account or key is needed, and on recent Macs it runs on the device.
   - Optionally, a Google Cloud key with the Speech-to-Text API (Settings → Voice & translation) works everywhere.
   - You can also start your computer's dictation yourself: **Windows + H**, or **Fn (🌐) twice** on a Mac.
 
@@ -148,6 +159,7 @@ API keys are stored only on this computer (Settings → Voice & translation) and
 
 ### 🔎 Check (all offline)
 - **Spelling**: built-in Hunspell English dictionary, with suggestions, a personal dictionary and ignore lists.
+- **Advanced English grammar engine (Harper)**: an offline grammar checker from Automattic (the makers of WordPress), built into the desktop app and the website. The single-file `Booky.html` downloads it once (16 MB) the next time it is online and keeps it. Turn it off in Settings → Proofing.
 - **Grammar & punctuation**:
   - Repeated words, *a/an* and capitalization.
   - Spacing and punctuation errors.
@@ -162,6 +174,7 @@ API keys are stored only on this computer (Settings → Voice & translation) and
   - **Grammar & punctuation**: fixes everything that's clearly wrong in one go, in any language.
   - **Summarize** a scene or chapter in any language, at the length you choose.
   - **Sentence ideas**: active voice, split in two, reordered, lead with the image or the setting, and more.
+  - **AI rewrite (optional)**: add your own Anthropic API key (Settings → Voice & translation) and Claude rewrites the passage in any language — Standard, Fluency, Formal, Casual, Simple, Creative, Shorten or Expand, plus an instruction of your own — and offers three versions. Text is sent to Anthropic only when you press *Rewrite*.
   - **Other apps**: copies the passage and opens QuillBot (paraphraser, grammar checker, summarizer), Grammarly, LanguageTool or DeepL Write; *Paste result back* replaces the passage with their version. In Chrome or Edge, the QuillBot, Grammarly and LanguageTool browser extensions also work right in the editor.
 - **Punctuation checker for every language**: spaces before or after marks, doubled marks, brackets and quotes without a partner, a hyphen used as a dash — plus each script's own marks: the Urdu/Arabic comma, question mark and full stop (، ؟ ؛ ۔), the danda in Hindi, Sanskrit, Nepali, Bengali, Punjabi and Odia (। ॥), Spanish ¿ ¡, French spacing before ; : ! ? and inside « », and full-width marks in Chinese and Japanese. It underlines as you write (turn it off in the editor view settings) and Review → Punctuation lists the whole book with *Fix all*.
 - **Synonyms** from the right-click menu, a **readability score** with grade level, a most-used-words list, and **Proofread whole book** in the Publish tab.
