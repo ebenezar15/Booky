@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LocalLinter } from 'harper.js';
-import { binary } from 'harper.js/binary';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { LocalLinter, createBinaryModuleFromUrl } from 'harper.js';
 import { harperIssues, mergeIssues, toIssue, useLinter } from '../src/lang/harper.js';
 
 test('Harper finds real grammar mistakes, through Booky’s adapter', async () => {
+  // load the engine from bytes, as the app does (harper.js's own file:// loader mangles Windows paths)
+  const wasm = fs.readFileSync(fileURLToPath(new URL('harper_wasm_bg.wasm', import.meta.resolve('harper.js'))));
+  const binary = createBinaryModuleFromUrl(`data:application/wasm;base64,${wasm.toString('base64')}`, 'full');
   const l = new LocalLinter({ binary });
   await l.setup();
   useLinter(l);
