@@ -64,7 +64,8 @@ export function renderWorkspace(root) {
       appearanceButton(),
       themeButton(),
       iconBtn('ellipsis-vertical', 'More', (e) => menu(e.currentTarget, [
-        { label: 'Quick jump…', icon: 'command', hint: 'Ctrl P', onClick: () => openQuickJump(book) },
+        { label: 'Command palette…', icon: 'command', hint: 'Ctrl K', onClick: () => import('./command-palette.js').then((m) => m.openCommandPalette(book)) },
+        { label: 'Quick jump…', icon: 'search', hint: 'Ctrl P', onClick: () => openQuickJump(book) },
         { label: 'Notes to self & placeholders…', icon: 'message-square-dashed', onClick: () => openMarkersPanel(book) },
         { divider: true },
         { label: 'Book details…', icon: 'book-open-text', onClick: () => openDetails() },
@@ -153,6 +154,7 @@ export function renderWorkspace(root) {
   const onKey = (e) => {
     const mod = e.ctrlKey || e.metaKey;
     if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'p') { e.preventDefault(); openQuickJump(book); }
+    if (mod && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); import('./command-palette.js').then((m) => m.openCommandPalette(book)); }
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save().then(() => toast('Saved', 'success', 1200)); }
     if (mod && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); if (state.mode !== 'write') setMode('write'); setTimeout(() => document.dispatchEvent(new CustomEvent('booky:focus-mode')), 30); }
     if (mod && e.key === '\\') { e.preventDefault(); toggleBinder(); }

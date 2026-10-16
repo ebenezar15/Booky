@@ -41,8 +41,15 @@ function sourceRange(editor, range) {
   const sel = st.selection;
   if (!sel.empty) return { from: sel.from, to: sel.to };
   const $p = st.doc.resolve(range?.at ?? sel.from);
-  if (!$p.parent.isTextblock) return null;
-  return { from: $p.start(), to: $p.end() };
+  if ($p.parent.isTextblock && $p.parent.textContent.trim()) return { from: $p.start(), to: $p.end() };
+  // no paragraph at the cursor (just opened the chapter): the first paragraph with text
+  let found = null;
+  st.doc.descendants((node, pos) => {
+    if (found) return false;
+    if (node.isTextblock && node.type.name !== 'heading' && node.textContent.trim()) { found = { from: pos + 1, to: pos + node.nodeSize - 1 }; return false; }
+    return true;
+  });
+  return found;
 }
 
 /** Replace a range with text; several paragraphs become several paragraphs. */
@@ -167,6 +174,46 @@ export function openAssistant(editor, book, range = null, startTab = 'paraphrase
       opts.forEach((o) => list.appendChild(h('button.rephrase-opt', { type: 'button', on: { click: () => { putBack(editor, r, o.text); m.close(); toast('Replaced — Ctrl Z to undo', 'success'); } } }, h('small', o.label), h('span', o.text))));
       add(body, list);
     },
+    ai() {
+      const keys = state.app.translate || {};
+      if (!keys.claudeKey) {
+        add(body, h('div.card', { style: { padding: '14px' } },
+          h('b', 'Rewrite with Claude (optional)'),
+          h('p.small', { style: { margin: '6px 0 10px' } }, 'For rewriting at the level of QuillBot or Grammarly’s AI — in any language — add your own Anthropic API key. Text is sent only to Anthropic, only when you press Rewrite; usage is billed to your Anthropic account. Everything else in the assistant stays on your device.'),
+          btn('Add key in Settings', { icon: 'settings', onClick: () => { m.close(); import('./settings.js').then((x) => x.openSettings('translate')); } })));
+        return;
+      }
+      const modes = [...MODES, { id: 'expand', label: 'Expand', hint: 'Add detail and flow' }];
+      let mode = prefs().aiMode || 'standard';
+      const extra = h('input.input', { placeholder: 'Anything else? e.g. “keep it in first person”, “more suspense”', 'aria-label': 'Extra instruction' });
+      const out = h('div.col', { style: { gap: '8px' } });
+      let ctl = null;
+      const go = async () => {
+        ctl?.abort(); ctl = new AbortController();
+        clear(out); add(out, h('div.as-out.muted', h('span.spinner-inline'), ' Claude is rewriting…'));
+        try {
+          const { claudeRewrite } = await import('../lang/translate.js');
+          const versions = await claudeRewrite(input.value, { mode, instruction: extra.value.trim(), language: lang, bookTitle: book.meta.title, signal: ctl.signal }, keys);
+          clear(out);
+          if (!versions.length) { add(out, h('div.as-out.muted', 'No rewrite came back — try again.')); return; }
+          for (const v of versions) {
+            const res = { value: v.text };
+            add(out, h('div', h('small.as-label', v.label), diffView(input.value, res).box,
+              h('div.row', { style: { gap: '8px', marginTop: '-4px', marginBottom: '6px' } },
+                btn('Use this', { cls: 'btn-sm', kind: 'primary', icon: 'check', onClick: () => { putBack(editor, r, res.value); m.close(); toast('Replaced — Ctrl Z to undo', 'success'); } }),
+                btn('Copy', { cls: 'btn-sm', icon: 'copy', onClick: async () => { try { await navigator.clipboard.writeText(res.value); toast('Copied', 'success', 1200); } catch { /* blocked */ } } }))));
+          }
+        } catch (e) {
+          if (e.name === 'AbortError') return;
+          clear(out); add(out, h('div.as-out', { style: { color: 'var(--danger, #b91c1c)' } }, e.message || 'Claude couldn’t be reached.'));
+        }
+      };
+      add(body,
+        h('div.row.as-modes', { style: { gap: '6px', flexWrap: 'wrap' } }, ...modes.map((md) => h(`button.as-mode${md.id === mode ? '.on' : ''}`, { type: 'button', title: md.hint, on: { click: (e) => { mode = md.id; savePrefs({ aiMode: md.id }); body.querySelectorAll('.as-mode').forEach((b) => b.classList.toggle('on', b === e.currentTarget)); } } }, md.label))),
+        h('div.row', { style: { gap: '8px', margin: '10px 0' } }, extra, btn('Rewrite', { kind: 'primary', icon: 'sparkles', onClick: go })),
+        out,
+        h('p.hint', 'Uses your Anthropic key (Claude Opus 5.5). The passage is sent to Anthropic only when you press Rewrite.'));
+    },
     apps() {
       const desktop = !!globalThis.bookyDesktop;
       add(body,
@@ -190,10 +237,10 @@ export function openAssistant(editor, book, range = null, startTab = 'paraphrase
     },
   };
 
-  const tabs = segmented([['paraphrase', 'Paraphrase'], ['grammar', 'Grammar & punctuation'], ['summary', 'Summarize'], ...(en ? [['ideas', 'Sentence ideas']] : []), ['apps', 'Other apps']], tab, (v) => { tab = v; draw(); });
+  const tabs = segmented([['paraphrase', 'Paraphrase'], ['grammar', 'Grammar & punctuation'], ['summary', 'Summarize'], ...(en ? [['ideas', 'Sentence ideas']] : []), ['ai', 'AI rewrite'], ['apps', 'Other apps']], tab, (v) => { tab = v; draw(); });
   const draw = () => { clear(body); stats.textContent = ''; result.value = ''; body.classList.remove('as-enter'); void body.offsetWidth; body.classList.add('as-enter'); panes[tab](); };
   let timer;
-  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { if (tab !== 'apps' && tab !== 'ideas') draw(); }, 400); });
+  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { if (!['apps', 'ideas', 'ai'].includes(tab)) draw(); }, 400); });
 
   const m = modal({
     title: 'Writing assistant', width: 820, cls: 'as-modal',

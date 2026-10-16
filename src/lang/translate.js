@@ -201,7 +201,7 @@ async function claude(ctx) {
 }
 
 /** One structured-output request to Claude. Returns the parsed JSON, or null if the answer was cut off or malformed. */
-async function claudeJson({ system, user, schema, maxTokens = 32000 }, ctx) {
+export async function claudeJson({ system, user, schema, maxTokens = 32000 }, ctx) {
   const client = await claude(ctx);
   const stream = client.beta.messages.stream({
     model: CLAUDE_MODEL,
@@ -405,4 +405,31 @@ export function translationProgress(book) {
   const els = book.elements.filter((e) => e.source);
   const count = (s) => els.filter((e) => e.trStatus === s).length;
   return { total: els.length, pending: count('pending'), todo: count('todo'), machine: count('machine'), reviewed: count('reviewed') };
+}
+
+/**
+ * Writing assistant, optional: Claude rewrites a passage in any language. Uses the Anthropic key from Settings.
+ * @returns [{ label, text }] — three versions, or [] when Claude couldn't answer.
+ */
+export async function claudeRewrite(text, { mode = 'standard', instruction = '', language = 'en', bookTitle = '', signal } = {}, keys) {
+  const MODES = {
+    standard: 'Reword it naturally with fresh vocabulary and sentence shapes, keeping the meaning, tone and length.',
+    fluency: 'Fix every grammar, spelling and punctuation error and smooth awkward phrasing, changing as little as possible.',
+    formal: 'Make it formal and polished, suitable for professional or academic publishing.',
+    casual: 'Make it relaxed and conversational.',
+    simple: 'Make it plain and easy to read: everyday words, shorter sentences.',
+    creative: 'Rewrite it with vivid, inventive language and varied rhythm, as a skilled novelist would.',
+    shorten: 'Make it noticeably shorter and tighter without losing meaning.',
+    expand: 'Expand it with relevant detail and smoother transitions, roughly half again as long.',
+  };
+  const schema = { type: 'object', properties: { versions: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' }, text: { type: 'string' } }, required: ['label', 'text'], additionalProperties: false } } }, required: ['versions'], additionalProperties: false };
+  const system = [
+    'You are an expert book editor helping an author revise their manuscript.',
+    'Rewrite the passage you are given. Write in the same language as the passage, keep paragraph breaks as blank lines, keep names, facts and point of view, and never add commentary.',
+    'Return three distinct versions, each with a two-to-four-word label describing how it differs.',
+    bookTitle ? `The book is “${bookTitle}”.` : '',
+  ].filter(Boolean).join('\n');
+  const user = `${MODES[mode] || MODES.standard}${instruction ? `\nAlso: ${instruction}` : ''}\nThe passage is in the language with code “${language}”.\n\nPassage:\n${text}`;
+  const out = await claudeJson({ system, user, schema, maxTokens: 16000 }, { keys, signal });
+  return Array.isArray(out?.versions) ? out.versions.filter((v) => v.text?.trim()) : [];
 }
